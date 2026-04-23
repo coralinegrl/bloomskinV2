@@ -1,0 +1,13 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blush:#f3cdd8;--blush-light:#fff4f7;--rose:#d96d90;--rose-dark:#bf547a;
+  --cream:#fff9fb;--cream-mid:#f9ecf1;--sage:#b7d5c3;--sage-light:#eef8f1;
+  --dark:#5f2d45;--dark-mid:#84566a;--text-muted:#ae8597;--white:#fff;
+  --heart:#f7d7df;--heart-deep:#ca5d80;--line-soft:#efd8df;
+  --ad-bg:#0F0D14;--ad-surface:#1A1825;--ad-border:#2E2B3D;
+  --ad-accent:#C4647A;--ad-text:#E8E4F0;--ad-muted:#7A7590;
+}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:linear-gradient(180deg,#fffefe 0%,#fff8fb 100%);color:var(--dark);font-size:14px;line-height:1.6;overflow-x:hidden}
+button{font-family:inherit;cursor:pointer}
+a{text-decoration:none;color:inherit}

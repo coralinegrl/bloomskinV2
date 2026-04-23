@@ -1,0 +1,12 @@
+backend/node_modules/
+frontend/node_modules/
+frontend/dist/
+backend/.env
+backend/data/
+backend/uploads/comprobantes/
+backend/uploads/productos/
+backend/*.log
+tmp_pdf_images/
+tmp_pdf_images_all/
+tmp_pdf_pages/
+*.log
