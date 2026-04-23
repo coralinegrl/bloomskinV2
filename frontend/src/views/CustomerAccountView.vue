@@ -7,13 +7,13 @@
           <div class="eyebrow">Mi cuenta</div>
           <h1>{{ customerAuth.user?.nombre || 'Tu cuenta Bloomskin' }}</h1>
           <p>
-            Revisa tus datos, mantén tu perfil al día, guarda favoritos y sigue el estado de cada compra.
+            Revisa tus datos, manten tu perfil al dia, guarda favoritos y sigue el estado de cada compra.
           </p>
         </div>
         <div class="hero-card">
           <span>Cuenta activa</span>
           <strong>{{ customerAuth.user?.email }}</strong>
-          <button class="ghost-btn" @click="logout">Cerrar sesión</button>
+          <button class="ghost-btn" @click="logout">Cerrar sesion</button>
         </div>
       </div>
     </section>
@@ -32,7 +32,7 @@
 
         <div class="form-grid">
           <label>
-            <span>Nombre</span>
+            <span>Nombre completo</span>
             <input v-model.trim="profileForm.nombre" type="text" :disabled="saving" />
           </label>
           <label>
@@ -40,12 +40,24 @@
             <input :value="customerAuth.user?.email || ''" type="email" disabled />
           </label>
           <label>
-            <span>Teléfono</span>
+            <span>RUT</span>
+            <input v-model.trim="profileForm.rut" type="text" :disabled="saving" />
+          </label>
+          <label>
+            <span>Telefono</span>
             <input v-model.trim="profileForm.telefono" type="text" :disabled="saving" />
+          </label>
+          <label class="full-span">
+            <span>Direccion</span>
+            <input v-model.trim="profileForm.direccion" type="text" :disabled="saving" />
           </label>
           <label>
             <span>Ciudad</span>
             <input v-model.trim="profileForm.ciudad" type="text" :disabled="saving" />
+          </label>
+          <label>
+            <span>Region</span>
+            <input v-model.trim="profileForm.region" type="text" :disabled="saving" />
           </label>
           <label class="full-span">
             <span>Tipo de piel</span>
@@ -58,15 +70,15 @@
         <article class="summary-card">
           <span>Pedidos</span>
           <strong>{{ orders.length }}</strong>
-          <small>{{ orders.length ? 'Tu historial está disponible más abajo.' : 'Todavía no tienes compras registradas.' }}</small>
+          <small>{{ orders.length ? 'Tu historial esta disponible mas abajo.' : 'Todavia no tienes compras registradas.' }}</small>
         </article>
         <article class="summary-card">
           <span>Favoritos</span>
           <strong>{{ wishlist.count }}</strong>
-          <small>{{ wishlist.count ? 'Tus productos guardados están disponibles más abajo.' : 'Guarda productos con el corazón para verlos aquí.' }}</small>
+          <small>{{ wishlist.count ? 'Tus productos guardados estan disponibles mas abajo.' : 'Guarda productos con el corazon para verlos aqui.' }}</small>
         </article>
         <article class="summary-card">
-          <span>Última compra</span>
+          <span>Ultima compra</span>
           <strong>{{ latestOrderLabel }}</strong>
           <small>{{ latestOrderAmount }}</small>
         </article>
@@ -89,7 +101,7 @@
       </div>
 
       <div v-else-if="wishlist.items.length === 0" class="orders-empty">
-        <p>Todavía no has guardado productos.</p>
+        <p>Todavia no has guardado productos.</p>
         <RouterLink to="/" class="shop-link">Ir a comprar</RouterLink>
       </div>
 
@@ -114,7 +126,7 @@
       </div>
 
       <div v-else-if="orders.length === 0" class="orders-empty">
-        <p>Todavía no tienes compras registradas.</p>
+        <p>Todavia no tienes compras registradas.</p>
         <RouterLink to="/" class="shop-link">Ir a comprar</RouterLink>
       </div>
 
@@ -133,12 +145,12 @@
 
           <div class="order-meta">
             <div>
-              <span>Método de envío</span>
+              <span>Metodo de envio</span>
               <strong>{{ formatShippingMethod(order.metodo_envio) }}</strong>
             </div>
             <div>
-              <span>Dirección</span>
-              <strong>{{ order.direccion_envio }}, {{ order.ciudad_envio }}</strong>
+              <span>Despacho</span>
+              <strong>{{ order.direccion_envio }}, {{ order.ciudad_envio }}, {{ order.region_envio }}</strong>
             </div>
           </div>
 
@@ -158,7 +170,7 @@
           </div>
 
           <div v-else class="cancelled-box">
-            Este pedido fue cancelado. Si necesitas ayuda, escríbenos por WhatsApp o correo.
+            Este pedido fue cancelado. Si necesitas ayuda, escribenos por WhatsApp o correo.
           </div>
 
           <ul class="order-items">
@@ -170,7 +182,7 @@
 
           <div class="order-financials">
             <span>Subtotal: {{ formatCurrency(order.subtotal_clp) }}</span>
-            <span>Envío: {{ formatCurrency(order.envio_clp) }}</span>
+            <span>Envio: {{ formatCurrency(order.envio_clp) }}</span>
             <span>Total: {{ formatCurrency(order.total_clp) }}</span>
           </div>
 
@@ -196,6 +208,7 @@ import StoreFooter from '../components/store/StoreFooter.vue'
 import { useCustomerAuthStore } from '../stores/customerAuth.js'
 import { useUiStore } from '../stores/ui.js'
 import { useWishlistStore } from '../stores/wishlist.js'
+import { validateCustomerProfile } from '../utils/validation.js'
 
 const router = useRouter()
 const customerAuth = useCustomerAuthStore()
@@ -207,17 +220,20 @@ const ordersLoading = ref(false)
 const orders = ref([])
 const profileForm = reactive({
   nombre: customerAuth.user?.nombre || '',
+  rut: customerAuth.user?.rut || '',
   telefono: customerAuth.user?.telefono || '',
+  direccion: customerAuth.user?.direccion || '',
   ciudad: customerAuth.user?.ciudad || '',
+  region: customerAuth.user?.region || '',
   tipo_piel: customerAuth.user?.tipo_piel || '',
 })
 
 const timelineLabels = {
-  created: { label: 'Pedido creado', helper: 'Tu compra ya quedó registrada en Bloomskin.' },
+  created: { label: 'Pedido creado', helper: 'Tu compra ya quedo registrada en Bloomskin.' },
   pending_payment: { label: 'Esperando transferencia', helper: 'Realiza la transferencia con los datos del pedido.' },
-  payment_submitted: { label: 'Comprobante recibido', helper: 'Tu comprobante está pendiente de revisión.' },
+  payment_submitted: { label: 'Comprobante recibido', helper: 'Tu comprobante esta pendiente de revision.' },
   paid: { label: 'Pago validado', helper: 'El pago ya fue confirmado por Bloomskin.' },
-  shipped: { label: 'En preparación o enviado', helper: 'Estamos preparando o despachando tu pedido.' },
+  shipped: { label: 'En preparacion o enviado', helper: 'Estamos preparando o despachando tu pedido.' },
   delivered: { label: 'Entregado', helper: 'Tu pedido ya fue entregado o marcado como recibido.' },
 }
 
@@ -247,12 +263,29 @@ async function loadWishlist() {
 async function saveProfile() {
   saving.value = true
   try {
-    const ok = await customerAuth.updateProfile(profileForm)
+    const validation = validateCustomerProfile({
+      ...profileForm,
+      email: customerAuth.user?.email || '',
+    }, { requirePassword: false })
+    if (validation.errors.length) {
+      ui.error(validation.errors[0])
+      return
+    }
+
+    const ok = await customerAuth.updateProfile({
+      nombre: validation.normalized.nombre,
+      rut: validation.normalized.rut,
+      telefono: validation.normalized.telefono,
+      direccion: validation.normalized.direccion,
+      ciudad: validation.normalized.ciudad,
+      region: validation.normalized.region,
+      tipo_piel: validation.normalized.tipo_piel,
+    })
     if (!ok) {
       ui.error(customerAuth.error || 'No pudimos guardar tus datos.')
       return
     }
-    ui.success('Tu perfil se actualizó correctamente.')
+    ui.success('Tu perfil se actualizo correctamente.')
   } finally {
     saving.value = false
   }
@@ -260,7 +293,7 @@ async function saveProfile() {
 
 function logout() {
   customerAuth.logout()
-  ui.info('Tu sesión se cerró correctamente.')
+  ui.info('Tu sesion se cerro correctamente.')
   router.push({ name: 'store' })
 }
 
@@ -289,7 +322,7 @@ function formatStatus(status) {
 
 function formatShippingMethod(method) {
   const labels = {
-    free_shipping: 'Envío gratis',
+    free_shipping: 'Envio gratis',
     blue_express: 'Blue Express',
     local_delivery: 'Despacho Bloomskin',
   }

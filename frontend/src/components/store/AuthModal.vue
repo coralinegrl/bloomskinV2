@@ -2,7 +2,7 @@
   <Transition name="auth-modal">
     <div v-if="ui.authModalOpen" class="auth-overlay" @click.self="ui.closeAuthModal()">
       <div class="auth-modal">
-        <button class="auth-close" type="button" @click="ui.closeAuthModal()">×</button>
+        <button class="auth-close" type="button" @click="ui.closeAuthModal()">x</button>
 
         <div class="auth-head">
           <span class="auth-kicker">Bloomskin account</span>
@@ -22,21 +22,24 @@
         </div>
 
         <form v-if="ui.authModalMode === 'login'" class="auth-form" @submit.prevent="submitLogin">
-          <input v-model.trim="loginForm.email" type="email" placeholder="Email" :disabled="customerAuth.loading" />
-          <input v-model="loginForm.password" type="password" placeholder="Contraseña" :disabled="customerAuth.loading" />
-          <p v-if="customerAuth.error" class="auth-error">{{ customerAuth.error }}</p>
+          <input v-model.trim="loginForm.email" type="email" placeholder="Email" :disabled="customerAuth.loading" required />
+          <input v-model="loginForm.password" type="password" placeholder="Contrasena" :disabled="customerAuth.loading" required />
+          <p v-if="formError || customerAuth.error" class="auth-error">{{ formError || customerAuth.error }}</p>
           <button class="auth-submit" type="submit" :disabled="customerAuth.loading">
             {{ customerAuth.loading ? 'Ingresando...' : 'Iniciar sesion' }}
           </button>
         </form>
 
         <form v-else class="auth-form" @submit.prevent="submitRegister">
-          <input v-model.trim="registerForm.nombre" type="text" placeholder="Nombre" :disabled="customerAuth.loading" />
-          <input v-model.trim="registerForm.email" type="email" placeholder="Email" :disabled="customerAuth.loading" />
-          <input v-model="registerForm.password" type="password" placeholder="Contraseña" :disabled="customerAuth.loading" />
-          <input v-model.trim="registerForm.telefono" type="text" placeholder="Telefono (opcional)" :disabled="customerAuth.loading" />
-          <input v-model.trim="registerForm.ciudad" type="text" placeholder="Ciudad" :disabled="customerAuth.loading" />
-          <p v-if="customerAuth.error" class="auth-error">{{ customerAuth.error }}</p>
+          <input v-model.trim="registerForm.nombre" type="text" placeholder="Nombre completo" :disabled="customerAuth.loading" required />
+          <input v-model.trim="registerForm.email" type="email" placeholder="Email" :disabled="customerAuth.loading" required />
+          <input v-model="registerForm.password" type="password" placeholder="Contrasena" :disabled="customerAuth.loading" required />
+          <input v-model.trim="registerForm.rut" type="text" placeholder="RUT" :disabled="customerAuth.loading" required />
+          <input v-model.trim="registerForm.telefono" type="text" placeholder="Telefono" :disabled="customerAuth.loading" required />
+          <input v-model.trim="registerForm.direccion" type="text" placeholder="Direccion completa" :disabled="customerAuth.loading" required />
+          <input v-model.trim="registerForm.ciudad" type="text" placeholder="Ciudad" :disabled="customerAuth.loading" required />
+          <input v-model.trim="registerForm.region" type="text" placeholder="Region" :disabled="customerAuth.loading" required />
+          <p v-if="formError || customerAuth.error" class="auth-error">{{ formError || customerAuth.error }}</p>
           <button class="auth-submit" type="submit" :disabled="customerAuth.loading">
             {{ customerAuth.loading ? 'Creando...' : 'Crear cuenta' }}
           </button>
@@ -47,25 +50,58 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useCustomerAuthStore } from '../../stores/customerAuth.js'
 import { useUiStore } from '../../stores/ui.js'
+import { validateCustomerProfile, normalizeEmail, isValidEmail } from '../../utils/validation.js'
 
 const customerAuth = useCustomerAuthStore()
 const ui = useUiStore()
+const formError = ref('')
 
 const loginForm = reactive({ email: '', password: '' })
-const registerForm = reactive({ nombre: '', email: '', password: '', telefono: '', ciudad: '' })
+const registerForm = reactive({
+  nombre: '',
+  email: '',
+  password: '',
+  rut: '',
+  telefono: '',
+  direccion: '',
+  ciudad: '',
+  region: '',
+})
 
 async function submitLogin() {
-  const ok = await customerAuth.login(loginForm.email, loginForm.password)
+  formError.value = ''
+  const email = normalizeEmail(loginForm.email)
+  if (!email) {
+    formError.value = 'Email es requerido.'
+    return
+  }
+  if (!isValidEmail(email)) {
+    formError.value = 'Ingresa un email valido.'
+    return
+  }
+  if (!loginForm.password) {
+    formError.value = 'Contrasena es requerida.'
+    return
+  }
+
+  const ok = await customerAuth.login(email, loginForm.password)
   if (!ok) return
   loginForm.password = ''
   ui.closeAuthModal()
 }
 
 async function submitRegister() {
-  const ok = await customerAuth.register(registerForm)
+  formError.value = ''
+  const { errors, normalized } = validateCustomerProfile(registerForm, { requirePassword: true })
+  if (errors.length) {
+    formError.value = errors[0]
+    return
+  }
+
+  const ok = await customerAuth.register(normalized)
   if (!ok) return
   registerForm.password = ''
   ui.closeAuthModal()

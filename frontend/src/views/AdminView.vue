@@ -21,7 +21,7 @@
 
       <div class="sidebar-footer">
         <RouterLink to="/" class="exit-btn">Volver a la tienda</RouterLink>
-        <button class="logout-btn" @click="handleLogout">Cerrar sesiÃ³n</button>
+        <button class="logout-btn" @click="handleLogout">Cerrar sesion</button>
       </div>
     </aside>
 
@@ -32,7 +32,7 @@
           <div class="topbar-subtitle">
             <span v-if="loading">Cargando datos...</span>
             <span v-else-if="lastSyncLabel">Actualizado {{ lastSyncLabel }}</span>
-            <span v-else>Sin sincronizaciÃ³n reciente</span>
+            <span v-else>Sin sincronizacion reciente</span>
           </div>
         </div>
 
@@ -75,7 +75,7 @@
               <div class="stat-card">
                 <div class="stat-label">Productos activos</div>
                 <div class="stat-value">{{ productosActivos }}</div>
-                <div class="stat-change">CatÃ¡logo visible</div>
+                <div class="stat-change">Catalogo visible</div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Sin stock</div>
@@ -88,8 +88,8 @@
 
             <div class="dash-grid">
               <div class="ad-card">
-                <div class="ad-card-title">Ãšltimos pedidos</div>
-                <div v-if="pedidos.length === 0" class="empty-state">No hay pedidos aÃºn.</div>
+                <div class="ad-card-title">Ultimos pedidos</div>
+                <div v-if="pedidos.length === 0" class="empty-state">No hay pedidos aun.</div>
                 <button
                   v-for="p in pedidos.slice(0, 6)"
                   :key="p.id"
@@ -109,7 +109,7 @@
 
               <div class="ad-card">
                 <div class="ad-card-title">Stock bajo o sin stock</div>
-                <div v-if="productosStockBajo.length === 0" class="empty-state">Todo el stock estÃ¡ OK.</div>
+                <div v-if="productosStockBajo.length === 0" class="empty-state">Todo el stock esta OK.</div>
                 <div v-for="p in productosStockBajo" :key="p.id" class="stock-alert-item">
                   <div>
                     <div class="sa-brand">{{ p.marca }}</div>
@@ -126,7 +126,7 @@
               <div class="detail-header">
                 <div>
                   <div class="ad-card-title">Detalle del pedido {{ selectedOrder.codigo }}</div>
-                  <div class="detail-subtitle">{{ selectedOrder.cliente_nombre }} Â· {{ selectedOrder.cliente_email }}</div>
+                  <div class="detail-subtitle">{{ selectedOrder.cliente_nombre }} - {{ selectedOrder.cliente_email }}</div>
                 </div>
                 <span class="status-pill" :class="`s-${selectedOrder.estado}`">{{ estadoLabel(selectedOrder.estado) }}</span>
               </div>
@@ -138,7 +138,7 @@
                 </div>
                 <div>
                   <div class="detail-label">Ciudad envio</div>
-                  <div>{{ selectedOrder.ciudad_envio || selectedOrder.cliente_ciudad || 'Sin ciudad' }}</div>
+                  <div>{{ selectedOrder.ciudad_envio || selectedOrder.cliente_ciudad_actual || 'Sin ciudad' }}</div>
                 </div>
                 <div>
                   <div class="detail-label">Total</div>
@@ -153,7 +153,7 @@
                   <div>{{ fmt(selectedOrder.subtotal_clp || selectedOrder.total_clp) }}</div>
                 </div>
                 <div>
-                  <div class="detail-label">Env?o</div>
+                  <div class="detail-label">Envio</div>
                   <div>{{ fmt(selectedOrder.envio_clp || 0) }}</div>
                 </div>
                 <div>
@@ -161,14 +161,35 @@
                   <div>{{ selectedOrder.metodo_pago || 'Sin definir' }}</div>
                 </div>
                 <div>
-                  <div class="detail-label">M?todo envio</div>
+                  <div class="detail-label">Metodo envio</div>
                   <div>{{ selectedOrder.metodo_envio || 'Sin definir' }}</div>
+                </div>
+              </div>
+
+              
+              <div class="detail-grid">
+                <div>
+                  <div class="detail-label">Cliente</div>
+                  <div>{{ selectedOrder.cliente_nombre || selectedOrder.cliente_nombre_actual || 'Sin nombre' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">RUT</div>
+                  <div>{{ selectedOrder.cliente_rut || selectedOrder.cliente_rut_actual || 'Sin RUT' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Telefono</div>
+                  <div>{{ selectedOrder.cliente_telefono || selectedOrder.cliente_telefono_actual || 'Sin telefono' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Region</div>
+                  <div>{{ selectedOrder.region_envio || selectedOrder.cliente_region_actual || 'Sin region' }}</div>
                 </div>
               </div>
 
               <div class="order-notes">
                 <div class="detail-label">Despacho</div>
                 <p>{{ selectedOrder.direccion_envio || 'Sin direccion' }}</p>
+                <p>{{ selectedOrder.region_envio || selectedOrder.cliente_region_actual || 'Sin region' }} - {{ selectedOrder.ciudad_envio || selectedOrder.cliente_ciudad_actual || 'Sin ciudad' }}</p>
                 <p v-if="selectedOrder.referencia_envio">{{ selectedOrder.referencia_envio }}</p>
                 <p v-if="selectedOrder.distancia_envio_km">Distancia: {{ selectedOrder.distancia_envio_km }} km</p>
                 <p v-if="selectedOrder.comprobante_url">
@@ -179,7 +200,7 @@
               <div class="order-items">
                 <div class="detail-label">Productos</div>
                 <div v-for="item in selectedOrder.items || []" :key="`${selectedOrder.id}-${item.producto_nombre}`" class="order-item-row">
-                  <span>{{ item.producto_marca }} Â· {{ item.producto_nombre }}</span>
+                  <span>{{ item.producto_marca }} - {{ item.producto_nombre }}</span>
                   <span>{{ item.cantidad }} x {{ fmt(item.precio_unitario_clp) }}</span>
                 </div>
               </div>
@@ -195,7 +216,7 @@
             <div class="section-actions">
               <div>
                 <h2 class="section-h2">Productos</h2>
-                <p class="section-copy">Administra catÃ¡logo, precios y stock.</p>
+                <p class="section-copy">Administra catalogo, precios y stock.</p>
               </div>
               <div class="actions-row">
                 <input v-model.trim="productoSearch" class="toolbar-input" type="text" placeholder="Buscar producto o marca">
@@ -240,12 +261,12 @@
                     </td>
                     <td>
                       <div class="td-name">{{ p.nombre }}</div>
-                      <span class="muted d-block">{{ p.categoria || 'Sin categorÃ­a' }}</span>
+                      <span class="muted d-block">{{ p.categoria || 'Sin categoria' }}</span>
                     </td>
                     <td>{{ p.marca }}</td>
-                    <td class="muted">{{ p.precio_usd ? `$${p.precio_usd}` : 'â€”' }}</td>
+                    <td class="muted">{{ p.precio_usd ? `$${p.precio_usd}` : '-' }}</td>
                     <td class="td-price">{{ fmt(p.precio_clp) }}</td>
-                    <td class="muted">{{ p.precio_oferta_clp ? fmt(p.precio_oferta_clp) : 'â€”' }}</td>
+                    <td class="muted">{{ p.precio_oferta_clp ? fmt(p.precio_oferta_clp) : '-' }}</td>
                     <td>
                       <div class="stock-editor">
                         <span class="stock-pill" :class="stockClass(p.stock)">{{ stockLabel(p.stock) }}</span>
@@ -363,8 +384,11 @@
                   <tr>
                     <th>Nombre</th>
                     <th>Email</th>
-                    <th>TelÃ©fono</th>
+                    <th>RUT</th>
+                    <th>Telefono</th>
+                    <th>Direccion</th>
                     <th>Ciudad</th>
+                    <th>Region</th>
                     <th>Pedidos</th>
                     <th>Total comprado</th>
                     <th>Tipo de piel</th>
@@ -372,16 +396,19 @@
                 </thead>
                 <tbody>
                   <tr v-if="filteredClientes.length === 0">
-                    <td colspan="7" class="empty-state table-empty">No hay clientes para ese filtro.</td>
+                    <td colspan="10" class="empty-state table-empty">No hay clientes para ese filtro.</td>
                   </tr>
                   <tr v-for="c in filteredClientes" :key="c.id">
                     <td class="td-bold">{{ c.nombre }}</td>
                     <td class="muted">{{ c.email }}</td>
-                    <td class="muted">{{ c.telefono || 'â€”' }}</td>
-                    <td>{{ c.ciudad || 'â€”' }}</td>
+                    <td class="muted">{{ c.rut || 'Sin RUT' }}</td>
+                    <td class="muted">{{ c.telefono || 'Sin telefono' }}</td>
+                    <td>{{ c.direccion || 'Sin direccion' }}</td>
+                    <td>{{ c.ciudad || 'Sin ciudad' }}</td>
+                    <td>{{ c.region || 'Sin region' }}</td>
                     <td>{{ c.total_pedidos }}</td>
                     <td class="td-price">{{ fmt(c.total_comprado || 0) }}</td>
-                    <td><span v-if="c.tipo_piel" class="skin-pill">{{ c.tipo_piel }}</span><span v-else class="muted">â€”</span></td>
+                    <td><span v-if="c.tipo_piel" class="skin-pill">{{ c.tipo_piel }}</span><span v-else class="muted">Sin dato</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -444,7 +471,7 @@
             <div class="section-actions">
               <div>
                 <h2 class="section-h2">Newsletter</h2>
-                <p class="section-copy">Gestiona suscriptoras y envia campaÃ±as de email desde Bloomskin.</p>
+                <p class="section-copy">Gestiona suscriptoras y envia campanas de email desde Bloomskin.</p>
               </div>
               <div class="actions-row">
                 <input v-model.trim="suscriptorSearch" class="toolbar-input" type="text" placeholder="Buscar suscriptora por email">
@@ -454,12 +481,12 @@
             <div class="summary-strip">
               <div class="summary-pill">Activas: {{ suscriptoresActivos }}</div>
               <div class="summary-pill">Total: {{ filteredSuscriptores.length }}</div>
-              <div class="summary-pill">?ltima carga: {{ lastSyncLabel || 'Sin datos' }}</div>
+              <div class="summary-pill">Ultima carga: {{ lastSyncLabel || 'Sin datos' }}</div>
             </div>
 
             <div class="dash-grid newsletter-grid">
               <div class="ad-card">
-                <div class="ad-card-title">Enviar campaÃ±a</div>
+                <div class="ad-card-title">Enviar campana</div>
 
                 <div class="form-group">
                   <label>Asunto</label>
@@ -478,7 +505,7 @@
 
                 <div class="form-group">
                   <label>Contenido</label>
-                  <textarea v-model="newsletterForm.body" rows="7" placeholder="Escribe aqui la campaÃ±a. Puedes separar parrafos con una linea en blanco."></textarea>
+                  <textarea v-model="newsletterForm.body" rows="7" placeholder="Escribe aqui la campana. Puedes separar parrafos con una linea en blanco."></textarea>
                 </div>
 
                 <div class="form-row">
@@ -540,7 +567,7 @@
             <div class="section-actions">
               <div>
                 <h2 class="section-h2">Home</h2>
-                <p class="section-copy">Configura contenido del home, footer y datos de transferencia sin tocar c?digo.</p>
+                <p class="section-copy">Configura contenido del home, footer y datos de transferencia sin tocar codigo.</p>
               </div>
               <div class="actions-row">
                 <button class="btn-primary" type="button" :disabled="savingSiteSettings" @click="guardarSiteSettings">
@@ -557,15 +584,15 @@
                   <input v-model="siteSettings.home.hero.tag" type="text">
                 </div>
                 <div class="form-group">
-                  <label>T?tulo</label>
+                  <label>Titulo</label>
                   <input v-model="siteSettings.home.hero.title" type="text">
                 </div>
                 <div class="form-group">
-                  <label>?nfasis</label>
+                  <label>Enfasis</label>
                   <input v-model="siteSettings.home.hero.emphasis" type="text">
                 </div>
                 <div class="form-group">
-                  <label>Descripci?n</label>
+                  <label>Descripcion</label>
                   <textarea v-model="siteSettings.home.hero.description" rows="4"></textarea>
                 </div>
                 <div class="form-row">
@@ -590,11 +617,11 @@
                   <div class="detail-label">Tarjeta {{ index + 1 }}</div>
                   <div class="form-row">
                     <div class="form-group">
-                      <label>?cono</label>
-                      <input v-model="promo.icon" type="text" placeholder="? o flag-kr">
+                      <label>Icono</label>
+                      <input v-model="promo.icon" type="text" placeholder="?? o flag-kr">
                     </div>
                     <div class="form-group">
-                      <label>T?tulo</label>
+                      <label>Titulo</label>
                       <input v-model="promo.title" type="text">
                     </div>
                   </div>
@@ -615,12 +642,12 @@
                 <div class="ad-card-title">Tarjeta {{ index + 1 }}</div>
 
                 <div class="form-group">
-                  <label>Categor?a</label>
+                  <label>Categoria</label>
                   <select v-model="tile.category">
                     <option>Serums</option>
                     <option>Hidratantes</option>
                     <option>Limpiadores</option>
-                    <option>Protecci?n Solar</option>
+                    <option>Proteccion Solar</option>
                     <option>Maquillaje</option>
                     <option>Tonicos</option>
                     <option>Esencias</option>
@@ -631,8 +658,8 @@
                 </div>
 
                 <div class="form-group">
-                  <label>T?tulo visible</label>
-                  <input v-model="tile.label" type="text" placeholder="Ej. Protecci?n Solar">
+                  <label>Titulo visible</label>
+                  <input v-model="tile.label" type="text" placeholder="Ej. Proteccion Solar">
                 </div>
 
                 <div class="form-group">
@@ -662,7 +689,7 @@
                     <input v-model="siteSettings.home.bestSellers.tag" type="text">
                   </div>
                   <div class="form-group">
-                    <label>T?tulo</label>
+                    <label>Titulo</label>
                     <input v-model="siteSettings.home.bestSellers.title" type="text">
                   </div>
                   <div class="form-group">
@@ -682,7 +709,7 @@
                     <input v-model="siteSettings.home.newIn.tag" type="text">
                   </div>
                   <div class="form-group">
-                    <label>T?tulo</label>
+                    <label>Titulo</label>
                     <input v-model="siteSettings.home.newIn.title" type="text">
                   </div>
                   <div class="form-group">
@@ -703,7 +730,7 @@
                   <input v-model="siteSettings.home.editorial.tag" type="text">
                 </div>
                 <div class="form-group">
-                  <label>T?tulo editorial</label>
+                  <label>Titulo editorial</label>
                   <input v-model="siteSettings.home.editorial.title" type="text">
                 </div>
                 <div class="form-group">
@@ -721,7 +748,7 @@
                     <input v-model="card.kicker" type="text">
                   </div>
                   <div class="form-group">
-                    <label>T?tulo</label>
+                    <label>Titulo</label>
                     <input v-model="card.title" type="text">
                   </div>
                   <div class="form-group">
@@ -734,19 +761,19 @@
                       <input v-model="card.link_label" type="text">
                     </div>
                     <div class="form-group">
-                      <label>Categor?a</label>
+                      <label>Categoria</label>
                       <input v-model="card.category" type="text">
                     </div>
                   </div>
                 </div>
                 <div class="settings-subblock">
-                  <div class="detail-label">CTA cat?logo</div>
+                  <div class="detail-label">CTA catalogo</div>
                   <div class="form-group">
                     <label>Etiqueta</label>
                     <input v-model="siteSettings.home.catalogCta.tag" type="text">
                   </div>
                   <div class="form-group">
-                    <label>T?tulo</label>
+                    <label>Titulo</label>
                     <input v-model="siteSettings.home.catalogCta.title" type="text">
                   </div>
                   <div class="form-group">
@@ -754,7 +781,7 @@
                     <textarea v-model="siteSettings.home.catalogCta.copy" rows="3"></textarea>
                   </div>
                   <div class="form-group">
-                    <label>Bot?n</label>
+                    <label>Boton</label>
                     <input v-model="siteSettings.home.catalogCta.button_label" type="text">
                   </div>
                 </div>
@@ -771,11 +798,11 @@
                     <input v-model="siteSettings.home.newsletter.tag" type="text">
                   </div>
                   <div class="form-group">
-                    <label>T?tulo</label>
+                    <label>Titulo</label>
                     <input v-model="siteSettings.home.newsletter.title" type="text">
                   </div>
                   <div class="form-group">
-                    <label>?nfasis</label>
+                    <label>Enfasis</label>
                     <input v-model="siteSettings.home.newsletter.emphasis" type="text">
                   </div>
                   <div class="form-group">
@@ -788,7 +815,7 @@
                       <input v-model="siteSettings.home.newsletter.placeholder" type="text">
                     </div>
                     <div class="form-group">
-                      <label>Bot?n</label>
+                      <label>Boton</label>
                       <input v-model="siteSettings.home.newsletter.button_label" type="text">
                     </div>
                   </div>
@@ -796,7 +823,7 @@
                 <div class="settings-subblock">
                   <div class="detail-label">Footer</div>
                   <div class="form-group">
-                    <label>Subt?tulo marca</label>
+                    <label>Subtitulo marca</label>
                     <input v-model="siteSettings.footer.brand_sub" type="text">
                   </div>
                   <div class="form-group">
@@ -854,7 +881,7 @@
                 </div>
                 <div class="form-row">
                   <div class="form-group">
-                    <label>N?mero de cuenta</label>
+                    <label>Numero de cuenta</label>
                     <input v-model="siteSettings.payment.account_number" type="text">
                   </div>
                   <div class="form-group">
@@ -897,7 +924,7 @@
               <label>Badge</label>
               <select v-model="form.badge">
                 <option value="">Ninguno</option>
-                      <option value="hot">MÃ¡s vendido</option>
+                      <option value="hot">Mas vendido</option>
                 <option value="new">Nuevo</option>
                 <option value="sale">Oferta</option>
               </select>
@@ -910,8 +937,8 @@
           </div>
 
           <div class="form-group">
-            <label>Descripci?n</label>
-            <textarea v-model="form.descripcion" rows="3" placeholder="Descripci?n breve para referencia interna"></textarea>
+            <label>Descripcion</label>
+            <textarea v-model="form.descripcion" rows="3" placeholder="Descripcion breve para referencia interna"></textarea>
           </div>
 
           <div class="form-row">
@@ -921,7 +948,7 @@
             </div>
             <div class="form-group">
               <label>Precio CLP calculado</label>
-              <input :value="precioCalculado ? fmt(precioCalculado) : 'â€”'" type="text" readonly class="input-readonly">
+              <input :value="precioCalculado ? fmt(precioCalculado) : '-'" type="text" readonly class="input-readonly">
             </div>
           </div>
 
@@ -938,7 +965,7 @@
 
           <div class="form-row">
             <div class="form-group">
-                    <label>CategorÃ­a</label>
+                    <label>Categoria</label>
               <select v-model="form.categoria">
                 <option>Limpiadores</option>
                 <option>Tonicos</option>
@@ -980,7 +1007,7 @@
           </div>
 
           <div class="form-hint">
-                  <strong>FÃ³rmula de precio:</strong> (USD + $1 envÃ­o) x 1.000 CLP x 1,19 IVA x 1,30 margen.
+                  <strong>Formula de precio:</strong> (USD + $1 envio) x 1.000 CLP x 1,19 IVA x 1,30 margen.
           </div>
 
           <div class="modal-actions">
@@ -1007,11 +1034,11 @@ const router = useRouter()
 
 const activeSection = ref('dashboard')
 const navItems = [
-  { section: 'dashboard', icon: 'â—ˆ', label: 'Dashboard' },
-  { section: 'productos', icon: 'â—»', label: 'Productos' },
-  { section: 'pedidos', icon: 'â—Ž', label: 'Pedidos' },
-  { section: 'clientes', icon: 'â—‡', label: 'Clientes' },
-  { section: 'mensajes', icon: 'â—‰', label: 'Mensajes' },
+  { section: 'dashboard', icon: 'D', label: 'Dashboard' },
+  { section: 'productos', icon: 'P', label: 'Productos' },
+  { section: 'pedidos', icon: 'O', label: 'Pedidos' },
+  { section: 'clientes', icon: 'C', label: 'Clientes' },
+  { section: 'mensajes', icon: 'M', label: 'Mensajes' },
 ]
 const titleMap = {
   dashboard: 'Dashboard',
@@ -1020,9 +1047,9 @@ const titleMap = {
   clientes: 'Clientes',
   mensajes: 'Mensajes',
 }
-navItems.push({ section: 'newsletter', icon: 'âœ‰', label: 'Newsletter' })
+navItems.push({ section: 'newsletter', icon: 'N', label: 'Newsletter' })
 titleMap.newsletter = 'Newsletter'
-navItems.push({ section: 'home', icon: 'â–£', label: 'Home' })
+navItems.push({ section: 'home', icon: 'H', label: 'Home' })
 titleMap.home = 'Home'
 
 const productos = ref([])
@@ -1034,71 +1061,71 @@ const stats = ref({})
 const siteSettings = ref({
   home: {
     hero: {
-      tag: 'Selecci?n Bloomskin',
-      title: 'Una home m?s curada, con',
+      tag: 'Seleccion Bloomskin',
+      title: 'Una home mas curada, con',
       emphasis: 'lo mejor primero',
-      description: 'La portada muestra selecci?n editorial, best sellers y rutas r?pidas para descubrir productos. El cat?logo completo vive aparte, con filtros de compra m?s serios.',
-      primary_cta_label: 'Ver m?s vendidos',
-      secondary_cta_label: 'Ir al cat?logo',
+      description: 'La portada muestra seleccion editorial, best sellers y rutas rapidas para descubrir productos. El catalogo completo vive aparte, con filtros de compra mas serios.',
+      primary_cta_label: 'Ver mas vendidos',
+      secondary_cta_label: 'Ir al catalogo',
     },
     categoryTiles: [
       { category: 'Serums', label: 'Serums', image_url: '' },
       { category: 'Hidratantes', label: 'Hidratantes', image_url: '' },
       { category: 'Limpiadores', label: 'Limpiadores', image_url: '' },
-      { category: 'Protecci?n Solar', label: 'Protecci?n Solar', image_url: '' },
+      { category: 'Proteccion Solar', label: 'Proteccion Solar', image_url: '' },
     ],
     promoItems: [
-      { icon: '?', title: 'Env?o gratis', copy: 'Sobre $49.990' },
+      { icon: '🚚', title: 'Envio gratis', copy: 'Sobre $49.990' },
       { icon: 'flag-kr', title: '100% originales', copy: 'Directo desde Corea del Sur' },
-      { icon: '?', title: 'Muestras y hallazgos', copy: 'Selecci?n curada para descubrir favoritos' },
-      { icon: '?', title: 'Te orientamos por WhatsApp', copy: 'Ayuda r?pida para elegir tu rutina' },
+      { icon: '🎁', title: 'Muestras y hallazgos', copy: 'Seleccion curada para descubrir favoritos' },
+      { icon: '💬', title: 'Te orientamos por WhatsApp', copy: 'Ayuda rapida para elegir tu rutina' },
     ],
     bestSellers: {
       tag: 'Best Sellers',
-      title: 'Los m?s vendidos',
-      copy: 'Un bloque r?pido con lo m?s fuerte del cat?logo y mejor se?al comercial.',
-      link_label: 'Ver cat?logo',
+      title: 'Los mas vendidos',
+      copy: 'Un bloque rapido con lo mas fuerte del catalogo y mejor senal comercial.',
+      link_label: 'Ver catalogo',
     },
     editorial: {
       tag: 'Descubre por necesidad',
       title: 'Explora la tienda como una rutina',
-      copy: 'En vez de mostrar todo de una, te guiamos por bloques m?s claros y r?pidos de navegar.',
+      copy: 'En vez de mostrar todo de una, te guiamos por bloques mas claros y rapidos de navegar.',
       cards: [
-        { kicker: 'Rutina base', title: 'Empieza por una limpieza suave', copy: 'Limpiadores y b?sicos para armar una rutina simple de d?a o noche.', link_label: 'Explorar limpiadores ?', category: 'Limpiadores', tone: 'rose' },
-        { kicker: 'Uso diario', title: 'Protecci?n solar que s? vas a usar todos los d?as', copy: 'Solares c?modos, ligeros y f?ciles de combinar con maquillaje.', link_label: 'Ver solares ?', category: 'Protecci?n Solar', tone: 'sage' },
-        { kicker: 'Tratamiento', title: 'Serums para brillo, textura y manchas', copy: 'Una selecci?n r?pida para quienes quieren resultados sin revisar setenta fichas seguidas.', link_label: 'Ir a serums ?', category: 'Serums', tone: 'cream' },
+        { kicker: 'Rutina base', title: 'Empieza por una limpieza suave', copy: 'Limpiadores y basicos para armar una rutina simple de dia o noche.', link_label: 'Explorar limpiadores ->', category: 'Limpiadores', tone: 'rose' },
+        { kicker: 'Uso diario', title: 'Proteccion solar que si vas a usar todos los dias', copy: 'Solares comodos, ligeros y faciles de combinar con maquillaje.', link_label: 'Ver solares ->', category: 'Proteccion Solar', tone: 'sage' },
+        { kicker: 'Tratamiento', title: 'Serums para brillo, textura y manchas', copy: 'Una seleccion rapida para quienes quieren resultados sin revisar setenta fichas seguidas.', link_label: 'Ir a serums ->', category: 'Serums', tone: 'cream' },
       ],
     },
     newIn: {
       tag: 'New In',
       title: 'Novedades y hallazgos',
-      copy: 'Un bloque m?s liviano para descubrir productos nuevos y cosas en tendencia.',
+      copy: 'Un bloque mas liviano para descubrir productos nuevos y cosas en tendencia.',
       link_label: 'Ver todo',
     },
     catalogCta: {
-      tag: 'Cat?logo completo',
-      title: 'Descubre todo el cat?logo Bloomskin',
-      copy: 'Entra a una vista dedicada con categor?as, marcas, precios, stock, promociones y orden.',
-      button_label: 'Abrir cat?logo',
+      tag: 'Catalogo completo',
+      title: 'Descubre todo el catalogo Bloomskin',
+      copy: 'Entra a una vista dedicada con categorias, marcas, precios, stock, promociones y orden.',
+      button_label: 'Abrir catalogo',
     },
     newsletter: {
-      tag: '?nete a la comunidad',
+      tag: 'Unete a la comunidad',
       title: 'Skincare tips y',
       emphasis: 'ofertas exclusivas',
-      copy: 'Suscr?bete y recibe novedades y lanzamientos de Bloomskin',
+      copy: 'Suscribete y recibe novedades y lanzamientos de Bloomskin',
       placeholder: 'tu@email.com',
       button_label: 'Suscribirme',
     },
   },
   footer: {
-    brand_sub: 'K-Beauty ? Chile',
+    brand_sub: 'K-Beauty - Chile',
     copy: 'Skincare coreano curado para Chile, con productos originales, ayuda real y compra simple.',
     instagram_url: 'https://www.instagram.com/bloomskin__cl',
     whatsapp_url: 'https://wa.me/569948418523',
     email: 'bloomskincl1@gmail.com',
     instagram_handle: '@bloomskin__cl',
     whatsapp_label: '+56 9 9484 1853',
-    bottom_left: '? 2026 Bloomskin ? Antofagasta, Chile',
+    bottom_left: '(c) 2026 Bloomskin - Antofagasta, Chile',
     bottom_right: 'Originales de Corea del Sur',
   },
   payment: {
@@ -1147,7 +1174,7 @@ const newsletterForm = ref({
   headline: '',
   previewText: '',
   body: '',
-  ctaLabel: 'Ver catÃ¡logo',
+  ctaLabel: 'Ver catalogo',
   ctaUrl: 'http://localhost:5173/catalogo',
 })
 
@@ -1199,7 +1226,7 @@ const filteredPedidos = computed(() => {
 const filteredClientes = computed(() => {
   const q = clienteSearch.value.trim().toLowerCase()
   if (!q) return clientes.value
-  return clientes.value.filter(cliente => [cliente.nombre, cliente.email, cliente.ciudad]
+  return clientes.value.filter(cliente => [cliente.nombre, cliente.email, cliente.rut, cliente.telefono, cliente.direccion, cliente.ciudad, cliente.region]
     .filter(Boolean)
     .some(value => String(value).toLowerCase().includes(q)))
 })
@@ -1402,7 +1429,7 @@ async function marcarRespondido(mensaje) {
 async function guardarStockRapido(producto) {
   const nextStock = Number(stockDrafts.value[producto.id])
   if (!Number.isInteger(nextStock) || nextStock < 0) {
-    showToast('El stock debe ser un número entero mayor o igual a 0.', 'error')
+    showToast('El stock debe ser un numero entero mayor o igual a 0.', 'error')
     stockDrafts.value[producto.id] = Number(producto.stock || 0)
     return
   }
@@ -1427,7 +1454,7 @@ function resetNewsletterForm() {
     headline: '',
     previewText: '',
     body: '',
-    ctaLabel: 'Ver catÃ¡logo',
+    ctaLabel: 'Ver catalogo',
     ctaUrl: 'http://localhost:5173/catalogo',
   }
 }
@@ -1535,13 +1562,13 @@ function fmt(n) {
 }
 
 function formatDate(value) {
-  return value ? new Date(value).toLocaleDateString('es-CL') : 'â€”'
+  return value ? new Date(value).toLocaleDateString('es-CL') : '-'
 }
 
 function formatDateTime(value) {
   return value
     ? new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
-    : 'â€”'
+    : '-'
 }
 
 function estadoLabel(estado) {
@@ -1565,10 +1592,10 @@ function tipoLabel(tipo) {
 
 function badgeLabel(badge) {
   return {
-    hot: 'MÃ¡s vendido',
+    hot: 'Mas vendido',
     new: 'Nuevo',
     sale: 'Oferta',
-    '': 'â€”',
+    '': '-',
   }[badge || '']
 }
 

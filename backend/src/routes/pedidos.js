@@ -1,4 +1,4 @@
-﻿const router = require('express').Router();
+const router = require('express').Router();
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -6,6 +6,16 @@ const { getPool, sql } = require('../config/db');
 const { requireAdminAuth, requireClientAuth } = require('../middleware/auth');
 const { quoteShipping } = require('../lib/shipping');
 const { readSettings } = require('../lib/siteSettings');
+const {
+  cleanString,
+  normalizeEmail,
+  normalizePhone,
+  normalizeRut,
+  isValidEmail,
+  isValidChileanPhone,
+  isValidChileanRut,
+  validateRequiredText,
+} = require('../lib/validation');
 
 const uploadsRoot = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
@@ -56,16 +66,19 @@ function orderCodeFromId(id) {
   return 'BS-' + String(id).padStart(4, '0');
 }
 
-router.get('/', requireAdminAuth, async (req, res) => {
+router.get('/', requireAdminAuth, async (_req, res) => {
   try {
     const pool = await getPool();
     const result = await pool.request().query(`
       SELECT p.id, p.subtotal_clp, p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
-             p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
+             p.cliente_nombre, p.cliente_email, p.cliente_rut, p.cliente_telefono,
+             p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
              p.estado, p.comprobante_url, p.notas,
              p.creado_en, p.actualizado_en,
-             c.nombre AS cliente_nombre, c.email AS cliente_email,
-             c.ciudad AS cliente_ciudad
+             c.nombre AS cliente_nombre_actual, c.email AS cliente_email_actual,
+             c.rut AS cliente_rut_actual, c.telefono AS cliente_telefono_actual,
+             c.direccion AS cliente_direccion_actual, c.ciudad AS cliente_ciudad_actual,
+             c.region AS cliente_region_actual
       FROM pedidos p
       JOIN clientes c ON c.id = p.cliente_id
       ORDER BY p.creado_en DESC
@@ -93,7 +106,7 @@ router.get('/', requireAdminAuth, async (req, res) => {
   }
 });
 
-router.get('/stats', requireAdminAuth, async (req, res) => {
+router.get('/stats', requireAdminAuth, async (_req, res) => {
   try {
     const pool = await getPool();
     const result = await pool.request().query(`
@@ -123,7 +136,8 @@ router.get('/mine', requireClientAuth, async (req, res) => {
       .input('cliente_id', sql.Int, req.user.id)
       .query(`
         SELECT p.id, p.subtotal_clp, p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
-               p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
+               p.cliente_nombre, p.cliente_email, p.cliente_rut, p.cliente_telefono,
+               p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
                p.estado, p.comprobante_url, p.notas, p.creado_en, p.actualizado_en
         FROM pedidos p
         WHERE p.cliente_id = @cliente_id
@@ -161,10 +175,19 @@ router.get('/payment-config', async (_req, res) => {
 
 router.post('/shipping-quote', async (req, res) => {
   try {
+    const ciudad = cleanString(req.body?.ciudad);
+    const direccion = cleanString(req.body?.direccion);
+    const subtotalClp = Number(req.body?.subtotal_clp || 0);
+    const ciudadError = validateRequiredText(ciudad, 'Ciudad', 2);
+    const direccionError = validateRequiredText(direccion, 'Direccion', 6);
+    if (ciudadError || direccionError || subtotalClp < 0) {
+      return res.status(400).json({ error: ciudadError || direccionError || 'Subtotal invalido' });
+    }
+
     const quote = await quoteShipping({
-      ciudad: req.body?.ciudad,
-      direccion: req.body?.direccion,
-      subtotal_clp: req.body?.subtotal_clp,
+      ciudad,
+      direccion,
+      subtotal_clp: subtotalClp,
     });
     res.json(quote);
   } catch (err) {
@@ -180,8 +203,13 @@ router.post('/', requireClientAuth, async (req, res) => {
     ciudad_envio,
     direccion_envio,
     referencia_envio,
+    region_envio,
   } = req.body;
   const resolvedClienteId = req.user.id;
+  const region = cleanString(region_envio);
+  const ciudad = cleanString(ciudad_envio);
+  const direccion = cleanString(direccion_envio);
+  const referencia = cleanString(referencia_envio);
 
   if (!resolvedClienteId || !items?.length) {
     return res.status(400).json({ error: 'Items requeridos' });
@@ -189,8 +217,11 @@ router.post('/', requireClientAuth, async (req, res) => {
   if ((metodo_pago || 'bank_transfer') !== 'bank_transfer') {
     return res.status(400).json({ error: 'Por ahora solo aceptamos transferencia bancaria' });
   }
-  if (!ciudad_envio || !direccion_envio) {
-    return res.status(400).json({ error: 'Debes indicar ciudad y direccion de envio' });
+  const regionError = validateRequiredText(region, 'Region', 2);
+  const ciudadError = validateRequiredText(ciudad, 'Ciudad', 2);
+  const direccionError = validateRequiredText(direccion, 'Direccion', 6);
+  if (regionError || ciudadError || direccionError) {
+    return res.status(400).json({ error: regionError || ciudadError || direccionError });
   }
 
   let transaction;
@@ -200,6 +231,41 @@ router.post('/', requireClientAuth, async (req, res) => {
     const pool = await getPool();
     transaction = new sql.Transaction(pool);
     await transaction.begin();
+
+    const clienteResult = await new sql.Request(transaction)
+      .input('cliente_id', sql.Int, resolvedClienteId)
+      .query(`
+        SELECT id, nombre, email, rut, telefono, direccion, ciudad, region
+        FROM clientes
+        WHERE id = @cliente_id
+      `);
+
+    const cliente = clienteResult.recordset[0];
+    if (!cliente) {
+      await transaction.rollback();
+      transactionClosed = true;
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+
+    const clienteNombre = cleanString(cliente.nombre);
+    const clienteEmail = normalizeEmail(cliente.email);
+    const clienteRut = normalizeRut(cliente.rut);
+    const clienteTelefono = normalizePhone(cliente.telefono);
+
+    const customerValidationError =
+      validateRequiredText(clienteNombre, 'Nombre', 3)
+      || (!clienteEmail ? 'Email es requerido.' : null)
+      || (!isValidEmail(clienteEmail) ? 'Email invalido en el perfil.' : null)
+      || (!clienteRut ? 'RUT es requerido.' : null)
+      || (!isValidChileanRut(clienteRut) ? 'RUT invalido en el perfil.' : null)
+      || (!clienteTelefono ? 'Telefono es requerido.' : null)
+      || (!isValidChileanPhone(clienteTelefono) ? 'Telefono invalido en el perfil.' : null);
+
+    if (customerValidationError) {
+      await transaction.rollback();
+      transactionClosed = true;
+      return res.status(400).json({ error: customerValidationError });
+    }
 
     let subtotal = 0;
     const itemsProcesados = [];
@@ -235,8 +301,8 @@ router.post('/', requireClientAuth, async (req, res) => {
     }
 
     const shippingQuote = await quoteShipping({
-      ciudad: ciudad_envio,
-      direccion: direccion_envio,
+      ciudad,
+      direccion,
       subtotal_clp: subtotal,
     });
     const envioClp = shippingQuote.fee_clp;
@@ -244,25 +310,32 @@ router.post('/', requireClientAuth, async (req, res) => {
 
     const pedResult = await new sql.Request(transaction)
       .input('cliente_id', sql.Int, resolvedClienteId)
+      .input('cliente_nombre', sql.NVarChar, clienteNombre)
+      .input('cliente_email', sql.NVarChar, clienteEmail)
+      .input('cliente_rut', sql.NVarChar, clienteRut)
+      .input('cliente_telefono', sql.NVarChar, clienteTelefono)
       .input('subtotal_clp', sql.Int, subtotal)
       .input('envio_clp', sql.Int, envioClp)
       .input('total_clp', sql.Int, total)
       .input('metodo_pago', sql.NVarChar, 'bank_transfer')
       .input('metodo_envio', sql.NVarChar, shippingQuote.method)
-      .input('ciudad_envio', sql.NVarChar, ciudad_envio)
-      .input('direccion_envio', sql.NVarChar, direccion_envio)
-      .input('referencia_envio', sql.NVarChar, referencia_envio || null)
+      .input('region_envio', sql.NVarChar, region)
+      .input('ciudad_envio', sql.NVarChar, ciudad)
+      .input('direccion_envio', sql.NVarChar, direccion)
+      .input('referencia_envio', sql.NVarChar, referencia || null)
       .input('distancia_envio_km', sql.Decimal(8, 2), shippingQuote.distance_km)
       .input('notas', sql.NVarChar, notas || null)
       .query(`
         INSERT INTO pedidos (
-          cliente_id, subtotal_clp, envio_clp, total_clp, metodo_pago, metodo_envio,
-          ciudad_envio, direccion_envio, referencia_envio, distancia_envio_km, notas, estado
+          cliente_id, cliente_nombre, cliente_email, cliente_rut, cliente_telefono,
+          subtotal_clp, envio_clp, total_clp, metodo_pago, metodo_envio,
+          region_envio, ciudad_envio, direccion_envio, referencia_envio, distancia_envio_km, notas, estado
         )
         OUTPUT INSERTED.id
         VALUES (
-          @cliente_id, @subtotal_clp, @envio_clp, @total_clp, @metodo_pago, @metodo_envio,
-          @ciudad_envio, @direccion_envio, @referencia_envio, @distancia_envio_km, @notas, 'pending_payment'
+          @cliente_id, @cliente_nombre, @cliente_email, @cliente_rut, @cliente_telefono,
+          @subtotal_clp, @envio_clp, @total_clp, @metodo_pago, @metodo_envio,
+          @region_envio, @ciudad_envio, @direccion_envio, @referencia_envio, @distancia_envio_km, @notas, 'pending_payment'
         )
       `);
     const pedidoId = pedResult.recordset[0].id;
@@ -441,4 +514,3 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
 });
 
 module.exports = router;
-

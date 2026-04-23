@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getPool, sql } = require('../config/db');
 const { requireAdminAuth, requireClientAuth } = require('../middleware/auth');
+const { normalizeEmail, isValidEmail, validateCustomerPayload } = require('../lib/validation');
 
 function signToken(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, {
@@ -11,9 +12,13 @@ function signToken(payload) {
 }
 
 router.post('/admin/login', async (req, res) => {
-  const { email, password } = req.body;
+  const email = normalizeEmail(req.body?.email);
+  const password = String(req.body?.password || '');
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email y contraseña requeridos' });
+    return res.status(400).json({ error: 'Email y contrasena requeridos' });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'Ingresa un email valido' });
   }
 
   try {
@@ -51,15 +56,16 @@ router.get('/admin/me', requireAdminAuth, (req, res) => {
 });
 
 router.post('/client/register', async (req, res) => {
-  const { nombre, email, password, telefono, ciudad, tipo_piel } = req.body;
-  if (!nombre || !email || !password) {
-    return res.status(400).json({ error: 'Nombre, email y contraseña son requeridos' });
+  const { errors, sanitized } = validateCustomerPayload(req.body, { requirePassword: true });
+  const password = String(req.body?.password || '');
+  if (errors.length) {
+    return res.status(400).json({ error: errors[0], errors });
   }
 
   try {
     const pool = await getPool();
     const existing = await pool.request()
-      .input('email', sql.NVarChar, email)
+      .input('email', sql.NVarChar, sanitized.email)
       .query('SELECT * FROM clientes WHERE email = @email');
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -73,16 +79,22 @@ router.post('/client/register', async (req, res) => {
 
       const update = await pool.request()
         .input('id', sql.Int, current.id)
-        .input('nombre', sql.NVarChar, nombre)
-        .input('telefono', sql.NVarChar, telefono || current.telefono || null)
-        .input('ciudad', sql.NVarChar, ciudad || current.ciudad || null)
-        .input('tipo_piel', sql.NVarChar, tipo_piel || current.tipo_piel || null)
+        .input('nombre', sql.NVarChar, sanitized.nombre)
+        .input('rut', sql.NVarChar, sanitized.rut)
+        .input('telefono', sql.NVarChar, sanitized.telefono)
+        .input('direccion', sql.NVarChar, sanitized.direccion)
+        .input('ciudad', sql.NVarChar, sanitized.ciudad)
+        .input('region', sql.NVarChar, sanitized.region)
+        .input('tipo_piel', sql.NVarChar, sanitized.tipo_piel)
         .input('password_hash', sql.NVarChar, passwordHash)
         .query(`
           UPDATE clientes
           SET nombre = @nombre,
+              rut = @rut,
               telefono = @telefono,
+              direccion = @direccion,
               ciudad = @ciudad,
+              region = @region,
               tipo_piel = @tipo_piel,
               password_hash = @password_hash
           OUTPUT INSERTED.*
@@ -91,16 +103,19 @@ router.post('/client/register', async (req, res) => {
       cliente = update.recordset[0];
     } else {
       const insert = await pool.request()
-        .input('nombre', sql.NVarChar, nombre)
-        .input('email', sql.NVarChar, email)
-        .input('telefono', sql.NVarChar, telefono || null)
-        .input('ciudad', sql.NVarChar, ciudad || null)
-        .input('tipo_piel', sql.NVarChar, tipo_piel || null)
+        .input('nombre', sql.NVarChar, sanitized.nombre)
+        .input('email', sql.NVarChar, sanitized.email)
+        .input('rut', sql.NVarChar, sanitized.rut)
+        .input('telefono', sql.NVarChar, sanitized.telefono)
+        .input('direccion', sql.NVarChar, sanitized.direccion)
+        .input('ciudad', sql.NVarChar, sanitized.ciudad)
+        .input('region', sql.NVarChar, sanitized.region)
+        .input('tipo_piel', sql.NVarChar, sanitized.tipo_piel)
         .input('password_hash', sql.NVarChar, passwordHash)
         .query(`
-          INSERT INTO clientes (nombre, email, telefono, ciudad, tipo_piel, password_hash)
+          INSERT INTO clientes (nombre, email, rut, telefono, direccion, ciudad, region, tipo_piel, password_hash)
           OUTPUT INSERTED.*
-          VALUES (@nombre, @email, @telefono, @ciudad, @tipo_piel, @password_hash)
+          VALUES (@nombre, @email, @rut, @telefono, @direccion, @ciudad, @region, @tipo_piel, @password_hash)
         `);
       cliente = insert.recordset[0];
     }
@@ -118,8 +133,11 @@ router.post('/client/register', async (req, res) => {
         id: cliente.id,
         nombre: cliente.nombre,
         email: cliente.email,
+        rut: cliente.rut,
         telefono: cliente.telefono,
+        direccion: cliente.direccion,
         ciudad: cliente.ciudad,
+        region: cliente.region,
         tipo_piel: cliente.tipo_piel,
         tipo: 'cliente',
       },
@@ -131,9 +149,13 @@ router.post('/client/register', async (req, res) => {
 });
 
 router.post('/client/login', async (req, res) => {
-  const { email, password } = req.body;
+  const email = normalizeEmail(req.body?.email);
+  const password = String(req.body?.password || '');
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email y contraseña requeridos' });
+    return res.status(400).json({ error: 'Email y contrasena requeridos' });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'Ingresa un email valido' });
   }
 
   try {
@@ -165,8 +187,11 @@ router.post('/client/login', async (req, res) => {
         id: cliente.id,
         nombre: cliente.nombre,
         email: cliente.email,
+        rut: cliente.rut,
         telefono: cliente.telefono,
+        direccion: cliente.direccion,
         ciudad: cliente.ciudad,
+        region: cliente.region,
         tipo_piel: cliente.tipo_piel,
         tipo: 'cliente',
       },
@@ -183,7 +208,7 @@ router.get('/client/me', requireClientAuth, async (req, res) => {
     const result = await pool.request()
       .input('id', sql.Int, req.user.id)
       .query(`
-        SELECT id, nombre, email, telefono, ciudad, tipo_piel
+        SELECT id, nombre, email, rut, telefono, direccion, ciudad, region, tipo_piel
         FROM clientes
         WHERE id = @id
       `);

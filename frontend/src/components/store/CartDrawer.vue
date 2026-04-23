@@ -25,8 +25,8 @@
         </div>
 
         <div v-if="cart.items.length === 0 && !checkoutOk" class="drawer-empty">
-          <strong>Tu carrito est? vac?o</strong>
-          <p>Agrega productos desde la home o el cat?logo para empezar una compra.</p>
+          <strong>Tu carrito esta vacio</strong>
+          <p>Agrega productos desde la home o el catalogo para empezar una compra.</p>
           <button class="ghost-btn" type="button" @click="closeDrawer">Seguir comprando</button>
         </div>
 
@@ -47,7 +47,7 @@
                 <div class="cart-item-side">
                   <button class="remove-btn" type="button" @click="cart.quitar(item.id)">Quitar</button>
                   <div class="qty-control">
-                    <button type="button" @click="cart.cambiarCantidad(item.id, item.cantidad - 1)">−</button>
+                    <button type="button" @click="cart.cambiarCantidad(item.id, item.cantidad - 1)">-</button>
                     <span>{{ item.cantidad }}</span>
                     <button type="button" :disabled="item.cantidad >= Number(item.stock || 0)" @click="cart.cambiarCantidad(item.id, item.cantidad + 1)">+</button>
                   </div>
@@ -65,11 +65,11 @@
                 <strong class="summary-save">-{{ fmt(cart.savings) }}</strong>
               </div>
               <div class="summary-row muted">
-                <span>Env?o</span>
+                <span>Envio</span>
                 <span>Se calcula en checkout</span>
               </div>
               <div class="summary-banner">
-                <strong>{{ cart.total >= 49990 ? 'Ya tienes env?o gratis.' : `Te faltan ${fmt(49990 - cart.total)} para env?o gratis.` }}</strong>
+                <strong>{{ cart.total >= 49990 ? 'Ya tienes envio gratis.' : `Te faltan ${fmt(49990 - cart.total)} para envio gratis.` }}</strong>
                 <span>Antofagasta se calcula por distancia. Fuera de Antofagasta usamos Blue Express.</span>
               </div>
               <button class="primary-btn" type="button" @click="openCheckoutStep">Continuar compra</button>
@@ -80,7 +80,7 @@
           <div v-else class="drawer-body checkout-body">
             <div class="checkout-panel compact">
               <div class="panel-head">
-                <strong>Resumen r?pido</strong>
+                <strong>Resumen rapido</strong>
                 <button class="text-btn" type="button" @click="cart.view = 'cart'">Editar carrito</button>
               </div>
               <div class="summary-row">
@@ -92,7 +92,7 @@
                 <strong>{{ fmt(displaySubtotal) }}</strong>
               </div>
               <div class="summary-row">
-                <span>Env?o</span>
+                <span>Envio</span>
                 <strong>{{ shippingValueLabel }}</strong>
               </div>
               <div class="summary-row total">
@@ -102,10 +102,10 @@
             </div>
 
             <div v-if="!customerAuth.isAuthenticated" class="checkout-panel login-panel">
-              <strong>Necesitas iniciar sesi?n para continuar</strong>
-              <p>El carrito ya est? listo. Abre el acceso en un modal y vuelves aqu? al terminar.</p>
+              <strong>Necesitas iniciar sesion para continuar</strong>
+              <p>El carrito ya esta listo. Abre el acceso en un modal y vuelves aqui al terminar.</p>
               <div class="login-actions">
-                <button class="primary-btn" type="button" @click="ui.openAuthModal('login')">Iniciar sesi?n</button>
+                <button class="primary-btn" type="button" @click="ui.openAuthModal('login')">Iniciar sesion</button>
                 <button class="ghost-btn" type="button" @click="ui.openAuthModal('register')">Crear cuenta</button>
               </div>
             </div>
@@ -113,20 +113,21 @@
             <template v-else-if="!checkoutOk">
               <div class="checkout-panel">
                 <div class="panel-head">
-                  <strong>Datos de env?o</strong>
+                  <strong>Datos de envio</strong>
                   <button class="text-btn" type="button" :disabled="shippingLoading" @click="calculateShipping">
-                    {{ shippingLoading ? 'Calculando...' : 'Recalcular env?o' }}
+                    {{ shippingLoading ? 'Calculando...' : 'Recalcular envio' }}
                   </button>
                 </div>
 
                 <div class="form-grid">
+                  <input v-model.trim="shippingForm.region" type="text" placeholder="Region" :disabled="submitting || shippingLoading" />
                   <input v-model.trim="shippingForm.ciudad" type="text" placeholder="Ciudad" :disabled="submitting || shippingLoading" />
-                  <input v-model.trim="shippingForm.direccion" type="text" placeholder="Direcci?n de entrega" :disabled="submitting || shippingLoading" />
+                  <input v-model.trim="shippingForm.direccion" type="text" placeholder="Direccion completa" :disabled="submitting || shippingLoading" />
                   <input v-model.trim="shippingForm.referencia" type="text" placeholder="Referencia (opcional)" :disabled="submitting || shippingLoading" />
                 </div>
 
                 <p class="panel-copy">
-                  Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express por {{ fmt(3990) }}. Sobre {{ fmt(49990) }} el env?o es gratis.
+                  Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express por {{ fmt(3990) }}. Sobre {{ fmt(49990) }} el envio es gratis.
                 </p>
                 <p v-if="shippingQuote" class="panel-ok">
                   {{ shippingQuote.provider }} · {{ shippingQuote.tier_label }}
@@ -136,12 +137,15 @@
               </div>
 
               <div class="checkout-panel">
-                <strong>Datos de contacto</strong>
+                <strong>Datos de contacto y facturacion</strong>
                 <div class="form-grid">
-                  <input v-model.trim="profileForm.nombre" type="text" placeholder="Nombre" :disabled="submitting" />
+                  <input v-model.trim="profileForm.nombre" type="text" placeholder="Nombre completo" :disabled="submitting" />
                   <input :value="customerAuth.user?.email || ''" type="email" disabled />
-                  <input v-model.trim="profileForm.telefono" type="text" placeholder="Tel?fono (opcional)" :disabled="submitting" />
-                  <input v-model.trim="profileForm.ciudad" type="text" placeholder="Ciudad" :disabled="submitting" />
+                  <input v-model.trim="profileForm.rut" type="text" placeholder="RUT" :disabled="submitting" />
+                  <input v-model.trim="profileForm.telefono" type="text" placeholder="Telefono" :disabled="submitting" />
+                  <input v-model.trim="profileForm.direccion" type="text" placeholder="Direccion base" :disabled="submitting" />
+                  <input v-model.trim="profileForm.ciudad" type="text" placeholder="Ciudad base" :disabled="submitting" />
+                  <input v-model.trim="profileForm.region" type="text" placeholder="Region base" :disabled="submitting" />
                   <textarea v-model.trim="checkoutNotas" rows="3" placeholder="Notas del pedido (opcional)" :disabled="submitting"></textarea>
                 </div>
               </div>
@@ -170,7 +174,7 @@
                 <div class="transfer-grid">
                   <span>Banco</span><strong>{{ paymentConfig?.transfer?.bank_name || 'Por definir' }}</strong>
                   <span>Tipo</span><strong>{{ paymentConfig?.transfer?.account_type || 'Por definir' }}</strong>
-                  <span>N?mero</span><strong>{{ paymentConfig?.transfer?.account_number || 'Por definir' }}</strong>
+                  <span>Numero</span><strong>{{ paymentConfig?.transfer?.account_number || 'Por definir' }}</strong>
                   <span>Titular</span><strong>{{ paymentConfig?.transfer?.account_holder || 'Bloomskin' }}</strong>
                   <span>RUT</span><strong>{{ paymentConfig?.transfer?.account_rut || 'Por definir' }}</strong>
                   <span>Email</span><strong>{{ paymentConfig?.transfer?.transfer_email || 'Por definir' }}</strong>
@@ -202,6 +206,7 @@ import { pedidosApi } from '../../api/index.js'
 import { useCartStore } from '../../stores/cart.js'
 import { useCustomerAuthStore } from '../../stores/customerAuth.js'
 import { useUiStore } from '../../stores/ui.js'
+import { validateCustomerProfile, validateShippingAddress } from '../../utils/validation.js'
 
 const cart = useCartStore()
 const customerAuth = useCustomerAuthStore()
@@ -220,11 +225,11 @@ const proofFile = ref(null)
 const proofUploadedUrl = ref('')
 let shippingDebounce = null
 
-const profileForm = reactive({ nombre: '', telefono: '', ciudad: '' })
-const shippingForm = reactive({ ciudad: '', direccion: '', referencia: '' })
+const profileForm = reactive({ nombre: '', rut: '', telefono: '', direccion: '', ciudad: '', region: '', tipo_piel: '' })
+const shippingForm = reactive({ region: '', ciudad: '', direccion: '', referencia: '' })
 
-const currentStepLabel = computed(() => (cart.view === 'checkout' ? 'Checkout Bloomskin' : 'Tu selecci?n'))
-const currentTitle = computed(() => (cart.view === 'checkout' ? 'Carrito y env?o' : `Tu carrito (${cart.count})`))
+const currentStepLabel = computed(() => (cart.view === 'checkout' ? 'Checkout Bloomskin' : 'Tu seleccion'))
+const currentTitle = computed(() => (cart.view === 'checkout' ? 'Carrito y envio' : `Tu carrito (${cart.count})`))
 const displaySubtotal = computed(() => checkoutOk.value?.subtotal_clp || cart.total)
 const orderTotal = computed(() => checkoutOk.value?.total_clp || (cart.total + (shippingQuote.value?.fee_clp || 0)))
 
@@ -241,28 +246,38 @@ watch(
   user => {
     if (!user) return
     profileForm.nombre = user.nombre || ''
+    profileForm.rut = user.rut || ''
     profileForm.telefono = user.telefono || ''
+    profileForm.direccion = user.direccion || ''
     profileForm.ciudad = user.ciudad || ''
+    profileForm.region = user.region || ''
+    profileForm.tipo_piel = user.tipo_piel || ''
+    if (!shippingForm.region) shippingForm.region = user.region || ''
     if (!shippingForm.ciudad) shippingForm.ciudad = user.ciudad || ''
+    if (!shippingForm.direccion) shippingForm.direccion = user.direccion || ''
   },
   { immediate: true }
 )
 
 watch(
-  () => profileForm.ciudad,
-  city => {
-    if (customerAuth.isAuthenticated) shippingForm.ciudad = city || ''
+  () => [profileForm.region, profileForm.ciudad, profileForm.direccion],
+  ([region, city, address]) => {
+    if (customerAuth.isAuthenticated) {
+      shippingForm.region = region || ''
+      shippingForm.ciudad = city || ''
+      shippingForm.direccion = address || ''
+    }
   }
 )
 
 watch(
-  () => [shippingForm.ciudad, shippingForm.direccion],
+  () => [shippingForm.region, shippingForm.ciudad, shippingForm.direccion],
   () => {
     shippingQuote.value = null
     shippingError.value = ''
     if (checkoutOk.value || cart.view !== 'checkout') return
     clearTimeout(shippingDebounce)
-    if (!shippingForm.ciudad || !shippingForm.direccion || !customerAuth.isAuthenticated) return
+    if (!shippingForm.region || !shippingForm.ciudad || !shippingForm.direccion || !customerAuth.isAuthenticated) return
     shippingDebounce = setTimeout(() => {
       calculateShipping()
     }, 600)
@@ -278,9 +293,13 @@ watch(
     proofFile.value = null
     if (cart.view !== 'checkout') cart.view = 'cart'
     if (customerAuth.isAuthenticated) {
+      shippingForm.region = profileForm.region || customerAuth.user?.region || ''
       shippingForm.ciudad = profileForm.ciudad || customerAuth.user?.ciudad || ''
+      shippingForm.direccion = profileForm.direccion || customerAuth.user?.direccion || ''
     } else {
+      shippingForm.region = ''
       shippingForm.ciudad = ''
+      shippingForm.direccion = ''
     }
 
     if (!paymentConfig.value) {
@@ -312,20 +331,26 @@ function openCheckoutStep() {
 }
 
 async function calculateShipping() {
-  if (!shippingForm.ciudad || !shippingForm.direccion || !customerAuth.isAuthenticated || checkoutOk.value) return
+  if (!customerAuth.isAuthenticated || checkoutOk.value) return
+
+  const shippingValidation = validateShippingAddress(shippingForm)
+  if (shippingValidation.errors.length) {
+    shippingError.value = shippingValidation.errors[0]
+    return
+  }
 
   shippingLoading.value = true
   shippingError.value = ''
   try {
     const { data } = await pedidosApi.quoteShipping({
-      ciudad: shippingForm.ciudad,
-      direccion: shippingForm.direccion,
+      ciudad: shippingValidation.normalized.ciudad,
+      direccion: shippingValidation.normalized.direccion,
       subtotal_clp: cart.total,
     })
     shippingQuote.value = data
   } catch (err) {
     shippingQuote.value = null
-    shippingError.value = err.response?.data?.error || 'No se pudo calcular el env?o.'
+    shippingError.value = err.response?.data?.error || 'No se pudo calcular el envio.'
   } finally {
     shippingLoading.value = false
   }
@@ -339,15 +364,34 @@ async function handleCheckout() {
   submitting.value = true
 
   try {
+    const profileValidation = validateCustomerProfile({
+      ...profileForm,
+      email: customerAuth.user?.email || '',
+    }, { requirePassword: false })
+    if (profileValidation.errors.length) {
+      checkoutError.value = profileValidation.errors[0]
+      return
+    }
+
+    const shippingValidation = validateShippingAddress(shippingForm)
+    if (shippingValidation.errors.length) {
+      checkoutError.value = shippingValidation.errors[0]
+      return
+    }
+
     if (!shippingQuote.value) {
-      checkoutError.value = 'Primero calcula el env?o.'
+      checkoutError.value = 'Primero calcula el envio.'
       return
     }
 
     const profileUpdated = await customerAuth.updateProfile({
-      nombre: profileForm.nombre,
-      telefono: profileForm.telefono,
-      ciudad: profileForm.ciudad,
+      nombre: profileValidation.normalized.nombre,
+      rut: profileValidation.normalized.rut,
+      telefono: profileValidation.normalized.telefono,
+      direccion: profileValidation.normalized.direccion,
+      ciudad: profileValidation.normalized.ciudad,
+      region: profileValidation.normalized.region,
+      tipo_piel: profileValidation.normalized.tipo_piel,
     })
 
     if (!profileUpdated) {
@@ -362,9 +406,10 @@ async function handleCheckout() {
       })),
       notas: checkoutNotas.value || null,
       metodo_pago: 'bank_transfer',
-      ciudad_envio: shippingForm.ciudad,
-      direccion_envio: shippingForm.direccion,
-      referencia_envio: shippingForm.referencia || null,
+      region_envio: shippingValidation.normalized.region,
+      ciudad_envio: shippingValidation.normalized.ciudad,
+      direccion_envio: shippingValidation.normalized.direccion,
+      referencia_envio: shippingValidation.normalized.referencia || null,
     })
 
     checkoutOk.value = pedido
@@ -415,7 +460,7 @@ async function copyAllTransferData() {
     `Pedido: ${checkoutOk.value.codigo}`,
     `Banco: ${transfer.bank_name || 'Por definir'}`,
     `Tipo: ${transfer.account_type || 'Por definir'}`,
-    `N?mero: ${transfer.account_number || 'Por definir'}`,
+    `Numero: ${transfer.account_number || 'Por definir'}`,
     `Titular: ${transfer.account_holder || 'Bloomskin'}`,
     `RUT: ${transfer.account_rut || 'Por definir'}`,
     `Email: ${transfer.transfer_email || 'Por definir'}`,

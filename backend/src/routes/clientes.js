@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { getPool, sql } = require('../config/db');
 const { requireAdminAuth, requireClientAuth } = require('../middleware/auth');
+const { normalizeEmail, validateCustomerPayload, validateRequiredText } = require('../lib/validation');
 
 async function fetchWishlistByClientId(clienteId) {
   const pool = await getPool();
@@ -21,16 +22,16 @@ async function fetchWishlistByClientId(clienteId) {
   return result.recordset;
 }
 
-router.get('/', requireAdminAuth, async (req, res) => {
+router.get('/', requireAdminAuth, async (_req, res) => {
   try {
     const pool = await getPool();
     const result = await pool.request().query(`
-      SELECT c.id, c.nombre, c.email, c.telefono, c.ciudad, c.tipo_piel, c.notas, c.creado_en,
+      SELECT c.id, c.nombre, c.email, c.rut, c.telefono, c.direccion, c.ciudad, c.region, c.tipo_piel, c.notas, c.creado_en,
         COUNT(p.id) AS total_pedidos,
         COALESCE(SUM(p.total_clp), 0) AS total_comprado
       FROM clientes c
       LEFT JOIN pedidos p ON p.cliente_id = c.id
-      GROUP BY c.id, c.nombre, c.email, c.telefono, c.ciudad, c.tipo_piel, c.notas, c.creado_en
+      GROUP BY c.id, c.nombre, c.email, c.rut, c.telefono, c.direccion, c.ciudad, c.region, c.tipo_piel, c.notas, c.creado_en
       ORDER BY total_comprado DESC
     `);
     res.json(result.recordset);
@@ -40,13 +41,13 @@ router.get('/', requireAdminAuth, async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { nombre, email, telefono, ciudad, tipo_piel } = req.body;
-  if (!nombre || !email) return res.status(400).json({ error: 'Nombre y email requeridos' });
+  const { errors, sanitized } = validateCustomerPayload(req.body, { requirePassword: false });
+  if (errors.length) return res.status(400).json({ error: errors[0], errors });
 
   try {
     const pool = await getPool();
     const existing = await pool.request()
-      .input('email', sql.NVarChar, email)
+      .input('email', sql.NVarChar, sanitized.email)
       .query('SELECT * FROM clientes WHERE email = @email');
 
     if (existing.recordset[0]) {
@@ -54,15 +55,18 @@ router.post('/', async (req, res) => {
     }
 
     const result = await pool.request()
-      .input('nombre', sql.NVarChar, nombre)
-      .input('email', sql.NVarChar, email)
-      .input('telefono', sql.NVarChar, telefono || null)
-      .input('ciudad', sql.NVarChar, ciudad || null)
-      .input('tipo_piel', sql.NVarChar, tipo_piel || null)
+      .input('nombre', sql.NVarChar, sanitized.nombre)
+      .input('email', sql.NVarChar, sanitized.email)
+      .input('rut', sql.NVarChar, sanitized.rut)
+      .input('telefono', sql.NVarChar, sanitized.telefono)
+      .input('direccion', sql.NVarChar, sanitized.direccion)
+      .input('ciudad', sql.NVarChar, sanitized.ciudad)
+      .input('region', sql.NVarChar, sanitized.region)
+      .input('tipo_piel', sql.NVarChar, sanitized.tipo_piel)
       .query(`
-        INSERT INTO clientes (nombre, email, telefono, ciudad, tipo_piel)
+        INSERT INTO clientes (nombre, email, rut, telefono, direccion, ciudad, region, tipo_piel)
         OUTPUT INSERTED.*
-        VALUES (@nombre, @email, @telefono, @ciudad, @tipo_piel)
+        VALUES (@nombre, @email, @rut, @telefono, @direccion, @ciudad, @region, @tipo_piel)
       `);
 
     res.status(201).json(result.recordset[0]);
@@ -72,18 +76,39 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', requireAdminAuth, async (req, res) => {
-  const { telefono, ciudad, tipo_piel, notas } = req.body;
+  const validation = validateCustomerPayload({
+    nombre: req.body?.nombre || 'Cliente',
+    email: req.body?.email || 'cliente@bloomskin.local',
+    rut: req.body?.rut,
+    telefono: req.body?.telefono,
+    direccion: req.body?.direccion,
+    ciudad: req.body?.ciudad,
+    region: req.body?.region,
+    tipo_piel: req.body?.tipo_piel,
+  }, { requirePassword: false });
+  const notasError = req.body?.notas ? validateRequiredText(req.body.notas, 'Notas', 3) : null;
+  if (validation.errors.length || notasError) {
+    const errors = [...validation.errors];
+    if (notasError) errors.push(notasError);
+    return res.status(400).json({ error: errors[0], errors });
+  }
+
+  const { rut, telefono, direccion, ciudad, region, tipo_piel } = validation.sanitized;
+  const notas = req.body?.notas ? String(req.body.notas).trim() : null;
   try {
     const pool = await getPool();
     const result = await pool.request()
       .input('id', sql.Int, req.params.id)
+      .input('rut', sql.NVarChar, rut || null)
       .input('telefono', sql.NVarChar, telefono || null)
+      .input('direccion', sql.NVarChar, direccion || null)
       .input('ciudad', sql.NVarChar, ciudad || null)
+      .input('region', sql.NVarChar, region || null)
       .input('tipo_piel', sql.NVarChar, tipo_piel || null)
       .input('notas', sql.NVarChar, notas || null)
       .query(`
         UPDATE clientes
-        SET telefono=@telefono, ciudad=@ciudad, tipo_piel=@tipo_piel, notas=@notas
+        SET rut=@rut, telefono=@telefono, direccion=@direccion, ciudad=@ciudad, region=@region, tipo_piel=@tipo_piel, notas=@notas
         OUTPUT INSERTED.*
         WHERE id=@id
       `);
@@ -94,19 +119,36 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
 });
 
 router.put('/me/profile', requireClientAuth, async (req, res) => {
-  const { nombre, telefono, ciudad, tipo_piel } = req.body;
+  const payload = {
+    nombre: req.body?.nombre,
+    email: normalizeEmail(req.user?.email),
+    rut: req.body?.rut,
+    telefono: req.body?.telefono,
+    direccion: req.body?.direccion,
+    ciudad: req.body?.ciudad,
+    region: req.body?.region,
+    tipo_piel: req.body?.tipo_piel,
+  };
+  const { errors, sanitized } = validateCustomerPayload(payload, { requirePassword: false });
+  if (errors.length) {
+    return res.status(400).json({ error: errors[0], errors });
+  }
+
   try {
     const pool = await getPool();
     const result = await pool.request()
       .input('id', sql.Int, req.user.id)
-      .input('nombre', sql.NVarChar, nombre || req.user.nombre)
-      .input('telefono', sql.NVarChar, telefono || null)
-      .input('ciudad', sql.NVarChar, ciudad || null)
-      .input('tipo_piel', sql.NVarChar, tipo_piel || null)
+      .input('nombre', sql.NVarChar, sanitized.nombre || req.user.nombre)
+      .input('rut', sql.NVarChar, sanitized.rut)
+      .input('telefono', sql.NVarChar, sanitized.telefono)
+      .input('direccion', sql.NVarChar, sanitized.direccion)
+      .input('ciudad', sql.NVarChar, sanitized.ciudad)
+      .input('region', sql.NVarChar, sanitized.region)
+      .input('tipo_piel', sql.NVarChar, sanitized.tipo_piel)
       .query(`
         UPDATE clientes
-        SET nombre=@nombre, telefono=@telefono, ciudad=@ciudad, tipo_piel=@tipo_piel
-        OUTPUT INSERTED.id, INSERTED.nombre, INSERTED.email, INSERTED.telefono, INSERTED.ciudad, INSERTED.tipo_piel
+        SET nombre=@nombre, rut=@rut, telefono=@telefono, direccion=@direccion, ciudad=@ciudad, region=@region, tipo_piel=@tipo_piel
+        OUTPUT INSERTED.id, INSERTED.nombre, INSERTED.email, INSERTED.rut, INSERTED.telefono, INSERTED.direccion, INSERTED.ciudad, INSERTED.region, INSERTED.tipo_piel
         WHERE id=@id
       `);
 

@@ -16,7 +16,7 @@ function requireAuth(req, res, next) {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
     next();
   } catch {
-    return res.status(401).json({ error: 'Token inválido o expirado' });
+    return res.status(401).json({ error: 'Token invalido o expirado' });
   }
 }
 
@@ -55,3 +55,4 @@ function requireClientAuth(req, res, next) {
 }
 
 module.exports = { requireAuth, optionalAuth, requireAdminAuth, requireClientAuth };
+
