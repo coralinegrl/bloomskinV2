@@ -246,7 +246,25 @@
                     <td class="muted">{{ p.precio_usd ? `$${p.precio_usd}` : 'â€”' }}</td>
                     <td class="td-price">{{ fmt(p.precio_clp) }}</td>
                     <td class="muted">{{ p.precio_oferta_clp ? fmt(p.precio_oferta_clp) : 'â€”' }}</td>
-                    <td><span class="stock-pill" :class="stockClass(p.stock)">{{ stockLabel(p.stock) }}</span></td>
+                    <td>
+                      <div class="stock-editor">
+                        <span class="stock-pill" :class="stockClass(p.stock)">{{ stockLabel(p.stock) }}</span>
+                        <input
+                          v-model.number="stockDrafts[p.id]"
+                          class="stock-input"
+                          type="number"
+                          min="0"
+                          @click.stop
+                        >
+                        <button
+                          class="btn-stock"
+                          :disabled="savingStockId === p.id || Number(stockDrafts[p.id]) === Number(p.stock)"
+                          @click.stop="guardarStockRapido(p)"
+                        >
+                          {{ savingStockId === p.id ? '...' : 'Guardar' }}
+                        </button>
+                      </div>
+                    </td>
                     <td class="muted">{{ p.imagen_url ? 'Real' : 'Fallback' }}</td>
                     <td class="muted">{{ badgeLabel(p.badge) }}</td>
                     <td class="td-actions">
@@ -1105,10 +1123,12 @@ const showModal = ref(false)
 const editingProducto = ref(null)
 const saving = ref(false)
 const uploadingImage = ref(false)
+const savingStockId = ref(null)
 const precioCalculado = ref(null)
 const form = ref({})
 const selectedImageFile = ref(null)
 const imageInput = ref(null)
+const stockDrafts = ref({})
 
 const productoSearch = ref('')
 const productoStockFilter = ref('all')
@@ -1229,6 +1249,12 @@ function resetForm() {
   precioCalculado.value = null
   selectedImageFile.value = null
   if (imageInput.value) imageInput.value.value = ''
+}
+
+function syncStockDrafts() {
+  stockDrafts.value = Object.fromEntries(
+    productos.value.map(producto => [producto.id, Number(producto.stock || 0)])
+  )
 }
 
 function showToast(message, kind = 'ok') {
@@ -1373,6 +1399,28 @@ async function marcarRespondido(mensaje) {
   }
 }
 
+async function guardarStockRapido(producto) {
+  const nextStock = Number(stockDrafts.value[producto.id])
+  if (!Number.isInteger(nextStock) || nextStock < 0) {
+    showToast('El stock debe ser un número entero mayor o igual a 0.', 'error')
+    stockDrafts.value[producto.id] = Number(producto.stock || 0)
+    return
+  }
+
+  savingStockId.value = producto.id
+  try {
+    await productosApi.actualizarStock(producto.id, nextStock)
+    producto.stock = nextStock
+    stockDrafts.value[producto.id] = nextStock
+    showToast(`Stock actualizado para ${producto.nombre}.`)
+  } catch (err) {
+    stockDrafts.value[producto.id] = Number(producto.stock || 0)
+    showToast(err.response?.data?.error || 'No se pudo actualizar el stock.', 'error')
+  } finally {
+    savingStockId.value = null
+  }
+}
+
 function resetNewsletterForm() {
   newsletterForm.value = {
     subject: '',
@@ -1438,6 +1486,7 @@ async function handleHomeImagePicked(index, event) {
 async function cargarProductos() {
   const { data } = await productosApi.listarAdmin()
   productos.value = data
+  syncStockDrafts()
 }
 
 async function cargarPedidos() {
@@ -1660,6 +1709,28 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 .stock-ok { background: rgba(111,207,151,.15); color: #6fcf97; }
 .stock-warn { background: rgba(240,180,50,.15); color: #f0b432; }
 .stock-zero { background: rgba(229,115,115,.15); color: #e57373; }
+.stock-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.stock-input {
+  width: 72px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--ad-border);
+  background: rgba(255,255,255,.03);
+  color: var(--ad-text);
+  font-size: 12px;
+}
+.btn-stock {
+  border: 1px solid rgba(157,184,163,.35);
+  background: rgba(157,184,163,.12);
+  color: #cbe1d1;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+.btn-stock:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
 
 .status-pill { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }
 .s-pending_payment { background: rgba(240,180,50,.15); color: #f0b432; }
