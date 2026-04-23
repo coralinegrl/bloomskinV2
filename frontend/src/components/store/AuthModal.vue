@@ -1,44 +1,155 @@
 <template>
   <Transition name="auth-modal">
-    <div v-if="ui.authModalOpen" class="auth-overlay" @click.self="ui.closeAuthModal()">
+    <div v-if="ui.authModalOpen" class="auth-overlay" @click.self="closeModal">
       <div class="auth-modal">
-        <button class="auth-close" type="button" @click="ui.closeAuthModal()">x</button>
+        <button class="auth-close" type="button" @click="closeModal">x</button>
 
         <div class="auth-head">
           <span class="auth-kicker">Bloomskin account</span>
-          <h2>{{ ui.authModalMode === 'register' ? 'Crea tu cuenta' : 'Inicia sesion' }}</h2>
-          <p>
-            Guarda tus datos, revisa pedidos y termina la compra sin mezclar el acceso con el carrito.
-          </p>
+          <h2>{{ modalTitle }}</h2>
+          <p>{{ modalCopy }}</p>
         </div>
 
-        <div class="auth-tabs">
-          <button class="auth-tab" :class="{ active: ui.authModalMode === 'login' }" type="button" @click="ui.openAuthModal('login')">
+        <div v-if="showTabs" class="auth-tabs">
+          <button class="auth-tab" :class="{ active: ui.authModalMode === 'login' }" type="button" @click="switchMode('login')">
             Entrar
           </button>
-          <button class="auth-tab" :class="{ active: ui.authModalMode === 'register' }" type="button" @click="ui.openAuthModal('register')">
+          <button class="auth-tab" :class="{ active: ui.authModalMode === 'register' }" type="button" @click="switchMode('register')">
             Crear cuenta
           </button>
         </div>
 
         <form v-if="ui.authModalMode === 'login'" class="auth-form" @submit.prevent="submitLogin">
-          <input v-model.trim="loginForm.email" type="email" placeholder="Email" :disabled="customerAuth.loading" required />
-          <input v-model="loginForm.password" type="password" placeholder="Contrasena" :disabled="customerAuth.loading" required />
-          <p v-if="formError || customerAuth.error" class="auth-error">{{ formError || customerAuth.error }}</p>
+          <label class="field-block">
+            <span>Email</span>
+            <input v-model.trim="loginForm.email" type="email" placeholder="tu@email.com" :disabled="customerAuth.loading" />
+          </label>
+          <label class="field-block">
+            <span>Contrasena</span>
+            <input v-model="loginForm.password" type="password" placeholder="Tu contrasena" :disabled="customerAuth.loading" />
+          </label>
+          <button class="link-btn" type="button" @click="switchMode('forgot')">Olvide mi contrasena</button>
+          <p v-if="loginError || customerAuth.error" class="auth-error">{{ loginError || customerAuth.error }}</p>
           <button class="auth-submit" type="submit" :disabled="customerAuth.loading">
             {{ customerAuth.loading ? 'Ingresando...' : 'Iniciar sesion' }}
           </button>
         </form>
 
+        <form v-else-if="ui.authModalMode === 'forgot'" class="auth-form" @submit.prevent="submitForgotPassword">
+          <label class="field-block">
+            <span>Email</span>
+            <input v-model.trim="forgotForm.email" type="email" placeholder="tu@email.com" :disabled="customerAuth.loading" />
+          </label>
+          <p v-if="forgotMessage" class="auth-success">{{ forgotMessage }}</p>
+          <p v-if="loginError || customerAuth.error" class="auth-error">{{ loginError || customerAuth.error }}</p>
+          <button class="auth-submit" type="submit" :disabled="customerAuth.loading">
+            {{ customerAuth.loading ? 'Enviando...' : 'Enviar enlace' }}
+          </button>
+          <button class="link-btn" type="button" @click="switchMode('login')">Volver al login</button>
+        </form>
+
+        <form v-else-if="ui.authModalMode === 'reset'" class="auth-form" @submit.prevent="submitResetPassword">
+          <label class="field-block">
+            <span>Email</span>
+            <input v-model.trim="resetForm.email" type="email" placeholder="tu@email.com" :disabled="customerAuth.loading" />
+          </label>
+          <label class="field-block">
+            <span>Nueva contrasena</span>
+            <input v-model="resetForm.password" type="password" placeholder="Minimo 8 caracteres" :disabled="customerAuth.loading" />
+            <small v-if="resetErrors.password" class="field-error">{{ resetErrors.password }}</small>
+          </label>
+          <label class="field-block">
+            <span>Repite la contrasena</span>
+            <input v-model="resetForm.confirmPassword" type="password" placeholder="Repite tu contrasena" :disabled="customerAuth.loading" />
+            <small v-if="resetErrors.confirmPassword" class="field-error">{{ resetErrors.confirmPassword }}</small>
+          </label>
+          <p v-if="forgotMessage" class="auth-success">{{ forgotMessage }}</p>
+          <p v-if="loginError || customerAuth.error" class="auth-error">{{ loginError || customerAuth.error }}</p>
+          <button class="auth-submit" type="submit" :disabled="customerAuth.loading">
+            {{ customerAuth.loading ? 'Guardando...' : 'Restablecer contrasena' }}
+          </button>
+        </form>
+
         <form v-else class="auth-form" @submit.prevent="submitRegister">
-          <input v-model.trim="registerForm.nombre" type="text" placeholder="Nombre completo" :disabled="customerAuth.loading" required />
-          <input v-model.trim="registerForm.email" type="email" placeholder="Email" :disabled="customerAuth.loading" required />
-          <input v-model="registerForm.password" type="password" placeholder="Contrasena" :disabled="customerAuth.loading" required />
-          <input v-model.trim="registerForm.rut" type="text" placeholder="RUT" :disabled="customerAuth.loading" required />
-          <input v-model.trim="registerForm.telefono" type="text" placeholder="Telefono" :disabled="customerAuth.loading" required />
-          <input v-model.trim="registerForm.direccion" type="text" placeholder="Direccion completa" :disabled="customerAuth.loading" required />
-          <input v-model.trim="registerForm.ciudad" type="text" placeholder="Ciudad" :disabled="customerAuth.loading" required />
-          <input v-model.trim="registerForm.region" type="text" placeholder="Region" :disabled="customerAuth.loading" required />
+          <label class="field-block">
+            <span>Nombre completo</span>
+            <input v-model.trim="registerForm.nombre" type="text" placeholder="Andrea Saldana" :disabled="customerAuth.loading" />
+            <small v-if="registerErrors.nombre" class="field-error">{{ registerErrors.nombre }}</small>
+          </label>
+
+          <label class="field-block">
+            <span>Email</span>
+            <input v-model.trim="registerForm.email" type="email" placeholder="tu@email.com" :disabled="customerAuth.loading" />
+            <small v-if="registerErrors.email" class="field-error">{{ registerErrors.email }}</small>
+          </label>
+
+          <label class="field-block">
+            <span>Contrasena</span>
+            <input v-model="registerForm.password" type="password" placeholder="Minimo 8 caracteres" :disabled="customerAuth.loading" />
+            <small v-if="registerErrors.password" class="field-error">{{ registerErrors.password }}</small>
+          </label>
+
+          <div class="auth-grid">
+            <label class="field-block">
+              <span>RUT</span>
+              <input
+                :value="registerForm.rut"
+                type="text"
+                placeholder="12.345.678-5"
+                :disabled="customerAuth.loading"
+                @input="registerForm.rut = formatRutInput($event.target.value)"
+              />
+              <small v-if="registerErrors.rut" class="field-error">{{ registerErrors.rut }}</small>
+            </label>
+
+            <label class="field-block">
+              <span>Telefono</span>
+              <input
+                :value="registerForm.telefono"
+                type="text"
+                placeholder="+56 9 1234 5678"
+                :disabled="customerAuth.loading"
+                @input="registerForm.telefono = formatPhoneInput($event.target.value)"
+              />
+              <small v-if="registerErrors.telefono" class="field-error">{{ registerErrors.telefono }}</small>
+            </label>
+          </div>
+
+          <div class="auth-grid address-grid">
+            <label class="field-block">
+              <span>Calle</span>
+              <input v-model.trim="registerForm.street" type="text" placeholder="Av. Grecia" :disabled="customerAuth.loading" />
+              <small v-if="registerErrors.direccion" class="field-error">{{ registerErrors.direccion }}</small>
+            </label>
+
+            <label class="field-block">
+              <span>Numero</span>
+              <input v-model.trim="registerForm.number" type="text" placeholder="860" :disabled="customerAuth.loading" />
+            </label>
+          </div>
+
+          <label class="field-block">
+            <span>Depto / Oficina</span>
+            <input v-model.trim="registerForm.apartment" type="text" placeholder="Depto 402, Torre B" :disabled="customerAuth.loading" />
+          </label>
+
+          <div class="auth-grid">
+            <label class="field-block">
+              <span>Comuna / Ciudad</span>
+              <input v-model.trim="registerForm.city" type="text" placeholder="Antofagasta" :disabled="customerAuth.loading" />
+              <small v-if="registerErrors.ciudad" class="field-error">{{ registerErrors.ciudad }}</small>
+            </label>
+
+            <label class="field-block">
+              <span>Region</span>
+              <select v-model="registerForm.region" :disabled="customerAuth.loading">
+                <option value="">Selecciona una region</option>
+                <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
+              </select>
+              <small v-if="registerErrors.region" class="field-error">{{ registerErrors.region }}</small>
+            </label>
+          </div>
+
           <p v-if="formError || customerAuth.error" class="auth-error">{{ formError || customerAuth.error }}</p>
           <button class="auth-submit" type="submit" :disabled="customerAuth.loading">
             {{ customerAuth.loading ? 'Creando...' : 'Crear cuenta' }}
@@ -50,17 +161,38 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useCustomerAuthStore } from '../../stores/customerAuth.js'
 import { useUiStore } from '../../stores/ui.js'
-import { validateCustomerProfile, normalizeEmail, isValidEmail } from '../../utils/validation.js'
+import { validateCustomerProfile, normalizeEmail, isValidEmail, validatePassword, isValidChileanRut, isValidChileanPhone, validateRequiredText } from '../../utils/validation.js'
+import { CHILE_REGIONS, buildApiCustomerPayload, formatPhoneInput, formatRutInput } from '../../utils/customerFields.js'
 
 const customerAuth = useCustomerAuthStore()
 const ui = useUiStore()
+const route = useRoute()
+const router = useRouter()
 const formError = ref('')
+const loginError = ref('')
+const forgotMessage = ref('')
 
 const loginForm = reactive({ email: '', password: '' })
+const forgotForm = reactive({ email: '' })
+const resetForm = reactive({ email: '', token: '', password: '', confirmPassword: '' })
 const registerForm = reactive({
+  nombre: '',
+  email: '',
+  password: '',
+  rut: '',
+  telefono: '',
+  street: '',
+  number: '',
+  apartment: '',
+  city: '',
+  region: '',
+  tipo_piel: '',
+})
+const registerErrors = reactive({
   nombre: '',
   email: '',
   password: '',
@@ -70,20 +202,88 @@ const registerForm = reactive({
   ciudad: '',
   region: '',
 })
+const resetErrors = reactive({
+  password: '',
+  confirmPassword: '',
+})
+
+const showTabs = computed(() => ['login', 'register'].includes(ui.authModalMode))
+const modalTitle = computed(() => ({
+  login: 'Inicia sesion',
+  register: 'Crea tu cuenta',
+  forgot: 'Recupera tu contrasena',
+  reset: 'Restablece tu contrasena',
+}[ui.authModalMode] || 'Bloomskin account'))
+const modalCopy = computed(() => ({
+  login: 'Guarda tus datos, revisa pedidos y termina la compra sin mezclar el acceso con el carrito.',
+  register: 'Completa tus datos una vez y deja tu cuenta lista para futuras compras.',
+  forgot: 'Te enviaremos un enlace seguro para crear una nueva contrasena.',
+  reset: 'Define una contrasena nueva para volver a entrar a tu cuenta.',
+}[ui.authModalMode] || ''))
+
+function resetErrorsState() {
+  formError.value = ''
+  loginError.value = ''
+  forgotMessage.value = ''
+  Object.keys(registerErrors).forEach(key => {
+    registerErrors[key] = ''
+  })
+  Object.keys(resetErrors).forEach(key => {
+    resetErrors[key] = ''
+  })
+}
+
+function switchMode(mode) {
+  resetErrorsState()
+  ui.openAuthModal(mode)
+}
+
+function closeModal() {
+  ui.closeAuthModal()
+  if (route.query.reset) {
+    const query = { ...route.query }
+    delete query.reset
+    delete query.email
+    router.replace({ query })
+  }
+}
+
+function collectRegisterErrors(payload) {
+  registerErrors.nombre = validateRequiredText(payload.nombre, 'Nombre', 3)
+  registerErrors.email = !payload.email
+    ? 'Email es requerido.'
+    : !isValidEmail(payload.email)
+      ? 'Ingresa un email valido.'
+      : ''
+  registerErrors.password = validatePassword(payload.password)
+  registerErrors.rut = !payload.rut
+    ? 'RUT es requerido.'
+    : !isValidChileanRut(payload.rut)
+      ? 'Ingresa un RUT chileno valido.'
+      : ''
+  registerErrors.telefono = !payload.telefono
+    ? 'Telefono es requerido.'
+    : !isValidChileanPhone(payload.telefono)
+      ? 'Usa +569XXXXXXXX o 9XXXXXXXX.'
+      : ''
+  registerErrors.direccion = validateRequiredText(payload.direccion, 'Direccion', 6)
+  registerErrors.ciudad = validateRequiredText(payload.ciudad, 'Ciudad', 2)
+  registerErrors.region = validateRequiredText(payload.region, 'Region', 2)
+}
 
 async function submitLogin() {
-  formError.value = ''
+  resetErrorsState()
   const email = normalizeEmail(loginForm.email)
   if (!email) {
-    formError.value = 'Email es requerido.'
+    loginError.value = 'Email es requerido.'
     return
   }
   if (!isValidEmail(email)) {
-    formError.value = 'Ingresa un email valido.'
+    loginError.value = 'Ingresa un email valido.'
     return
   }
   if (!loginForm.password) {
-    formError.value = 'Contrasena es requerida.'
+    loginError.value = 'Contrasena es requerida.'
     return
   }
 
@@ -93,19 +293,84 @@ async function submitLogin() {
   ui.closeAuthModal()
 }
 
-async function submitRegister() {
-  formError.value = ''
-  const { errors, normalized } = validateCustomerProfile(registerForm, { requirePassword: true })
-  if (errors.length) {
-    formError.value = errors[0]
+async function submitForgotPassword() {
+  resetErrorsState()
+  const email = normalizeEmail(forgotForm.email)
+  if (!email || !isValidEmail(email)) {
+    loginError.value = 'Ingresa un email valido.'
     return
   }
 
-  const ok = await customerAuth.register(normalized)
+  const ok = await customerAuth.requestPasswordReset(email)
+  if (!ok) return
+  forgotMessage.value = 'Te enviamos un enlace para restablecer tu contrasena.'
+}
+
+async function submitResetPassword() {
+  resetErrorsState()
+  const email = normalizeEmail(resetForm.email)
+  if (!email || !isValidEmail(email)) {
+    loginError.value = 'Ingresa un email valido.'
+    return
+  }
+  resetErrors.password = validatePassword(resetForm.password)
+  resetErrors.confirmPassword = resetForm.password !== resetForm.confirmPassword
+    ? 'Las contrasenas no coinciden.'
+    : ''
+  if (resetErrors.password || resetErrors.confirmPassword) {
+    loginError.value = resetErrors.password || resetErrors.confirmPassword
+    return
+  }
+  if (!resetForm.token) {
+    loginError.value = 'El enlace de recuperacion no es valido.'
+    return
+  }
+
+  const ok = await customerAuth.resetPassword({
+    email,
+    token: resetForm.token,
+    password: resetForm.password,
+  })
+  if (!ok) return
+
+  forgotMessage.value = 'Tu contrasena fue actualizada. Ahora puedes iniciar sesion.'
+  resetForm.password = ''
+  resetForm.confirmPassword = ''
+  const query = { ...route.query }
+  delete query.reset
+  delete query.email
+  router.replace({ query })
+  ui.openAuthModal('login')
+}
+
+async function submitRegister() {
+  resetErrorsState()
+  const payload = buildApiCustomerPayload({
+    ...registerForm,
+    city: registerForm.city,
+    region: registerForm.region,
+  })
+  payload.password = registerForm.password
+
+  collectRegisterErrors(payload)
+  const validation = validateCustomerProfile(payload, { requirePassword: true })
+  if (validation.errors.length) {
+    formError.value = validation.errors[0]
+    return
+  }
+
+  const ok = await customerAuth.register(validation.normalized)
   if (!ok) return
   registerForm.password = ''
   ui.closeAuthModal()
 }
+
+watch(() => route.query.reset, token => {
+  if (!token) return
+  resetForm.token = String(token)
+  resetForm.email = normalizeEmail(route.query.email)
+  ui.openAuthModal('reset')
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -121,7 +386,9 @@ async function submitRegister() {
 }
 
 .auth-modal {
-  width: min(460px, 100%);
+  width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   background: linear-gradient(180deg, #fffdfd, #fff5f8);
   border: 1px solid rgba(191, 84, 122, 0.14);
   border-radius: 28px;
@@ -137,7 +404,7 @@ async function submitRegister() {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .auth-kicker {
@@ -193,7 +460,28 @@ async function submitRegister() {
   margin-top: 18px;
 }
 
-.auth-form input {
+.auth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.address-grid {
+  align-items: start;
+}
+
+.field-block {
+  display: grid;
+  gap: 6px;
+}
+
+.field-block span {
+  font-size: 12px;
+  color: var(--dark-mid);
+}
+
+.auth-form input,
+.auth-form select {
   width: 100%;
   border: 1px solid #ead7dd;
   border-radius: 14px;
@@ -201,6 +489,26 @@ async function submitRegister() {
   padding: 13px 14px;
   font-size: 13px;
   outline: none;
+}
+
+.field-error,
+.auth-error {
+  color: #b54768;
+  font-size: 12px;
+}
+
+.auth-success {
+  color: #43725a;
+  font-size: 12px;
+}
+
+.link-btn {
+  justify-self: start;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--rose-dark);
 }
 
 .auth-submit {
@@ -213,11 +521,6 @@ async function submitRegister() {
   font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-}
-
-.auth-error {
-  color: #b54768;
-  font-size: 12px;
 }
 
 .auth-modal-enter-active,
@@ -239,5 +542,11 @@ async function submitRegister() {
 .auth-modal-leave-to .auth-modal {
   transform: translateY(12px) scale(0.98);
   opacity: 0;
+}
+
+@media (max-width: 640px) {
+  .auth-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -35,6 +35,29 @@ const routes = [
     component: () => import('../views/CustomerAccountView.vue'),
     meta: { requiresClientAuth: true },
   },
+  {
+    path: '/envios',
+    name: 'shipping-policy',
+    component: () => import('../views/SiteContentView.vue'),
+    meta: { contentKey: 'shipping_policy' },
+  },
+  {
+    path: '/cambios-y-devoluciones',
+    name: 'returns-policy',
+    component: () => import('../views/SiteContentView.vue'),
+    meta: { contentKey: 'returns_policy' },
+  },
+  {
+    path: '/condiciones-de-envio',
+    name: 'shipping-conditions',
+    component: () => import('../views/SiteContentView.vue'),
+    meta: { contentKey: 'shipping_conditions' },
+  },
+  {
+    path: '/contacto',
+    name: 'contact',
+    component: () => import('../views/ContactView.vue'),
+  },
 ]
 
 const router = createRouter({

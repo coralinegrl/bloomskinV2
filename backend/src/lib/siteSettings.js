@@ -11,57 +11,57 @@ const settingsFile = process.env.SITE_SETTINGS_FILE
 const defaultSettings = {
   home: {
     hero: {
-      tag: 'Selección Bloomskin',
-      title: 'Una home más curada, con',
+      tag: 'Seleccion Bloomskin',
+      title: 'Una home mas curada, con',
       emphasis: 'lo mejor primero',
-      description: 'La portada muestra selección editorial, best sellers y rutas rápidas para descubrir productos. El catálogo completo vive aparte, con filtros de compra más serios.',
-      primary_cta_label: 'Ver más vendidos',
-      secondary_cta_label: 'Ir al catálogo',
+      description: 'La portada muestra seleccion editorial, best sellers y rutas rapidas para descubrir productos. El catalogo completo vive aparte, con filtros de compra mas serios.',
+      primary_cta_label: 'Ver mas vendidos',
+      secondary_cta_label: 'Ir al catalogo',
     },
     categoryTiles: [
       { category: 'Serums', label: 'Serums', image_url: '' },
       { category: 'Hidratantes', label: 'Hidratantes', image_url: '' },
       { category: 'Limpiadores', label: 'Limpiadores', image_url: '' },
-      { category: 'Protección Solar', label: 'Protección Solar', image_url: '' },
+      { category: 'Proteccion Solar', label: 'Proteccion Solar', image_url: '' },
     ],
     promoItems: [
-      { icon: '🚚', title: 'Envío gratis', copy: 'Sobre $49.990' },
+      { icon: 'truck', title: 'Envio gratis', copy: 'Sobre $49.990' },
       { icon: 'flag-kr', title: '100% originales', copy: 'Directo desde Corea del Sur' },
-      { icon: '🎁', title: 'Muestras y hallazgos', copy: 'Selección curada para descubrir favoritos' },
-      { icon: '💬', title: 'Te orientamos por WhatsApp', copy: 'Ayuda rápida para elegir tu rutina' },
+      { icon: 'gift', title: 'Muestras y hallazgos', copy: 'Seleccion curada para descubrir favoritos' },
+      { icon: 'whatsapp', title: 'Te orientamos por WhatsApp', copy: 'Ayuda rapida para elegir tu rutina' },
     ],
     bestSellers: {
       tag: 'Best Sellers',
-      title: 'Los más vendidos',
-      copy: 'Un bloque rápido con lo más fuerte del catálogo y mejor señal comercial.',
-      link_label: 'Ver catálogo',
+      title: 'Los mas vendidos',
+      copy: 'Un bloque rapido con lo mas fuerte del catalogo y mejor senal comercial.',
+      link_label: 'Ver catalogo',
     },
     editorial: {
       tag: 'Descubre por necesidad',
       title: 'Explora la tienda como una rutina',
-      copy: 'En vez de mostrar todo de una, te guiamos por bloques más claros y rápidos de navegar.',
+      copy: 'En vez de mostrar todo de una, te guiamos por bloques mas claros y rapidos de navegar.',
       cards: [
         {
           kicker: 'Rutina base',
           title: 'Empieza por una limpieza suave',
-          copy: 'Limpiadores y básicos para armar una rutina simple de día o noche.',
-          link_label: 'Explorar limpiadores →',
+          copy: 'Limpiadores y basicos para armar una rutina simple de dia o noche.',
+          link_label: 'Explorar limpiadores ->',
           category: 'Limpiadores',
           tone: 'rose',
         },
         {
           kicker: 'Uso diario',
-          title: 'Protección solar que sí vas a usar todos los días',
-          copy: 'Solares cómodos, ligeros y fáciles de combinar con maquillaje.',
-          link_label: 'Ver solares →',
-          category: 'Protección Solar',
+          title: 'Proteccion solar que si vas a usar todos los dias',
+          copy: 'Solares comodos, ligeros y faciles de combinar con maquillaje.',
+          link_label: 'Ver solares ->',
+          category: 'Proteccion Solar',
           tone: 'sage',
         },
         {
           kicker: 'Tratamiento',
           title: 'Serums para brillo, textura y manchas',
-          copy: 'Una selección rápida para quienes quieren resultados sin revisar setenta fichas seguidas.',
-          link_label: 'Ir a serums →',
+          copy: 'Una seleccion rapida para quienes quieren resultados sin revisar setenta fichas seguidas.',
+          link_label: 'Ir a serums ->',
           category: 'Serums',
           tone: 'cream',
         },
@@ -70,33 +70,33 @@ const defaultSettings = {
     newIn: {
       tag: 'New In',
       title: 'Novedades y hallazgos',
-      copy: 'Un bloque más liviano para descubrir productos nuevos y cosas en tendencia.',
+      copy: 'Un bloque mas liviano para descubrir productos nuevos y cosas en tendencia.',
       link_label: 'Ver todo',
     },
     catalogCta: {
-      tag: 'Catálogo completo',
-      title: 'Descubre todo el catálogo Bloomskin',
-      copy: 'Entra a una vista dedicada con categorías, marcas, precios, stock, promociones y orden.',
-      button_label: 'Abrir catálogo',
+      tag: 'Catalogo completo',
+      title: 'Descubre todo el catalogo Bloomskin',
+      copy: 'Entra a una vista dedicada con categorias, marcas, precios, stock, promociones y orden.',
+      button_label: 'Abrir catalogo',
     },
     newsletter: {
-      tag: 'Únete a la comunidad',
+      tag: 'Unete a la comunidad',
       title: 'Skincare tips y',
       emphasis: 'ofertas exclusivas',
-      copy: 'Suscríbete y recibe novedades y lanzamientos de Bloomskin',
+      copy: 'Suscribete y recibe novedades y lanzamientos de Bloomskin',
       placeholder: 'tu@email.com',
       button_label: 'Suscribirme',
     },
   },
   footer: {
-    brand_sub: 'K-Beauty · Chile',
+    brand_sub: 'K-Beauty - Chile',
     copy: 'Skincare coreano curado para Chile, con productos originales, ayuda real y compra simple.',
     instagram_url: 'https://www.instagram.com/bloomskin__cl',
     whatsapp_url: 'https://wa.me/569948418523',
     email: 'bloomskincl1@gmail.com',
     instagram_handle: '@bloomskin__cl',
     whatsapp_label: '+56 9 9484 1853',
-    bottom_left: '© 2026 Bloomskin · Antofagasta, Chile',
+    bottom_left: '(c) 2026 Bloomskin - Antofagasta, Chile',
     bottom_right: 'Originales de Corea del Sur',
   },
   payment: {
@@ -108,6 +108,38 @@ const defaultSettings = {
     transfer_email: '',
     instructions: 'Transfiere el total del pedido y luego sube tu comprobante para validarlo en admin.',
   },
+  seo: {
+    site_name: 'Bloomskin',
+    title_suffix: 'Bloomskin - K-Beauty Chile',
+    default_title: 'Bloomskin - K-Beauty coreano en Chile',
+    default_description: 'Skincare coreano original en Chile. Compra serums, limpiadores, hidratantes y proteccion solar con envio a todo Chile.',
+    og_image: '/brand/bloomskin-logo.png',
+    favicon: '/brand/bloomskin-logo.png',
+    ga_measurement_id: '',
+  },
+  contact: {
+    heading: 'Hablemos de tu rutina',
+    intro: 'Si tienes dudas de compra, despacho o productos, puedes escribirnos y te ayudamos.',
+    whatsapp_cta_label: 'Hablar por WhatsApp',
+    email_cta_label: 'Escribir por correo',
+  },
+  legal: {
+    shipping_policy: {
+      title: 'Tiempos y condiciones de envio',
+      intro: 'Despachamos desde Antofagasta y coordinamos cada pedido segun destino y disponibilidad.',
+      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envio es gratis cuando corresponda segun configuracion vigente. Los tiempos pueden variar en dias de alta demanda.',
+    },
+    returns_policy: {
+      title: 'Cambios y devoluciones',
+      intro: 'Si tu pedido llega con algun problema, escribenos para revisarlo caso a caso.',
+      body: 'Aceptamos revisiones por productos dañados, errores de preparacion o incidencias de transporte. Para evaluar un caso necesitaremos numero de pedido, fotos y contacto dentro del plazo informado por Bloomskin.',
+    },
+    shipping_conditions: {
+      title: 'Condiciones de despacho',
+      intro: 'Estas condiciones resumen como operan nuestros envios dentro de Chile.',
+      body: 'La clienta debe ingresar datos correctos y completos para evitar retrasos. Si el courier no logra entregar por direccion incompleta o ausencia reiterada, el pedido puede requerir coordinacion adicional.',
+    },
+  },
 };
 
 function ensureSettingsFile() {
@@ -115,33 +147,6 @@ function ensureSettingsFile() {
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(settingsFile, JSON.stringify(defaultSettings, null, 2), 'utf8');
   }
-}
-
-function readSettings() {
-  ensureSettingsFile();
-  const raw = fs.readFileSync(settingsFile, 'utf8');
-  const parsed = JSON.parse(raw);
-  return sanitizeSiteSettings({
-    ...defaultSettings,
-    ...parsed,
-    home: {
-      ...defaultSettings.home,
-      ...(parsed.home || {}),
-    },
-    footer: {
-      ...defaultSettings.footer,
-      ...(parsed.footer || {}),
-    },
-    payment: {
-      ...defaultSettings.payment,
-      ...(parsed.payment || {}),
-    },
-  });
-}
-
-function writeSettings(nextSettings) {
-  ensureSettingsFile();
-  fs.writeFileSync(settingsFile, JSON.stringify(sanitizeSiteSettings(nextSettings), null, 2), 'utf8');
 }
 
 function sanitizeString(value, fallback = '') {
@@ -256,12 +261,73 @@ function sanitizePaymentSettings(payment = {}) {
   };
 }
 
+function sanitizeSeoSettings(seo = {}) {
+  return {
+    site_name: sanitizeString(seo.site_name, defaultSettings.seo.site_name),
+    title_suffix: sanitizeString(seo.title_suffix, defaultSettings.seo.title_suffix),
+    default_title: sanitizeString(seo.default_title, defaultSettings.seo.default_title),
+    default_description: sanitizeString(seo.default_description, defaultSettings.seo.default_description),
+    og_image: sanitizeString(seo.og_image, defaultSettings.seo.og_image),
+    favicon: sanitizeString(seo.favicon, defaultSettings.seo.favicon),
+    ga_measurement_id: sanitizeString(seo.ga_measurement_id, defaultSettings.seo.ga_measurement_id),
+  };
+}
+
+function sanitizeContactSettings(contact = {}) {
+  return {
+    heading: sanitizeString(contact.heading, defaultSettings.contact.heading),
+    intro: sanitizeString(contact.intro, defaultSettings.contact.intro),
+    whatsapp_cta_label: sanitizeString(contact.whatsapp_cta_label, defaultSettings.contact.whatsapp_cta_label),
+    email_cta_label: sanitizeString(contact.email_cta_label, defaultSettings.contact.email_cta_label),
+  };
+}
+
+function sanitizeLegalPage(page = {}, fallback) {
+  return {
+    title: sanitizeString(page.title, fallback.title),
+    intro: sanitizeString(page.intro, fallback.intro),
+    body: sanitizeString(page.body, fallback.body),
+  };
+}
+
+function sanitizeLegalSettings(legal = {}) {
+  return {
+    shipping_policy: sanitizeLegalPage(legal.shipping_policy, defaultSettings.legal.shipping_policy),
+    returns_policy: sanitizeLegalPage(legal.returns_policy, defaultSettings.legal.returns_policy),
+    shipping_conditions: sanitizeLegalPage(legal.shipping_conditions, defaultSettings.legal.shipping_conditions),
+  };
+}
+
 function sanitizeSiteSettings(site = {}) {
   return {
     home: sanitizeHomeSettings(site.home),
     footer: sanitizeFooterSettings(site.footer),
     payment: sanitizePaymentSettings(site.payment),
+    seo: sanitizeSeoSettings(site.seo),
+    contact: sanitizeContactSettings(site.contact),
+    legal: sanitizeLegalSettings(site.legal),
   };
+}
+
+function readSettings() {
+  ensureSettingsFile();
+  const raw = fs.readFileSync(settingsFile, 'utf8');
+  const parsed = JSON.parse(raw);
+  return sanitizeSiteSettings({
+    ...defaultSettings,
+    ...parsed,
+    home: { ...defaultSettings.home, ...(parsed.home || {}) },
+    footer: { ...defaultSettings.footer, ...(parsed.footer || {}) },
+    payment: { ...defaultSettings.payment, ...(parsed.payment || {}) },
+    seo: { ...defaultSettings.seo, ...(parsed.seo || {}) },
+    contact: { ...defaultSettings.contact, ...(parsed.contact || {}) },
+    legal: { ...defaultSettings.legal, ...(parsed.legal || {}) },
+  });
+}
+
+function writeSettings(nextSettings) {
+  ensureSettingsFile();
+  fs.writeFileSync(settingsFile, JSON.stringify(sanitizeSiteSettings(nextSettings), null, 2), 'utf8');
 }
 
 module.exports = {

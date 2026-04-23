@@ -53,6 +53,8 @@ export const adminAuthApi = {
 export const clientAuthApi = {
   register: (payload) => publicApi.post('/auth/client/register', payload),
   login: (email, password) => publicApi.post('/auth/client/login', { email, password }),
+  requestPasswordReset: email => publicApi.post('/auth/client/request-password-reset', { email }),
+  resetPassword: payload => publicApi.post('/auth/client/reset-password', payload),
   me: () => clientApi.get('/auth/client/me'),
 }
 

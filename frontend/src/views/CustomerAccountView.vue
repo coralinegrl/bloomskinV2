@@ -34,6 +34,7 @@
           <label>
             <span>Nombre completo</span>
             <input v-model.trim="profileForm.nombre" type="text" :disabled="saving" />
+            <small v-if="fieldErrors.nombre" class="field-error">{{ fieldErrors.nombre }}</small>
           </label>
           <label>
             <span>Email</span>
@@ -41,23 +42,39 @@
           </label>
           <label>
             <span>RUT</span>
-            <input v-model.trim="profileForm.rut" type="text" :disabled="saving" />
+            <input :value="profileForm.rut" type="text" :disabled="saving" @input="profileForm.rut = formatRutInput($event.target.value)" />
+            <small v-if="fieldErrors.rut" class="field-error">{{ fieldErrors.rut }}</small>
           </label>
           <label>
             <span>Telefono</span>
-            <input v-model.trim="profileForm.telefono" type="text" :disabled="saving" />
+            <input :value="profileForm.telefono" type="text" :disabled="saving" @input="profileForm.telefono = formatPhoneInput($event.target.value)" />
+            <small v-if="fieldErrors.telefono" class="field-error">{{ fieldErrors.telefono }}</small>
+          </label>
+          <label>
+            <span>Calle</span>
+            <input v-model.trim="profileForm.street" type="text" :disabled="saving" />
+            <small v-if="fieldErrors.direccion" class="field-error">{{ fieldErrors.direccion }}</small>
+          </label>
+          <label>
+            <span>Numero</span>
+            <input v-model.trim="profileForm.number" type="text" :disabled="saving" />
+          </label>
+          <label>
+            <span>Depto / Oficina</span>
+            <input v-model.trim="profileForm.apartment" type="text" :disabled="saving" />
+          </label>
+          <label>
+            <span>Comuna / Ciudad</span>
+            <input v-model.trim="profileForm.city" type="text" :disabled="saving" />
+            <small v-if="fieldErrors.ciudad" class="field-error">{{ fieldErrors.ciudad }}</small>
           </label>
           <label class="full-span">
-            <span>Direccion</span>
-            <input v-model.trim="profileForm.direccion" type="text" :disabled="saving" />
-          </label>
-          <label>
-            <span>Ciudad</span>
-            <input v-model.trim="profileForm.ciudad" type="text" :disabled="saving" />
-          </label>
-          <label>
             <span>Region</span>
-            <input v-model.trim="profileForm.region" type="text" :disabled="saving" />
+            <select v-model="profileForm.region" :disabled="saving">
+              <option value="">Selecciona una region</option>
+              <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
+            </select>
+            <small v-if="fieldErrors.region" class="field-error">{{ fieldErrors.region }}</small>
           </label>
           <label class="full-span">
             <span>Tipo de piel</span>
@@ -200,7 +217,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { pedidosApi, resolveAssetUrl } from '../api/index.js'
 import ProductCard from '../components/store/ProductCard.vue'
@@ -209,6 +226,7 @@ import { useCustomerAuthStore } from '../stores/customerAuth.js'
 import { useUiStore } from '../stores/ui.js'
 import { useWishlistStore } from '../stores/wishlist.js'
 import { validateCustomerProfile } from '../utils/validation.js'
+import { buildApiCustomerPayload, buildProfileForm, CHILE_REGIONS, formatPhoneInput, formatRutInput } from '../utils/customerFields.js'
 
 const router = useRouter()
 const customerAuth = useCustomerAuthStore()
@@ -218,14 +236,14 @@ const wishlist = useWishlistStore()
 const saving = ref(false)
 const ordersLoading = ref(false)
 const orders = ref([])
-const profileForm = reactive({
-  nombre: customerAuth.user?.nombre || '',
-  rut: customerAuth.user?.rut || '',
-  telefono: customerAuth.user?.telefono || '',
-  direccion: customerAuth.user?.direccion || '',
-  ciudad: customerAuth.user?.ciudad || '',
-  region: customerAuth.user?.region || '',
-  tipo_piel: customerAuth.user?.tipo_piel || '',
+const profileForm = reactive(buildProfileForm(customerAuth.user))
+const fieldErrors = reactive({
+  nombre: '',
+  rut: '',
+  telefono: '',
+  direccion: '',
+  ciudad: '',
+  region: '',
 })
 
 const timelineLabels = {
@@ -242,6 +260,14 @@ const latestOrderLabel = computed(() => latestOrder.value ? formatDate(latestOrd
 const latestOrderAmount = computed(() => latestOrder.value ? formatCurrency(latestOrder.value.total_clp) : 'Haz tu primera compra')
 
 void Promise.all([loadOrders(), loadWishlist()])
+
+watch(
+  () => customerAuth.user,
+  user => {
+    Object.assign(profileForm, buildProfileForm(user))
+  },
+  { immediate: true }
+)
 
 async function loadOrders() {
   ordersLoading.value = true
@@ -263,24 +289,30 @@ async function loadWishlist() {
 async function saveProfile() {
   saving.value = true
   try {
-    const validation = validateCustomerProfile({
+    fieldErrors.nombre = ''
+    fieldErrors.rut = ''
+    fieldErrors.telefono = ''
+    fieldErrors.direccion = ''
+    fieldErrors.ciudad = ''
+    fieldErrors.region = ''
+
+    const payload = buildApiCustomerPayload({
       ...profileForm,
       email: customerAuth.user?.email || '',
-    }, { requirePassword: false })
+    })
+    const validation = validateCustomerProfile(payload, { requirePassword: false })
     if (validation.errors.length) {
+      fieldErrors.nombre = validation.errors.find(msg => msg.startsWith('Nombre')) || ''
+      fieldErrors.rut = validation.errors.find(msg => msg.startsWith('RUT')) || ''
+      fieldErrors.telefono = validation.errors.find(msg => msg.startsWith('Telefono')) || ''
+      fieldErrors.direccion = validation.errors.find(msg => msg.startsWith('Direccion')) || ''
+      fieldErrors.ciudad = validation.errors.find(msg => msg.startsWith('Ciudad')) || ''
+      fieldErrors.region = validation.errors.find(msg => msg.startsWith('Region')) || ''
       ui.error(validation.errors[0])
       return
     }
 
-    const ok = await customerAuth.updateProfile({
-      nombre: validation.normalized.nombre,
-      rut: validation.normalized.rut,
-      telefono: validation.normalized.telefono,
-      direccion: validation.normalized.direccion,
-      ciudad: validation.normalized.ciudad,
-      region: validation.normalized.region,
-      tipo_piel: validation.normalized.tipo_piel,
-    })
+    const ok = await customerAuth.updateProfile(validation.normalized)
     if (!ok) {
       ui.error(customerAuth.error || 'No pudimos guardar tus datos.')
       return
@@ -491,7 +523,8 @@ function absoluteAssetUrl(path) {
   color: var(--dark-mid);
 }
 
-.form-grid input {
+.form-grid input,
+.form-grid select {
   width: 100%;
   border: 1px solid #edd8df;
   background: #fff;
@@ -499,6 +532,11 @@ function absoluteAssetUrl(path) {
   border-radius: 12px;
   padding: 12px 14px;
   font-size: 13px;
+}
+
+.field-error {
+  color: #b54768;
+  font-size: 12px;
 }
 
 .full-span { grid-column: 1 / -1; }

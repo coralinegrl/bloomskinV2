@@ -7,7 +7,7 @@
             <div class="drawer-eyebrow">{{ currentStepLabel }}</div>
             <div class="drawer-title">{{ currentTitle }}</div>
           </div>
-          <button class="drawer-close" type="button" @click="closeDrawer">×</button>
+          <button class="drawer-close" type="button" @click="closeDrawer">x</button>
         </div>
 
         <div v-if="cart.items.length > 0" class="drawer-steps">
@@ -72,6 +72,7 @@
                 <strong>{{ cart.total >= 49990 ? 'Ya tienes envio gratis.' : `Te faltan ${fmt(49990 - cart.total)} para envio gratis.` }}</strong>
                 <span>Antofagasta se calcula por distancia. Fuera de Antofagasta usamos Blue Express.</span>
               </div>
+              <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Hablar por WhatsApp</a>
               <button class="primary-btn" type="button" @click="openCheckoutStep">Continuar compra</button>
               <button class="ghost-btn" type="button" @click="closeDrawer">Seguir comprando</button>
             </div>
@@ -120,18 +121,49 @@
                 </div>
 
                 <div class="form-grid">
-                  <input v-model.trim="shippingForm.region" type="text" placeholder="Region" :disabled="submitting || shippingLoading" />
-                  <input v-model.trim="shippingForm.ciudad" type="text" placeholder="Ciudad" :disabled="submitting || shippingLoading" />
-                  <input v-model.trim="shippingForm.direccion" type="text" placeholder="Direccion completa" :disabled="submitting || shippingLoading" />
-                  <input v-model.trim="shippingForm.referencia" type="text" placeholder="Referencia (opcional)" :disabled="submitting || shippingLoading" />
+                  <label class="field-block">
+                    <span>Region</span>
+                    <select v-model="shippingForm.region" :disabled="submitting || shippingLoading">
+                      <option value="">Selecciona una region</option>
+                      <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
+                    </select>
+                    <small v-if="shippingErrors.region" class="field-error">{{ shippingErrors.region }}</small>
+                  </label>
+
+                  <label class="field-block">
+                    <span>Comuna / Ciudad</span>
+                    <input v-model.trim="shippingForm.city" type="text" placeholder="Antofagasta" :disabled="submitting || shippingLoading" />
+                    <small v-if="shippingErrors.city" class="field-error">{{ shippingErrors.city }}</small>
+                  </label>
+
+                  <label class="field-block">
+                    <span>Calle</span>
+                    <input v-model.trim="shippingForm.street" type="text" placeholder="Av. Grecia" :disabled="submitting || shippingLoading" />
+                    <small v-if="shippingErrors.direccion" class="field-error">{{ shippingErrors.direccion }}</small>
+                  </label>
+
+                  <label class="field-block">
+                    <span>Numero</span>
+                    <input v-model.trim="shippingForm.number" type="text" placeholder="860" :disabled="submitting || shippingLoading" />
+                  </label>
+
+                  <label class="field-block">
+                    <span>Depto / Oficina</span>
+                    <input v-model.trim="shippingForm.apartment" type="text" placeholder="Depto 402" :disabled="submitting || shippingLoading" />
+                  </label>
+
+                  <label class="field-block">
+                    <span>Referencia</span>
+                    <input v-model.trim="shippingForm.reference" type="text" placeholder="Casa verde, porton negro" :disabled="submitting || shippingLoading" />
+                  </label>
                 </div>
 
                 <p class="panel-copy">
                   Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express por {{ fmt(3990) }}. Sobre {{ fmt(49990) }} el envio es gratis.
                 </p>
                 <p v-if="shippingQuote" class="panel-ok">
-                  {{ shippingQuote.provider }} · {{ shippingQuote.tier_label }}
-                  <span v-if="shippingQuote.distance_km !== null"> · {{ shippingQuote.distance_km }} km</span>
+                  {{ shippingQuote.provider }} - {{ shippingQuote.tier_label }}
+                  <span v-if="shippingQuote.distance_km !== null"> - {{ shippingQuote.distance_km }} km</span>
                 </p>
                 <p v-if="shippingError" class="panel-error">{{ shippingError }}</p>
               </div>
@@ -139,14 +171,64 @@
               <div class="checkout-panel">
                 <strong>Datos de contacto y facturacion</strong>
                 <div class="form-grid">
-                  <input v-model.trim="profileForm.nombre" type="text" placeholder="Nombre completo" :disabled="submitting" />
-                  <input :value="customerAuth.user?.email || ''" type="email" disabled />
-                  <input v-model.trim="profileForm.rut" type="text" placeholder="RUT" :disabled="submitting" />
-                  <input v-model.trim="profileForm.telefono" type="text" placeholder="Telefono" :disabled="submitting" />
-                  <input v-model.trim="profileForm.direccion" type="text" placeholder="Direccion base" :disabled="submitting" />
-                  <input v-model.trim="profileForm.ciudad" type="text" placeholder="Ciudad base" :disabled="submitting" />
-                  <input v-model.trim="profileForm.region" type="text" placeholder="Region base" :disabled="submitting" />
-                  <textarea v-model.trim="checkoutNotas" rows="3" placeholder="Notas del pedido (opcional)" :disabled="submitting"></textarea>
+                  <label class="field-block">
+                    <span>Nombre completo</span>
+                    <input v-model.trim="profileForm.nombre" type="text" placeholder="Nombre completo" :disabled="submitting" />
+                    <small v-if="profileErrors.nombre" class="field-error">{{ profileErrors.nombre }}</small>
+                  </label>
+
+                  <label class="field-block">
+                    <span>Email</span>
+                    <input :value="customerAuth.user?.email || ''" type="email" disabled />
+                  </label>
+
+                  <label class="field-block">
+                    <span>RUT</span>
+                    <input :value="profileForm.rut" type="text" placeholder="12.345.678-5" :disabled="submitting" @input="profileForm.rut = formatRutInput($event.target.value)" />
+                    <small v-if="profileErrors.rut" class="field-error">{{ profileErrors.rut }}</small>
+                  </label>
+
+                  <label class="field-block">
+                    <span>Telefono</span>
+                    <input :value="profileForm.telefono" type="text" placeholder="+56 9 1234 5678" :disabled="submitting" @input="profileForm.telefono = formatPhoneInput($event.target.value)" />
+                    <small v-if="profileErrors.telefono" class="field-error">{{ profileErrors.telefono }}</small>
+                  </label>
+
+                  <label class="field-block">
+                    <span>Calle</span>
+                    <input v-model.trim="profileForm.street" type="text" placeholder="Av. Grecia" :disabled="submitting" />
+                    <small v-if="profileErrors.direccion" class="field-error">{{ profileErrors.direccion }}</small>
+                  </label>
+
+                  <label class="field-block">
+                    <span>Numero</span>
+                    <input v-model.trim="profileForm.number" type="text" placeholder="860" :disabled="submitting" />
+                  </label>
+
+                  <label class="field-block">
+                    <span>Depto / Oficina</span>
+                    <input v-model.trim="profileForm.apartment" type="text" placeholder="Depto 402" :disabled="submitting" />
+                  </label>
+
+                  <label class="field-block">
+                    <span>Comuna / Ciudad</span>
+                    <input v-model.trim="profileForm.city" type="text" placeholder="Antofagasta" :disabled="submitting" />
+                    <small v-if="profileErrors.ciudad" class="field-error">{{ profileErrors.ciudad }}</small>
+                  </label>
+
+                  <label class="field-block full-span">
+                    <span>Region</span>
+                    <select v-model="profileForm.region" :disabled="submitting">
+                      <option value="">Selecciona una region</option>
+                      <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
+                    </select>
+                    <small v-if="profileErrors.region" class="field-error">{{ profileErrors.region }}</small>
+                  </label>
+
+                  <label class="field-block full-span">
+                    <span>Notas del pedido</span>
+                    <textarea v-model.trim="checkoutNotas" rows="3" placeholder="Notas del pedido (opcional)" :disabled="submitting"></textarea>
+                  </label>
                 </div>
               </div>
 
@@ -154,6 +236,7 @@
                 <strong>Pago por transferencia</strong>
                 <p class="panel-copy">Creas el pedido, transfieres el total exacto y luego subes tu comprobante.</p>
                 <p v-if="checkoutError" class="panel-error">{{ checkoutError }}</p>
+                <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Ayuda por WhatsApp</a>
                 <button class="primary-btn" type="button" :disabled="submitting || shippingLoading || !shippingQuote" @click="handleCheckout">
                   {{ submitting ? 'Creando pedido...' : 'Crear pedido por transferencia' }}
                 </button>
@@ -164,6 +247,7 @@
               <div class="checkout-panel success-panel">
                 <strong>Pedido {{ checkoutOk.codigo }} creado</strong>
                 <p>Transfiere {{ fmt(checkoutOk.total_clp) }} y luego sube tu comprobante.</p>
+                <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Enviar dudas por WhatsApp</a>
               </div>
 
               <div class="checkout-panel">
@@ -202,11 +286,19 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { pedidosApi } from '../../api/index.js'
+import { pedidosApi, settingsApi } from '../../api/index.js'
 import { useCartStore } from '../../stores/cart.js'
 import { useCustomerAuthStore } from '../../stores/customerAuth.js'
 import { useUiStore } from '../../stores/ui.js'
 import { validateCustomerProfile, validateShippingAddress } from '../../utils/validation.js'
+import {
+  buildApiCustomerPayload,
+  buildProfileForm,
+  buildShippingPayload,
+  CHILE_REGIONS,
+  formatPhoneInput,
+  formatRutInput,
+} from '../../utils/customerFields.js'
 
 const cart = useCartStore()
 const customerAuth = useCustomerAuthStore()
@@ -223,10 +315,20 @@ const paymentConfig = ref(null)
 const shippingQuote = ref(null)
 const proofFile = ref(null)
 const proofUploadedUrl = ref('')
+const whatsappUrl = ref('https://wa.me/569948418523')
 let shippingDebounce = null
 
-const profileForm = reactive({ nombre: '', rut: '', telefono: '', direccion: '', ciudad: '', region: '', tipo_piel: '' })
-const shippingForm = reactive({ region: '', ciudad: '', direccion: '', referencia: '' })
+const profileForm = reactive(buildProfileForm(customerAuth.user))
+const shippingForm = reactive({
+  street: '',
+  number: '',
+  apartment: '',
+  city: '',
+  region: '',
+  reference: '',
+})
+const profileErrors = reactive({ nombre: '', rut: '', telefono: '', direccion: '', ciudad: '', region: '' })
+const shippingErrors = reactive({ direccion: '', city: '', region: '' })
 
 const currentStepLabel = computed(() => (cart.view === 'checkout' ? 'Checkout Bloomskin' : 'Tu seleccion'))
 const currentTitle = computed(() => (cart.view === 'checkout' ? 'Carrito y envio' : `Tu carrito (${cart.count})`))
@@ -241,43 +343,48 @@ const shippingValueLabel = computed(() => {
   return fmt(shippingQuote.value.fee_clp)
 })
 
+function resetProfileErrors() {
+  Object.keys(profileErrors).forEach(key => { profileErrors[key] = '' })
+}
+
+function resetShippingErrors() {
+  Object.keys(shippingErrors).forEach(key => { shippingErrors[key] = '' })
+}
+
 watch(
   () => customerAuth.user,
   user => {
-    if (!user) return
-    profileForm.nombre = user.nombre || ''
-    profileForm.rut = user.rut || ''
-    profileForm.telefono = user.telefono || ''
-    profileForm.direccion = user.direccion || ''
-    profileForm.ciudad = user.ciudad || ''
-    profileForm.region = user.region || ''
-    profileForm.tipo_piel = user.tipo_piel || ''
-    if (!shippingForm.region) shippingForm.region = user.region || ''
-    if (!shippingForm.ciudad) shippingForm.ciudad = user.ciudad || ''
-    if (!shippingForm.direccion) shippingForm.direccion = user.direccion || ''
+    Object.assign(profileForm, buildProfileForm(user))
+    if (!shippingForm.region) shippingForm.region = user?.region || ''
+    if (!shippingForm.city) shippingForm.city = user?.ciudad || ''
+    if (!shippingForm.street) shippingForm.street = buildProfileForm(user).street
+    if (!shippingForm.number) shippingForm.number = buildProfileForm(user).number
+    if (!shippingForm.apartment) shippingForm.apartment = buildProfileForm(user).apartment
   },
   { immediate: true }
 )
 
 watch(
-  () => [profileForm.region, profileForm.ciudad, profileForm.direccion],
-  ([region, city, address]) => {
+  () => [profileForm.region, profileForm.city, profileForm.street, profileForm.number, profileForm.apartment],
+  ([region, city, street, number, apartment]) => {
     if (customerAuth.isAuthenticated) {
       shippingForm.region = region || ''
-      shippingForm.ciudad = city || ''
-      shippingForm.direccion = address || ''
+      shippingForm.city = city || ''
+      shippingForm.street = street || ''
+      shippingForm.number = number || ''
+      shippingForm.apartment = apartment || ''
     }
   }
 )
 
 watch(
-  () => [shippingForm.region, shippingForm.ciudad, shippingForm.direccion],
+  () => [shippingForm.region, shippingForm.city, shippingForm.street, shippingForm.number, shippingForm.apartment],
   () => {
     shippingQuote.value = null
     shippingError.value = ''
     if (checkoutOk.value || cart.view !== 'checkout') return
     clearTimeout(shippingDebounce)
-    if (!shippingForm.region || !shippingForm.ciudad || !shippingForm.direccion || !customerAuth.isAuthenticated) return
+    if (!customerAuth.isAuthenticated) return
     shippingDebounce = setTimeout(() => {
       calculateShipping()
     }, 600)
@@ -292,20 +399,30 @@ watch(
     proofUploadedUrl.value = ''
     proofFile.value = null
     if (cart.view !== 'checkout') cart.view = 'cart'
+
     if (customerAuth.isAuthenticated) {
-      shippingForm.region = profileForm.region || customerAuth.user?.region || ''
-      shippingForm.ciudad = profileForm.ciudad || customerAuth.user?.ciudad || ''
-      shippingForm.direccion = profileForm.direccion || customerAuth.user?.direccion || ''
+      Object.assign(profileForm, buildProfileForm(customerAuth.user))
+      shippingForm.region = profileForm.region || ''
+      shippingForm.city = profileForm.city || ''
+      shippingForm.street = profileForm.street || ''
+      shippingForm.number = profileForm.number || ''
+      shippingForm.apartment = profileForm.apartment || ''
     } else {
       shippingForm.region = ''
-      shippingForm.ciudad = ''
-      shippingForm.direccion = ''
+      shippingForm.city = ''
+      shippingForm.street = ''
+      shippingForm.number = ''
+      shippingForm.apartment = ''
     }
 
     if (!paymentConfig.value) {
       try {
-        const { data } = await pedidosApi.paymentConfig()
+        const [{ data }, { data: siteData }] = await Promise.all([
+          pedidosApi.paymentConfig(),
+          settingsApi.site(),
+        ])
         paymentConfig.value = data
+        if (siteData?.footer?.whatsapp_url) whatsappUrl.value = siteData.footer.whatsapp_url
       } catch (error) {
         console.error(error)
       }
@@ -333,8 +450,13 @@ function openCheckoutStep() {
 async function calculateShipping() {
   if (!customerAuth.isAuthenticated || checkoutOk.value) return
 
-  const shippingValidation = validateShippingAddress(shippingForm)
+  resetShippingErrors()
+  const shippingPayload = buildShippingPayload(shippingForm)
+  const shippingValidation = validateShippingAddress(shippingPayload)
   if (shippingValidation.errors.length) {
+    shippingErrors.region = shippingValidation.errors.find(msg => msg.startsWith('Region')) || ''
+    shippingErrors.city = shippingValidation.errors.find(msg => msg.startsWith('Ciudad')) || ''
+    shippingErrors.direccion = shippingValidation.errors.find(msg => msg.startsWith('Direccion')) || ''
     shippingError.value = shippingValidation.errors[0]
     return
   }
@@ -364,17 +486,31 @@ async function handleCheckout() {
   submitting.value = true
 
   try {
-    const profileValidation = validateCustomerProfile({
+    resetProfileErrors()
+    resetShippingErrors()
+
+    const profilePayload = buildApiCustomerPayload({
       ...profileForm,
       email: customerAuth.user?.email || '',
-    }, { requirePassword: false })
+    })
+    const profileValidation = validateCustomerProfile(profilePayload, { requirePassword: false })
     if (profileValidation.errors.length) {
+      profileErrors.nombre = profileValidation.errors.find(msg => msg.startsWith('Nombre')) || ''
+      profileErrors.rut = profileValidation.errors.find(msg => msg.startsWith('RUT')) || ''
+      profileErrors.telefono = profileValidation.errors.find(msg => msg.startsWith('Telefono')) || ''
+      profileErrors.direccion = profileValidation.errors.find(msg => msg.startsWith('Direccion')) || ''
+      profileErrors.ciudad = profileValidation.errors.find(msg => msg.startsWith('Ciudad')) || ''
+      profileErrors.region = profileValidation.errors.find(msg => msg.startsWith('Region')) || ''
       checkoutError.value = profileValidation.errors[0]
       return
     }
 
-    const shippingValidation = validateShippingAddress(shippingForm)
+    const shippingPayload = buildShippingPayload(shippingForm)
+    const shippingValidation = validateShippingAddress(shippingPayload)
     if (shippingValidation.errors.length) {
+      shippingErrors.region = shippingValidation.errors.find(msg => msg.startsWith('Region')) || ''
+      shippingErrors.city = shippingValidation.errors.find(msg => msg.startsWith('Ciudad')) || ''
+      shippingErrors.direccion = shippingValidation.errors.find(msg => msg.startsWith('Direccion')) || ''
       checkoutError.value = shippingValidation.errors[0]
       return
     }
@@ -384,26 +520,14 @@ async function handleCheckout() {
       return
     }
 
-    const profileUpdated = await customerAuth.updateProfile({
-      nombre: profileValidation.normalized.nombre,
-      rut: profileValidation.normalized.rut,
-      telefono: profileValidation.normalized.telefono,
-      direccion: profileValidation.normalized.direccion,
-      ciudad: profileValidation.normalized.ciudad,
-      region: profileValidation.normalized.region,
-      tipo_piel: profileValidation.normalized.tipo_piel,
-    })
-
+    const profileUpdated = await customerAuth.updateProfile(profileValidation.normalized)
     if (!profileUpdated) {
       checkoutError.value = customerAuth.error || 'No se pudo actualizar tu perfil antes de comprar.'
       return
     }
 
     const { data: pedido } = await pedidosApi.crearCliente({
-      items: cart.items.map(item => ({
-        producto_id: item.id,
-        cantidad: item.cantidad,
-      })),
+      items: cart.items.map(item => ({ producto_id: item.id, cantidad: item.cantidad })),
       notas: checkoutNotas.value || null,
       metodo_pago: 'bank_transfer',
       region_envio: shippingValidation.normalized.region,
@@ -480,7 +604,7 @@ async function copyAllTransferData() {
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(42,24,32,.38);
+  background: rgba(42, 24, 32, 0.38);
   z-index: 300;
   display: flex;
   justify-content: flex-end;
@@ -488,12 +612,12 @@ async function copyAllTransferData() {
 
 .drawer {
   width: 100%;
-  max-width: 460px;
+  max-width: 500px;
   height: 100%;
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, #fffefe, #fff6f8);
-  box-shadow: -12px 0 36px rgba(98,45,64,.12);
+  box-shadow: -12px 0 36px rgba(98, 45, 64, 0.12);
 }
 
 .drawer-header {
@@ -507,7 +631,7 @@ async function copyAllTransferData() {
 
 .drawer-eyebrow {
   font-size: 10px;
-  letter-spacing: .2em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--rose);
   font-weight: 600;
@@ -525,7 +649,7 @@ async function copyAllTransferData() {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .drawer-steps {
@@ -541,7 +665,7 @@ async function copyAllTransferData() {
   background: #fff;
   color: var(--text-muted);
   font-size: 11px;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -552,7 +676,7 @@ async function copyAllTransferData() {
 }
 
 .step-chip.locked {
-  opacity: .85;
+  opacity: 0.85;
 }
 
 .drawer-body {
@@ -585,8 +709,8 @@ async function copyAllTransferData() {
   gap: 14px;
   padding: 16px;
   border-radius: 22px;
-  background: rgba(255,255,255,.86);
-  border: 1px solid rgba(191,84,122,.08);
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(191, 84, 122, 0.08);
 }
 
 .cart-item-img {
@@ -604,7 +728,7 @@ async function copyAllTransferData() {
 
 .cart-item-brand {
   font-size: 10px;
-  letter-spacing: .12em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--rose);
   font-weight: 600;
@@ -663,7 +787,7 @@ async function copyAllTransferData() {
 .summary-card,
 .checkout-panel {
   border: 1px solid #ead7dd;
-  background: rgba(255,255,255,.88);
+  background: rgba(255, 255, 255, 0.88);
   border-radius: 24px;
   padding: 18px;
   display: grid;
@@ -687,7 +811,9 @@ async function copyAllTransferData() {
   color: var(--rose-dark);
 }
 
-.summary-save { color: #54936c; }
+.summary-save {
+  color: #54936c;
+}
 
 .summary-banner {
   display: grid;
@@ -704,7 +830,7 @@ async function copyAllTransferData() {
   border-radius: 999px;
   padding: 14px 16px;
   font-size: 12px;
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -718,6 +844,10 @@ async function copyAllTransferData() {
   border: 1px solid #ead7dd;
   background: #fff;
   color: var(--dark-mid);
+}
+
+.whatsapp-btn {
+  text-align: center;
 }
 
 .panel-head {
@@ -738,7 +868,8 @@ async function copyAllTransferData() {
   font-size: 12px;
 }
 
-.panel-error {
+.panel-error,
+.field-error {
   color: #b54768;
   font-size: 12px;
 }
@@ -746,10 +877,26 @@ async function copyAllTransferData() {
 .form-grid {
   display: grid;
   gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.field-block {
+  display: grid;
+  gap: 6px;
+}
+
+.field-block span {
+  font-size: 12px;
+  color: var(--dark-mid);
+}
+
+.full-span {
+  grid-column: 1 / -1;
 }
 
 .form-grid input,
 .form-grid textarea,
+.form-grid select,
 .proof-input {
   width: 100%;
   border: 1px solid #ead7dd;
@@ -802,12 +949,12 @@ async function copyAllTransferData() {
 
 .drawer-enter-active,
 .drawer-leave-active {
-  transition: opacity .28s ease;
+  transition: opacity 0.28s ease;
 }
 
 .drawer-enter-active .drawer,
 .drawer-leave-active .drawer {
-  transition: transform .28s ease;
+  transition: transform 0.28s ease;
 }
 
 .drawer-enter-from,
@@ -818,5 +965,11 @@ async function copyAllTransferData() {
 .drawer-enter-from .drawer,
 .drawer-leave-to .drawer {
   transform: translateX(100%);
+}
+
+@media (max-width: 640px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

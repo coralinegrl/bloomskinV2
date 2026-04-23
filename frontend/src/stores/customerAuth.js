@@ -79,6 +79,34 @@ export const useCustomerAuthStore = defineStore('customer-auth', () => {
     }
   }
 
+  async function requestPasswordReset(email) {
+    loading.value = true
+    error.value = null
+    try {
+      await clientAuthApi.requestPasswordReset(email)
+      return true
+    } catch (err) {
+      error.value = err.response?.data?.error || 'No se pudo iniciar la recuperacion de contrasena'
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function resetPassword(payload) {
+    loading.value = true
+    error.value = null
+    try {
+      await clientAuthApi.resetPassword(payload)
+      return true
+    } catch (err) {
+      error.value = err.response?.data?.error || 'No se pudo restablecer la contrasena'
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
   function logout() {
     const wishlist = useWishlistStore()
     token.value = null
@@ -89,6 +117,6 @@ export const useCustomerAuthStore = defineStore('customer-auth', () => {
     wishlist.clear()
   }
 
-  return { token, user, loading, error, isAuthenticated, login, register, refreshProfile, updateProfile, logout }
+  return { token, user, loading, error, isAuthenticated, login, register, requestPasswordReset, resetPassword, refreshProfile, updateProfile, logout }
 })
 

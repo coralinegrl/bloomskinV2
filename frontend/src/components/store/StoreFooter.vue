@@ -29,16 +29,18 @@
 
         <div class="footer-col">
           <h4>Tienda</h4>
-          <RouterLink to="/catalogo">Catálogo</RouterLink>
+          <RouterLink to="/catalogo">Catalogo</RouterLink>
           <RouterLink to="/">Home</RouterLink>
           <button type="button" class="footer-btn" @click="$emit('category-select', 'Limpiadores')">Limpiadores</button>
+          <button type="button" class="footer-btn" @click="$emit('category-select', 'Serums')">Serums</button>
         </div>
 
         <div class="footer-col">
-          <h4>Categorías</h4>
-          <button type="button" class="footer-btn" @click="$emit('category-select', 'Serums')">Serums</button>
-          <button type="button" class="footer-btn" @click="$emit('category-select', 'Hidratantes')">Hidratantes</button>
-          <button type="button" class="footer-btn" @click="$emit('category-select', 'Protección Solar')">Protección Solar</button>
+          <h4>Informacion</h4>
+          <RouterLink to="/envios">Envios</RouterLink>
+          <RouterLink to="/cambios-y-devoluciones">Cambios y devoluciones</RouterLink>
+          <RouterLink to="/condiciones-de-envio">Condiciones de envio</RouterLink>
+          <RouterLink to="/contacto">Contacto</RouterLink>
         </div>
 
         <div class="footer-col">
@@ -65,14 +67,14 @@ import { settingsApi } from '../../api/index.js'
 defineEmits(['category-select'])
 
 const footer = ref({
-  brand_sub: 'K-Beauty · Chile',
+  brand_sub: 'K-Beauty - Chile',
   copy: 'Skincare coreano curado para Chile, con productos originales, ayuda real y compra simple.',
   instagram_url: 'https://www.instagram.com/bloomskin__cl',
   whatsapp_url: 'https://wa.me/569948418523',
   email: 'bloomskincl1@gmail.com',
   instagram_handle: '@bloomskin__cl',
   whatsapp_label: '+56 9 9484 1853',
-  bottom_left: '© 2026 Bloomskin · Antofagasta, Chile',
+  bottom_left: '(c) 2026 Bloomskin - Antofagasta, Chile',
   bottom_right: 'Originales de Corea del Sur',
 })
 
@@ -90,20 +92,22 @@ onMounted(async () => {
 .store-footer {
   margin-top: 40px;
   background:
-    radial-gradient(circle at top left, rgba(217,109,144,.08), transparent 20%),
+    radial-gradient(circle at top left, rgba(217, 109, 144, 0.08), transparent 20%),
     linear-gradient(180deg, #fff8fb, #f4e9ee);
-  border-top: 1px solid rgba(191,84,122,.12);
+  border-top: 1px solid rgba(191, 84, 122, 0.12);
   position: relative;
   left: 50%;
   transform: translateX(-50%);
   width: 100vw;
   max-width: 100vw;
 }
+
 .footer-shell {
   width: 100%;
   margin: 0 auto;
   padding: 18px 32px 10px;
 }
+
 .footer-main {
   max-width: 1280px;
   margin: 0 auto;
@@ -111,23 +115,27 @@ onMounted(async () => {
   grid-template-columns: 1.4fr 1fr 1fr 1fr;
   gap: 20px;
 }
+
 .footer-brand-lockup {
   display: flex;
   align-items: center;
   gap: 12px;
 }
+
 .footer-logo {
   width: 48px;
   height: 48px;
   object-fit: contain;
   border-radius: 14px;
 }
+
 .footer-brand-name {
   font-family: 'Cormorant Garamond', serif;
   font-size: 28px;
   line-height: .9;
   color: var(--rose-dark);
 }
+
 .footer-brand-sub {
   margin-top: 4px;
   font-size: 10px;
@@ -135,17 +143,20 @@ onMounted(async () => {
   text-transform: uppercase;
   color: var(--text-muted);
 }
+
 .footer-copy {
   margin-top: 10px;
   max-width: 360px;
   color: var(--dark-mid);
   line-height: 1.55;
 }
+
 .footer-socials {
   display: flex;
   gap: 12px;
   margin-top: 10px;
 }
+
 .social-link {
   width: 36px;
   height: 36px;
@@ -155,18 +166,21 @@ onMounted(async () => {
   justify-content: center;
   background: #fff;
   color: var(--rose-dark);
-  border: 1px solid rgba(191,84,122,.14);
-  box-shadow: 0 8px 18px rgba(191,84,122,.08);
+  border: 1px solid rgba(191, 84, 122, 0.14);
+  box-shadow: 0 8px 18px rgba(191, 84, 122, 0.08);
 }
+
 .social-link svg {
   width: 18px;
   height: 18px;
 }
+
 .footer-col {
   display: grid;
   align-content: start;
   gap: 8px;
 }
+
 .footer-col h4 {
   margin-bottom: 4px;
   font-size: 11px;
@@ -174,6 +188,7 @@ onMounted(async () => {
   text-transform: uppercase;
   color: var(--rose);
 }
+
 .footer-col a,
 .footer-btn {
   font-size: 13px;
@@ -182,26 +197,30 @@ onMounted(async () => {
   border: none;
   text-align: left;
 }
+
 .footer-bottom {
   max-width: 1280px;
   margin: 14px auto 0;
   padding-top: 10px;
-  border-top: 1px solid rgba(191,84,122,.1);
+  border-top: 1px solid rgba(191, 84, 122, 0.1);
   display: flex;
   justify-content: space-between;
   gap: 16px;
   color: var(--text-muted);
   font-size: 12px;
 }
+
 @media (max-width: 900px) {
   .footer-main {
     grid-template-columns: 1fr 1fr;
   }
 }
+
 @media (max-width: 640px) {
   .footer-shell {
     padding: 16px 20px 10px;
   }
+
   .footer-main,
   .footer-bottom {
     grid-template-columns: 1fr;

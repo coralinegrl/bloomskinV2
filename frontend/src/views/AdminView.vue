@@ -392,11 +392,12 @@
                     <th>Pedidos</th>
                     <th>Total comprado</th>
                     <th>Tipo de piel</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-if="filteredClientes.length === 0">
-                    <td colspan="10" class="empty-state table-empty">No hay clientes para ese filtro.</td>
+                    <td colspan="11" class="empty-state table-empty">No hay clientes para ese filtro.</td>
                   </tr>
                   <tr v-for="c in filteredClientes" :key="c.id">
                     <td class="td-bold">{{ c.nombre }}</td>
@@ -409,6 +410,9 @@
                     <td>{{ c.total_pedidos }}</td>
                     <td class="td-price">{{ fmt(c.total_comprado || 0) }}</td>
                     <td><span v-if="c.tipo_piel" class="skin-pill">{{ c.tipo_piel }}</span><span v-else class="muted">Sin dato</span></td>
+                    <td class="td-actions">
+                      <button class="btn-edit" @click="openClienteModal(c)">Editar</button>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -904,6 +908,111 @@
                   <textarea v-model="siteSettings.payment.instructions" rows="5"></textarea>
                 </div>
               </article>
+
+              <article class="ad-card home-tile-card">
+                <div class="ad-card-title">SEO y analytics</div>
+                <div class="form-group">
+                  <label>Nombre del sitio</label>
+                  <input v-model="siteSettings.seo.site_name" type="text">
+                </div>
+                <div class="form-group">
+                  <label>Titulo por defecto</label>
+                  <input v-model="siteSettings.seo.default_title" type="text">
+                </div>
+                <div class="form-group">
+                  <label>Descripcion por defecto</label>
+                  <textarea v-model="siteSettings.seo.default_description" rows="4"></textarea>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>OG image</label>
+                    <input v-model="siteSettings.seo.og_image" type="text">
+                  </div>
+                  <div class="form-group">
+                    <label>Favicon</label>
+                    <input v-model="siteSettings.seo.favicon" type="text">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Google Analytics ID</label>
+                  <input v-model="siteSettings.seo.ga_measurement_id" type="text" placeholder="G-XXXXXXXXXX">
+                </div>
+              </article>
+            </div>
+
+            <div class="home-settings-grid">
+              <article class="ad-card home-tile-card">
+                <div class="ad-card-title">Contacto y WhatsApp</div>
+                <div class="form-group">
+                  <label>Titulo contacto</label>
+                  <input v-model="siteSettings.contact.heading" type="text">
+                </div>
+                <div class="form-group">
+                  <label>Texto contacto</label>
+                  <textarea v-model="siteSettings.contact.intro" rows="4"></textarea>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>CTA WhatsApp</label>
+                    <input v-model="siteSettings.contact.whatsapp_cta_label" type="text">
+                  </div>
+                  <div class="form-group">
+                    <label>CTA correo</label>
+                    <input v-model="siteSettings.contact.email_cta_label" type="text">
+                  </div>
+                </div>
+              </article>
+
+              <article class="ad-card home-tile-card">
+                <div class="ad-card-title">Politicas visibles</div>
+                <div class="settings-subblock">
+                  <div class="detail-label">Envios</div>
+                  <div class="form-group">
+                    <label>Titulo</label>
+                    <input v-model="siteSettings.legal.shipping_policy.title" type="text">
+                  </div>
+                  <div class="form-group">
+                    <label>Intro</label>
+                    <textarea v-model="siteSettings.legal.shipping_policy.intro" rows="3"></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Cuerpo</label>
+                    <textarea v-model="siteSettings.legal.shipping_policy.body" rows="5"></textarea>
+                  </div>
+                </div>
+
+                <div class="settings-subblock">
+                  <div class="detail-label">Cambios y devoluciones</div>
+                  <div class="form-group">
+                    <label>Titulo</label>
+                    <input v-model="siteSettings.legal.returns_policy.title" type="text">
+                  </div>
+                  <div class="form-group">
+                    <label>Intro</label>
+                    <textarea v-model="siteSettings.legal.returns_policy.intro" rows="3"></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Cuerpo</label>
+                    <textarea v-model="siteSettings.legal.returns_policy.body" rows="5"></textarea>
+                  </div>
+                </div>
+
+                <div class="settings-subblock">
+                  <div class="detail-label">Condiciones de envio</div>
+                  <div class="form-group">
+                    <label>Titulo</label>
+                    <input v-model="siteSettings.legal.shipping_conditions.title" type="text">
+                  </div>
+                  <div class="form-group">
+                    <label>Intro</label>
+                    <textarea v-model="siteSettings.legal.shipping_conditions.intro" rows="3"></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Cuerpo</label>
+                    <textarea v-model="siteSettings.legal.shipping_conditions.body" rows="5"></textarea>
+                  </div>
+                </div>
+              </article>
             </div>
           </template>
         </template>
@@ -1019,6 +1128,86 @@
         </div>
       </div>
     </Transition>
+
+    <Transition name="modal">
+      <div v-if="showClienteModal" class="modal-overlay" @click.self="showClienteModal = false">
+        <div class="modal">
+          <h3 class="modal-title">Editar clienta</h3>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nombre completo</label>
+              <input v-model="clienteForm.nombre" type="text">
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input v-model="clienteForm.email" type="email">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>RUT</label>
+              <input :value="clienteForm.rut" type="text" @input="clienteForm.rut = formatRutInput($event.target.value)">
+            </div>
+            <div class="form-group">
+              <label>Telefono</label>
+              <input :value="clienteForm.telefono" type="text" @input="clienteForm.telefono = formatPhoneInput($event.target.value)">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Calle</label>
+              <input v-model="clienteForm.street" type="text">
+            </div>
+            <div class="form-group">
+              <label>Numero</label>
+              <input v-model="clienteForm.number" type="text">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Depto / Oficina</label>
+            <input v-model="clienteForm.apartment" type="text">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Ciudad / Comuna</label>
+              <input v-model="clienteForm.city" type="text">
+            </div>
+            <div class="form-group">
+              <label>Region</label>
+              <select v-model="clienteForm.region">
+                <option value="">Selecciona una region</option>
+                <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Tipo de piel</label>
+              <input v-model="clienteForm.tipo_piel" type="text">
+            </div>
+            <div class="form-group">
+              <label>Notas internas</label>
+              <textarea v-model="clienteForm.notas" rows="3"></textarea>
+            </div>
+          </div>
+
+          <div v-if="clienteFormError" class="form-hint">{{ clienteFormError }}</div>
+
+          <div class="modal-actions">
+            <button class="btn-ghost" @click="showClienteModal = false">Cancelar</button>
+            <button class="btn-primary" :disabled="savingCliente" @click="guardarCliente">
+              {{ savingCliente ? 'Guardando...' : 'Guardar clienta' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -1028,6 +1217,8 @@ import { RouterLink, useRouter } from 'vue-router'
 import { clientesApi, mensajesApi, pedidosApi, productosApi, settingsApi } from '../api/index.js'
 import CatalogJsonManager from '../components/admin/CatalogJsonManager.vue'
 import { useAuthStore } from '../stores/auth.js'
+import { CHILE_REGIONS, buildApiCustomerPayload, buildProfileForm, formatPhoneInput, formatRutInput } from '../utils/customerFields.js'
+import { validateCustomerProfile } from '../utils/validation.js'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -1137,6 +1328,38 @@ const siteSettings = ref({
     transfer_email: '',
     instructions: 'Transfiere el total del pedido y luego sube tu comprobante para validarlo en admin.',
   },
+  seo: {
+    site_name: 'Bloomskin',
+    title_suffix: 'Bloomskin - K-Beauty Chile',
+    default_title: 'Bloomskin - K-Beauty coreano en Chile',
+    default_description: 'Skincare coreano original en Chile. Compra serums, limpiadores, hidratantes y proteccion solar con envio a todo Chile.',
+    og_image: '/brand/bloomskin-logo.png',
+    favicon: '/brand/bloomskin-logo.png',
+    ga_measurement_id: '',
+  },
+  contact: {
+    heading: 'Hablemos de tu rutina',
+    intro: 'Si tienes dudas de compra, despacho o productos, puedes escribirnos y te ayudamos.',
+    whatsapp_cta_label: 'Hablar por WhatsApp',
+    email_cta_label: 'Escribir por correo',
+  },
+  legal: {
+    shipping_policy: {
+      title: 'Tiempos y condiciones de envio',
+      intro: 'Despachamos desde Antofagasta y coordinamos cada pedido segun destino y disponibilidad.',
+      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envio es gratis cuando corresponda segun configuracion vigente. Los tiempos pueden variar en dias de alta demanda.',
+    },
+    returns_policy: {
+      title: 'Cambios y devoluciones',
+      intro: 'Si tu pedido llega con algun problema, escribenos para revisarlo caso a caso.',
+      body: 'Aceptamos revisiones por productos danados, errores de preparacion o incidencias de transporte. Para evaluar un caso necesitaremos numero de pedido, fotos y contacto dentro del plazo informado por Bloomskin.',
+    },
+    shipping_conditions: {
+      title: 'Condiciones de despacho',
+      intro: 'Estas condiciones resumen como operan nuestros envios dentro de Chile.',
+      body: 'La clienta debe ingresar datos correctos y completos para evitar retrasos. Si el courier no logra entregar por direccion incompleta o ausencia reiterada, el pedido puede requerir coordinacion adicional.',
+    },
+  },
 })
 
 const loading = ref(true)
@@ -1149,10 +1372,15 @@ const toast = ref({ show: false, kind: 'ok', message: '', timer: null })
 const showModal = ref(false)
 const editingProducto = ref(null)
 const saving = ref(false)
+const showClienteModal = ref(false)
+const savingCliente = ref(false)
 const uploadingImage = ref(false)
 const savingStockId = ref(null)
 const precioCalculado = ref(null)
 const form = ref({})
+const editingCliente = ref(null)
+const clienteForm = ref(buildProfileForm())
+const clienteFormError = ref('')
 const selectedImageFile = ref(null)
 const imageInput = ref(null)
 const stockDrafts = ref({})
@@ -1314,6 +1542,17 @@ function openProductoModal(producto = null) {
   showModal.value = true
 }
 
+function openClienteModal(cliente) {
+  editingCliente.value = cliente
+  clienteForm.value = {
+    ...buildProfileForm(cliente),
+    tipo_piel: cliente.tipo_piel || '',
+    notas: cliente.notas || '',
+  }
+  clienteFormError.value = ''
+  showClienteModal.value = true
+}
+
 function handleImageFileChange(event) {
   selectedImageFile.value = event.target.files?.[0] || null
 }
@@ -1445,6 +1684,34 @@ async function guardarStockRapido(producto) {
     showToast(err.response?.data?.error || 'No se pudo actualizar el stock.', 'error')
   } finally {
     savingStockId.value = null
+  }
+}
+
+async function guardarCliente() {
+  if (!editingCliente.value) return
+  clienteFormError.value = ''
+  const payload = buildApiCustomerPayload(clienteForm.value)
+  payload.tipo_piel = String(clienteForm.value.tipo_piel || '').trim()
+  const validation = validateCustomerProfile(payload, { requirePassword: false })
+  if (validation.errors.length) {
+    clienteFormError.value = validation.errors[0]
+    return
+  }
+
+  savingCliente.value = true
+  try {
+    await clientesApi.actualizar(editingCliente.value.id, {
+      ...validation.normalized,
+      tipo_piel: payload.tipo_piel,
+      notas: String(clienteForm.value.notas || '').trim(),
+    })
+    await cargarClientesYMensajes()
+    showClienteModal.value = false
+    showToast('Cliente actualizada correctamente.')
+  } catch (err) {
+    clienteFormError.value = err.response?.data?.error || 'No se pudo guardar la clienta.'
+  } finally {
+    savingCliente.value = false
   }
 }
 

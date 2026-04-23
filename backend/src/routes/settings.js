@@ -18,7 +18,7 @@ router.put('/site', requireAdminAuth, (req, res) => {
     res.json({ ok: true, site });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'No se pudo guardar la configuración del sitio' });
+    res.status(500).json({ error: 'No se pudo guardar la configuracion del sitio' });
   }
 });
 
@@ -30,7 +30,7 @@ router.put('/home', requireAdminAuth, (req, res) => {
     res.json({ ok: true, home: settings.home });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'No se pudo guardar la configuración del home' });
+    res.status(500).json({ error: 'No se pudo guardar la configuracion del home' });
   }
 });
 

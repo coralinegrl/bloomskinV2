@@ -77,8 +77,8 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', requireAdminAuth, async (req, res) => {
   const validation = validateCustomerPayload({
-    nombre: req.body?.nombre || 'Cliente',
-    email: req.body?.email || 'cliente@bloomskin.local',
+    nombre: req.body?.nombre,
+    email: req.body?.email,
     rut: req.body?.rut,
     telefono: req.body?.telefono,
     direccion: req.body?.direccion,
@@ -93,12 +93,23 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
     return res.status(400).json({ error: errors[0], errors });
   }
 
-  const { rut, telefono, direccion, ciudad, region, tipo_piel } = validation.sanitized;
+  const { nombre, email, rut, telefono, direccion, ciudad, region, tipo_piel } = validation.sanitized;
   const notas = req.body?.notas ? String(req.body.notas).trim() : null;
   try {
     const pool = await getPool();
+    const duplicateEmail = await pool.request()
+      .input('id', sql.Int, req.params.id)
+      .input('email', sql.NVarChar, email)
+      .query('SELECT id FROM clientes WHERE email = @email AND id <> @id');
+
+    if (duplicateEmail.recordset[0]) {
+      return res.status(409).json({ error: 'Ya existe otra clienta con ese email.' });
+    }
+
     const result = await pool.request()
       .input('id', sql.Int, req.params.id)
+      .input('nombre', sql.NVarChar, nombre)
+      .input('email', sql.NVarChar, email)
       .input('rut', sql.NVarChar, rut || null)
       .input('telefono', sql.NVarChar, telefono || null)
       .input('direccion', sql.NVarChar, direccion || null)
@@ -108,7 +119,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       .input('notas', sql.NVarChar, notas || null)
       .query(`
         UPDATE clientes
-        SET rut=@rut, telefono=@telefono, direccion=@direccion, ciudad=@ciudad, region=@region, tipo_piel=@tipo_piel, notas=@notas
+        SET nombre=@nombre, email=@email, rut=@rut, telefono=@telefono, direccion=@direccion, ciudad=@ciudad, region=@region, tipo_piel=@tipo_piel, notas=@notas
         OUTPUT INSERTED.*
         WHERE id=@id
       `);
