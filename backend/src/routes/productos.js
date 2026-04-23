@@ -1,4 +1,4 @@
-const router = require('express').Router();
+﻿const router = require('express').Router();
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -6,7 +6,10 @@ const { readCatalogFile, writeCatalogFile, sanitizeProduct } = require('../lib/c
 const { getPool, sql } = require('../config/db');
 const { requireAdminAuth } = require('../middleware/auth');
 
-const uploadsDir = path.resolve(__dirname, '../../uploads/productos');
+const uploadsRoot = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.resolve(__dirname, '../../uploads');
+const uploadsDir = path.join(uploadsRoot, 'productos');
 fs.mkdirSync(uploadsDir, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -295,7 +298,7 @@ async function insertProduct(request, product, index = 0) {
     .input('precio_oferta_clp', sql.Int, product.precio_oferta_clp)
     .input('stock', sql.Int, product.stock)
     .input('badge', sql.NVarChar, product.badge)
-    .input('estrellas', sql.NVarChar, product.estrellas || '★★★★★')
+    .input('estrellas', sql.NVarChar, product.estrellas || '*****')
     .input('resenas', sql.Int, product.resenas || 0)
     .input('img_clase', sql.NVarChar, product.img_clase || `p-img-${(index % 8) + 1}`)
     .input('imagen_url', sql.NVarChar, product.imagen_url || null)
@@ -309,3 +312,4 @@ async function insertProduct(request, product, index = 0) {
 }
 
 module.exports = router;
+

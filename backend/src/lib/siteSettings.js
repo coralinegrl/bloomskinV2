@@ -1,8 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const dataDir = path.resolve(__dirname, '../../data');
-const settingsFile = path.join(dataDir, 'site-settings.json');
+const dataDir = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.resolve(__dirname, '../../data');
+const settingsFile = process.env.SITE_SETTINGS_FILE
+  ? path.resolve(process.env.SITE_SETTINGS_FILE)
+  : path.join(dataDir, 'site-settings.json');
 
 const defaultSettings = {
   home: {

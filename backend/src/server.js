@@ -5,6 +5,9 @@ const path = require('path');
 const { getPool } = require('./config/db');
 
 const app = express();
+const uploadsRoot = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.resolve(__dirname, '../uploads');
 const allowedOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || 'http://localhost:5173')
   .split(',')
   .map(origin => origin.trim())
@@ -22,7 +25,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+app.use('/uploads', express.static(uploadsRoot));
 
 // ── Rutas ───────────────────────────────────────────────────
 app.use('/api/auth',      require('./routes/auth'));

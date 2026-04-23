@@ -1,4 +1,4 @@
-const router = require('express').Router();
+﻿const router = require('express').Router();
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -7,7 +7,10 @@ const { requireAdminAuth, requireClientAuth } = require('../middleware/auth');
 const { quoteShipping } = require('../lib/shipping');
 const { readSettings } = require('../lib/siteSettings');
 
-const proofUploadsDir = path.resolve(__dirname, '../../uploads/comprobantes');
+const uploadsRoot = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.resolve(__dirname, '../../uploads');
+const proofUploadsDir = path.join(uploadsRoot, 'comprobantes');
 fs.mkdirSync(proofUploadsDir, { recursive: true });
 
 const proofStorage = multer.diskStorage({
@@ -376,7 +379,7 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
   const { estado } = req.body;
   const estados = ['pending_payment', 'payment_submitted', 'paid', 'shipped', 'delivered', 'cancelled'];
   if (!estados.includes(estado)) {
-    return res.status(400).json({ error: 'Estado inválido' });
+    return res.status(400).json({ error: 'Estado invalido' });
   }
 
   try {
@@ -438,3 +441,4 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
 });
 
 module.exports = router;
+
