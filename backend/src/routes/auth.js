@@ -54,6 +54,9 @@ router.post('/admin/login', async (req, res) => {
 
     const user = result.recordset[0];
     if (!user) return res.status(401).json({ error: 'Credenciales incorrectas' });
+    if (!user.password_hash || typeof user.password_hash !== 'string') {
+      return res.status(401).json({ error: 'Credenciales incorrectas' });
+    }
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Credenciales incorrectas' });
