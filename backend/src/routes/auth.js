@@ -266,7 +266,7 @@ router.post('/client/request-password-reset', async (req, res) => {
         VALUES (@cliente_id, @token_hash, @expires_at)
       `);
 
-    const resetUrl = `${getStoreBaseUrl(req).replace(/\/$/, '')}/?reset=${rawToken}&email=${encodeURIComponent(cliente.email)}`;
+    const resetUrl = `${getStoreBaseUrl(req).replace(/\/$/, '')}/recuperar-contrasena?token=${rawToken}&email=${encodeURIComponent(cliente.email)}`;
     const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
     await transporter.sendMail({

@@ -58,6 +58,11 @@ const routes = [
     name: 'contact',
     component: () => import('../views/ContactView.vue'),
   },
+  {
+    path: '/recuperar-contrasena',
+    name: 'password-reset',
+    component: () => import('../views/PasswordResetView.vue'),
+  },
 ]
 
 const router = createRouter({

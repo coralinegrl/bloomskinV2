@@ -25,13 +25,13 @@
             <input v-model.trim="loginForm.email" type="email" placeholder="tu@email.com" :disabled="customerAuth.loading" />
           </label>
           <label class="field-block">
-            <span>Contrasena</span>
-            <input v-model="loginForm.password" type="password" placeholder="Tu contrasena" :disabled="customerAuth.loading" />
+            <span>Contraseña</span>
+            <input v-model="loginForm.password" type="password" placeholder="Tu contraseña" :disabled="customerAuth.loading" />
           </label>
-          <button class="link-btn" type="button" @click="switchMode('forgot')">Olvide mi contrasena</button>
+          <button class="link-btn" type="button" @click="switchMode('forgot')">Olvidé mi contraseña</button>
           <p v-if="loginError || customerAuth.error" class="auth-error">{{ loginError || customerAuth.error }}</p>
           <button class="auth-submit" type="submit" :disabled="customerAuth.loading">
-            {{ customerAuth.loading ? 'Ingresando...' : 'Iniciar sesion' }}
+            {{ customerAuth.loading ? 'Ingresando...' : 'Iniciar sesión' }}
           </button>
         </form>
 
@@ -54,19 +54,19 @@
             <input v-model.trim="resetForm.email" type="email" placeholder="tu@email.com" :disabled="customerAuth.loading" />
           </label>
           <label class="field-block">
-            <span>Nueva contrasena</span>
-            <input v-model="resetForm.password" type="password" placeholder="Minimo 8 caracteres" :disabled="customerAuth.loading" />
+            <span>Nueva contraseña</span>
+            <input v-model="resetForm.password" type="password" placeholder="Mínimo 8 caracteres" :disabled="customerAuth.loading" />
             <small v-if="resetErrors.password" class="field-error">{{ resetErrors.password }}</small>
           </label>
           <label class="field-block">
-            <span>Repite la contrasena</span>
-            <input v-model="resetForm.confirmPassword" type="password" placeholder="Repite tu contrasena" :disabled="customerAuth.loading" />
+            <span>Repite la contraseña</span>
+            <input v-model="resetForm.confirmPassword" type="password" placeholder="Repite tu contraseña" :disabled="customerAuth.loading" />
             <small v-if="resetErrors.confirmPassword" class="field-error">{{ resetErrors.confirmPassword }}</small>
           </label>
           <p v-if="forgotMessage" class="auth-success">{{ forgotMessage }}</p>
           <p v-if="loginError || customerAuth.error" class="auth-error">{{ loginError || customerAuth.error }}</p>
           <button class="auth-submit" type="submit" :disabled="customerAuth.loading">
-            {{ customerAuth.loading ? 'Guardando...' : 'Restablecer contrasena' }}
+            {{ customerAuth.loading ? 'Guardando...' : 'Restablecer contraseña' }}
           </button>
         </form>
 
@@ -84,8 +84,8 @@
           </label>
 
           <label class="field-block">
-            <span>Contrasena</span>
-            <input v-model="registerForm.password" type="password" placeholder="Minimo 8 caracteres" :disabled="customerAuth.loading" />
+            <span>Contraseña</span>
+            <input v-model="registerForm.password" type="password" placeholder="Mínimo 8 caracteres" :disabled="customerAuth.loading" />
             <small v-if="registerErrors.password" class="field-error">{{ registerErrors.password }}</small>
           </label>
 
@@ -209,16 +209,16 @@ const resetErrors = reactive({
 
 const showTabs = computed(() => ['login', 'register'].includes(ui.authModalMode))
 const modalTitle = computed(() => ({
-  login: 'Inicia sesion',
+  login: 'Inicia sesión',
   register: 'Crea tu cuenta',
-  forgot: 'Recupera tu contrasena',
-  reset: 'Restablece tu contrasena',
+  forgot: 'Recupera tu contraseña',
+  reset: 'Restablece tu contraseña',
 }[ui.authModalMode] || 'Bloomskin account'))
 const modalCopy = computed(() => ({
   login: 'Guarda tus datos, revisa pedidos y termina la compra sin mezclar el acceso con el carrito.',
   register: 'Completa tus datos una vez y deja tu cuenta lista para futuras compras.',
-  forgot: 'Te enviaremos un enlace seguro para crear una nueva contrasena.',
-  reset: 'Define una contrasena nueva para volver a entrar a tu cuenta.',
+  forgot: 'Te enviaremos un enlace seguro para crear una nueva contraseña.',
+  reset: 'Define una contraseña nueva para volver a entrar a tu cuenta.',
 }[ui.authModalMode] || ''))
 
 function resetErrorsState() {
@@ -283,7 +283,7 @@ async function submitLogin() {
     return
   }
   if (!loginForm.password) {
-    loginError.value = 'Contrasena es requerida.'
+    loginError.value = 'Contraseña es requerida.'
     return
   }
 
@@ -303,7 +303,7 @@ async function submitForgotPassword() {
 
   const ok = await customerAuth.requestPasswordReset(email)
   if (!ok) return
-  forgotMessage.value = 'Te enviamos un enlace para restablecer tu contrasena.'
+  forgotMessage.value = 'Te enviamos un enlace para restablecer tu contraseña.'
 }
 
 async function submitResetPassword() {
@@ -315,14 +315,14 @@ async function submitResetPassword() {
   }
   resetErrors.password = validatePassword(resetForm.password)
   resetErrors.confirmPassword = resetForm.password !== resetForm.confirmPassword
-    ? 'Las contrasenas no coinciden.'
+    ? 'Las contraseñas no coinciden.'
     : ''
   if (resetErrors.password || resetErrors.confirmPassword) {
     loginError.value = resetErrors.password || resetErrors.confirmPassword
     return
   }
   if (!resetForm.token) {
-    loginError.value = 'El enlace de recuperacion no es valido.'
+    loginError.value = 'El enlace de recuperación no es válido.'
     return
   }
 
@@ -333,7 +333,7 @@ async function submitResetPassword() {
   })
   if (!ok) return
 
-  forgotMessage.value = 'Tu contrasena fue actualizada. Ahora puedes iniciar sesion.'
+  forgotMessage.value = 'Tu contraseña fue actualizada. Ahora puedes iniciar sesión.'
   resetForm.password = ''
   resetForm.confirmPassword = ''
   const query = { ...route.query }
