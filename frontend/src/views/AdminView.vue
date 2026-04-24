@@ -65,7 +65,7 @@
               <div class="stat-card">
                 <div class="stat-label">Ventas del mes</div>
                 <div class="stat-value">{{ fmt(stats.ventas_mes || 0) }}</div>
-                <div class="stat-change up">Seguimiento mensual</div>
+                <div class="stat-change up">Seguimiento comercial</div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Pedidos totales</div>
@@ -73,9 +73,21 @@
                 <div class="stat-change">{{ (stats.pendientes_pago || 0) + (stats.pagos_por_validar || 0) }} en espera</div>
               </div>
               <div class="stat-card">
+                <div class="stat-label">Pagos por validar</div>
+                <div class="stat-value">{{ stats.pagos_por_validar || 0 }}</div>
+                <div class="stat-change" :class="(stats.pagos_por_validar || 0) > 0 ? 'down' : 'up'">
+                  {{ (stats.pagos_por_validar || 0) > 0 ? 'Revisar comprobantes' : 'Sin validaciones pendientes' }}
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Clientas registradas</div>
+                <div class="stat-value">{{ clientasActivas }}</div>
+                <div class="stat-change up">{{ clientasNuevasMes }} nuevas este mes</div>
+              </div>
+              <div class="stat-card">
                 <div class="stat-label">Productos activos</div>
                 <div class="stat-value">{{ productosActivos }}</div>
-                <div class="stat-change">Catalogo visible</div>
+                <div class="stat-change">Catálogo visible</div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Sin stock</div>
@@ -88,8 +100,8 @@
 
             <div class="dash-grid">
               <div class="ad-card">
-                <div class="ad-card-title">Ultimos pedidos</div>
-                <div v-if="pedidos.length === 0" class="empty-state">No hay pedidos aun.</div>
+                <div class="ad-card-title">Últimos pedidos</div>
+                <div v-if="pedidos.length === 0" class="empty-state">No hay pedidos aún.</div>
                 <button
                   v-for="p in pedidos.slice(0, 6)"
                   :key="p.id"
@@ -108,8 +120,25 @@
               </div>
 
               <div class="ad-card">
+                <div class="ad-card-title">Registros recientes</div>
+                <div v-if="recentClientes.length === 0" class="empty-state">Aún no hay clientas registradas.</div>
+                <div v-for="cliente in recentClientes" :key="cliente.id" class="stock-alert-item recent-client-item">
+                  <div>
+                    <div class="sa-brand">{{ cliente.nombre }}</div>
+                    <div class="sa-name">{{ cliente.email }}</div>
+                  </div>
+                  <div class="recent-order-right">
+                    <div class="order-amt">{{ formatDate(cliente.creado_en) }}</div>
+                    <span class="status-pill" :class="cliente.total_pedidos > 0 ? 's-paid' : 's-pending_payment'">
+                      {{ cliente.total_pedidos > 0 ? `${cliente.total_pedidos} compra${cliente.total_pedidos === 1 ? '' : 's'}` : 'Sin compras' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ad-card">
                 <div class="ad-card-title">Stock bajo o sin stock</div>
-                <div v-if="productosStockBajo.length === 0" class="empty-state">Todo el stock esta OK.</div>
+                <div v-if="productosStockBajo.length === 0" class="empty-state">Todo el stock está OK.</div>
                 <div v-for="p in productosStockBajo" :key="p.id" class="stock-alert-item">
                   <div>
                     <div class="sa-brand">{{ p.marca }}</div>
@@ -369,11 +398,17 @@
               </div>
               <div class="actions-row">
                 <input v-model.trim="clienteSearch" class="toolbar-input" type="text" placeholder="Buscar cliente, email o ciudad">
+                <select v-model="clienteEstadoFilter" class="toolbar-select">
+                  <option value="active">Solo activas</option>
+                  <option value="inactive">Solo inactivas</option>
+                  <option value="all">Todas</option>
+                </select>
               </div>
             </div>
 
             <div class="summary-strip">
-              <div class="summary-pill">Clientes: {{ filteredClientes.length }}</div>
+              <div class="summary-pill">Clientas activas: {{ clientasActivas }}</div>
+              <div class="summary-pill">Clientas inactivas: {{ clientasInactivas }}</div>
               <div class="summary-pill">Con notas: {{ clientesConNotas }}</div>
               <div class="summary-pill">Top ciudad: {{ topCiudad }}</div>
             </div>
@@ -389,6 +424,7 @@
                     <th>Direccion</th>
                     <th>Ciudad</th>
                     <th>Region</th>
+                    <th>Estado</th>
                     <th>Pedidos</th>
                     <th>Total comprado</th>
                     <th>Tipo de piel</th>
@@ -397,7 +433,7 @@
                 </thead>
                 <tbody>
                   <tr v-if="filteredClientes.length === 0">
-                    <td colspan="11" class="empty-state table-empty">No hay clientes para ese filtro.</td>
+                    <td colspan="12" class="empty-state table-empty">No hay clientes para ese filtro.</td>
                   </tr>
                   <tr v-for="c in filteredClientes" :key="c.id">
                     <td class="td-bold">{{ c.nombre }}</td>
@@ -407,11 +443,17 @@
                     <td>{{ c.direccion || 'Sin direccion' }}</td>
                     <td>{{ c.ciudad || 'Sin ciudad' }}</td>
                     <td>{{ c.region || 'Sin region' }}</td>
+                    <td>
+                      <span class="status-pill" :class="c.activo === false ? 's-cancelled' : 's-delivered'">
+                        {{ c.activo === false ? 'Inactiva' : 'Activa' }}
+                      </span>
+                    </td>
                     <td>{{ c.total_pedidos }}</td>
                     <td class="td-price">{{ fmt(c.total_comprado || 0) }}</td>
                     <td><span v-if="c.tipo_piel" class="skin-pill">{{ c.tipo_piel }}</span><span v-else class="muted">Sin dato</span></td>
                     <td class="td-actions">
                       <button class="btn-edit" @click="openClienteModal(c)">Editar</button>
+                      <button v-if="c.activo !== false" class="btn-delete" @click="desactivarCliente(c)">Desactivar</button>
                     </td>
                   </tr>
                 </tbody>
@@ -622,7 +664,7 @@
                   <div class="form-row">
                     <div class="form-group">
                       <label>Icono</label>
-                      <input v-model="promo.icon" type="text" placeholder="?? o flag-kr">
+                      <input v-model="promo.icon" type="text" placeholder="truck, gift, whatsapp o flag-kr">
                     </div>
                     <div class="form-group">
                       <label>Titulo</label>
@@ -1266,10 +1308,10 @@ const siteSettings = ref({
       { category: 'Proteccion Solar', label: 'Proteccion Solar', image_url: '' },
     ],
     promoItems: [
-      { icon: '🚚', title: 'Envio gratis', copy: 'Sobre $49.990' },
-      { icon: 'flag-kr', title: '100% originales', copy: 'Directo desde Corea del Sur' },
-      { icon: '🎁', title: 'Muestras y hallazgos', copy: 'Seleccion curada para descubrir favoritos' },
-      { icon: '💬', title: 'Te orientamos por WhatsApp', copy: 'Ayuda rapida para elegir tu rutina' },
+      { icon: 'truck', title: 'Envio gratis', copy: 'Sobre $49.990 en compras seleccionadas' },
+      { icon: 'flag-kr', title: 'Originales de Corea', copy: 'Seleccion autentica de K-Beauty' },
+      { icon: 'gift', title: 'Hallazgos y favoritos', copy: 'Curaduria pensada para cada rutina' },
+      { icon: 'whatsapp', title: 'Asesoria por WhatsApp', copy: 'Te ayudamos a elegir segun tu piel' },
     ],
     bestSellers: {
       tag: 'Best Sellers',
@@ -1390,6 +1432,7 @@ const productoStockFilter = ref('all')
 const pedidoSearch = ref('')
 const pedidoEstadoFilter = ref('all')
 const clienteSearch = ref('')
+const clienteEstadoFilter = ref('active')
 const mensajeSearch = ref('')
 const soloNoLeidos = ref(false)
 const selectedOrderId = ref(null)
@@ -1414,7 +1457,22 @@ const noLeidos = computed(() => mensajes.value.filter(m => !m.leido).length)
 const mensajesPendientes = computed(() => mensajes.value.filter(m => !m.respondido).length)
 const clientesConNotas = computed(() => clientes.value.filter(c => c.notas).length)
 const suscriptoresActivos = computed(() => suscriptores.value.filter(s => s.activo).length)
+const clientasActivas = computed(() => clientes.value.filter(c => c.activo !== false).length)
+const clientasInactivas = computed(() => clientes.value.filter(c => c.activo === false).length)
 const hasAnyData = computed(() => productos.value.length || pedidos.value.length || clientes.value.length || mensajes.value.length || suscriptores.value.length)
+const recentClientes = computed(() =>
+  [...clientes.value]
+    .sort((a, b) => new Date(b.creado_en || 0) - new Date(a.creado_en || 0))
+    .slice(0, 6)
+)
+const clientasNuevasMes = computed(() => {
+  const now = new Date()
+  return clientes.value.filter(cliente => {
+    if (!cliente.creado_en) return false
+    const created = new Date(cliente.creado_en)
+    return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
+  }).length
+})
 
 const lastSyncLabel = computed(() => {
   if (!lastSync.value) return ''
@@ -1453,10 +1511,17 @@ const filteredPedidos = computed(() => {
 
 const filteredClientes = computed(() => {
   const q = clienteSearch.value.trim().toLowerCase()
-  if (!q) return clientes.value
-  return clientes.value.filter(cliente => [cliente.nombre, cliente.email, cliente.rut, cliente.telefono, cliente.direccion, cliente.ciudad, cliente.region]
-    .filter(Boolean)
-    .some(value => String(value).toLowerCase().includes(q)))
+  return clientes.value.filter(cliente => {
+    const matchesState = clienteEstadoFilter.value === 'all'
+      || (clienteEstadoFilter.value === 'active' && cliente.activo !== false)
+      || (clienteEstadoFilter.value === 'inactive' && cliente.activo === false)
+
+    const matchesSearch = !q || [cliente.nombre, cliente.email, cliente.rut, cliente.telefono, cliente.direccion, cliente.ciudad, cliente.region]
+      .filter(Boolean)
+      .some(value => String(value).toLowerCase().includes(q))
+
+    return matchesState && matchesSearch
+  })
 })
 
 const filteredMensajes = computed(() => {
@@ -1715,6 +1780,19 @@ async function guardarCliente() {
   }
 }
 
+async function desactivarCliente(cliente) {
+  if (!cliente?.id) return
+  if (!window.confirm(`Desactivar a ${cliente.nombre}? La clienta no podra volver a entrar y tendra que registrarse otra vez.`)) return
+
+  try {
+    await clientesApi.eliminar(cliente.id)
+    await cargarClientesYMensajes()
+    showToast('Clienta desactivada correctamente.')
+  } catch (err) {
+    showToast(err.response?.data?.error || 'No se pudo desactivar la clienta.', 'error')
+  }
+}
+
 function resetNewsletterForm() {
   newsletterForm.value = {
     subject: '',
@@ -1876,7 +1954,7 @@ function stockLabel(stock) {
 </script>
 
 <style scoped>
-.admin-layout { display: flex; height: 100vh; background: var(--ad-bg); font-family: 'DM Sans', sans-serif; }
+.admin-layout { display: flex; min-height: 100vh; background: var(--ad-bg); font-family: 'DM Sans', sans-serif; }
 .sidebar { width: 232px; background: #09070f; border-right: 1px solid var(--ad-border); display: flex; flex-direction: column; flex-shrink: 0; }
 .sidebar-logo { padding: 28px 24px 24px; border-bottom: 1px solid var(--ad-border); }
 .sidebar-logo-text { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 300; letter-spacing: .15em; color: var(--blush); display: block; }
@@ -1892,11 +1970,11 @@ function stockLabel(stock) {
 .logout-btn { background: none; border: 1px solid var(--ad-border); color: var(--ad-muted); padding: 8px; border-radius: 6px; font-size: 11px; transition: all .2s; }
 .logout-btn:hover { color: #e57373; border-color: rgba(229,115,115,.4); }
 
-.admin-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.admin-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .admin-topbar { background: var(--ad-surface); border-bottom: 1px solid var(--ad-border); padding: 0 32px; min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-shrink: 0; }
 .topbar-title { font-size: 16px; font-weight: 600; color: var(--ad-text); }
 .topbar-subtitle { font-size: 12px; color: var(--ad-muted); margin-top: 2px; }
-.topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 .topbar-user { font-size: 12px; color: var(--ad-muted); }
 .avatar { width: 32px; height: 32px; background: rgba(196,100,122,.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--blush); font-weight: 500; }
 .admin-content { flex: 1; overflow-y: auto; padding: 32px; }
@@ -1914,7 +1992,7 @@ function stockLabel(stock) {
 .skeleton-card { height: 120px; border-radius: 12px; background: linear-gradient(90deg, rgba(255,255,255,.03), rgba(255,255,255,.08), rgba(255,255,255,.03)); animation: pulse 1.6s infinite linear; }
 @keyframes pulse { 0% { background-position: 0 0; } 100% { background-position: 320px 0; } }
 
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
 .stat-card { background: var(--ad-surface); border: 1px solid var(--ad-border); border-radius: 10px; padding: 20px 24px; }
 .stat-label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ad-muted); margin-bottom: 10px; }
 .stat-value { font-size: 26px; font-weight: 600; color: var(--ad-text); margin-bottom: 4px; }
@@ -1922,7 +2000,7 @@ function stockLabel(stock) {
 .up { color: #6fcf97; }
 .down { color: #e57373; }
 
-.dash-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; margin-bottom: 20px; }
+.dash-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-bottom: 20px; }
 .newsletter-grid { align-items: start; }
 .home-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
 .settings-subblock { border-top: 1px solid rgba(255,255,255,.06); margin-top: 16px; padding-top: 16px; }
@@ -1943,6 +2021,8 @@ function stockLabel(stock) {
 .recent-order { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--ad-border); background: transparent; border-left: none; border-right: none; border-top: none; text-align: left; }
 .recent-order:last-child { border-bottom: none; }
 .recent-order-right { text-align: right; }
+.recent-client-item { gap: 12px; }
+.recent-client-item .sa-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .order-code { font-size: 12px; color: var(--ad-muted); }
 .order-name { font-size: 13px; color: var(--ad-text); }
 .order-amt { font-size: 13px; font-weight: 600; color: var(--blush); }
@@ -1961,8 +2041,8 @@ function stockLabel(stock) {
 .summary-strip { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .summary-pill { background: rgba(255,255,255,.03); color: var(--ad-muted); border: 1px solid var(--ad-border); border-radius: 999px; padding: 8px 12px; font-size: 12px; }
 
-.table-card { padding: 0; overflow: hidden; }
-table { width: 100%; border-collapse: collapse; }
+.table-card { padding: 0; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+table { width: 100%; min-width: 760px; border-collapse: collapse; }
 th { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ad-muted); font-weight: 600; text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--ad-border); }
 td { font-size: 13px; color: var(--ad-text); padding: 12px 16px; border-bottom: 1px solid rgba(46,43,61,.5); }
 tbody tr:hover td { background: rgba(255,255,255,.015); }
@@ -1971,7 +2051,7 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 .td-price { font-weight: 600; color: var(--blush); }
 .td-code { color: var(--blush); font-weight: 600; }
 .td-bold { font-weight: 600; }
-.td-actions { display: flex; gap: 8px; }
+.td-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .product-thumb {
   width: 52px;
   height: 52px;
@@ -2128,11 +2208,79 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 }
 
 @media (max-width: 900px) {
-  .admin-layout { flex-direction: column; height: auto; min-height: 100vh; }
-  .sidebar { width: 100%; }
-  .admin-topbar { padding: 16px 20px; align-items: flex-start; flex-direction: column; }
+  .admin-layout { flex-direction: column; }
+  .sidebar {
+    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+  .sidebar-logo {
+    padding: 18px 20px 14px;
+  }
+  .sidebar-nav {
+    padding: 10px 12px 14px;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 8px;
+  }
+  .nav-item {
+    flex: 0 0 auto;
+    border-left: none;
+    border: 1px solid var(--ad-border);
+    border-radius: 999px;
+    padding: 10px 14px;
+  }
+  .nav-item.active {
+    border-left: 1px solid var(--rose);
+  }
+  .sidebar-footer {
+    padding: 14px 20px 18px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .admin-topbar {
+    padding: 16px 20px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .topbar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
   .admin-content { padding: 20px; }
   .stats-grid, .detail-grid, .dash-grid, .form-row, .home-settings-grid { grid-template-columns: 1fr; }
   .section-actions { flex-direction: column; }
+  .toolbar-input, .toolbar-select { width: 100%; min-width: 0; }
+  .ad-card, .modal { padding: 20px; }
+  .detail-header, .msg-top, .msg-footer, .modal-actions { flex-direction: column; align-items: flex-start; }
+  .order-item-row { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 640px) {
+  .admin-content {
+    padding: 16px;
+  }
+  .stat-card {
+    padding: 18px;
+  }
+  .stat-value {
+    font-size: 22px;
+  }
+  th, td {
+    padding: 10px 12px;
+  }
+  .detail-grid {
+    gap: 12px;
+  }
+  .modal-overlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+  .modal {
+    max-height: 92vh;
+    border-radius: 18px 18px 0 0;
+  }
 }
 </style>

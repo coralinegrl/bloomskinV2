@@ -12,11 +12,11 @@
 
 <script setup>
 const items = [
-  'Envio gratis sobre $49.990',
-  'Productos 100% originales de Corea',
-  'Paga en cuotas sin interes',
+  'Envío gratis sobre $49.990',
+  'Skincare coreano 100% original',
   'Despacho local en Antofagasta',
-  'Ayuda por WhatsApp para armar tu rutina',
+  'Ayuda por WhatsApp para elegir tu rutina',
+  'Novedades y lanzamientos de K-Beauty',
 ]
 </script>
 

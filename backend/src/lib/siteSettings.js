@@ -8,15 +8,57 @@ const settingsFile = process.env.SITE_SETTINGS_FILE
   ? path.resolve(process.env.SITE_SETTINGS_FILE)
   : path.join(dataDir, 'site-settings.json');
 
+function normalizePromoIcon(value, fallback = 'sparkle') {
+  const raw = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, '-');
+
+  const map = {
+    truck: 'truck',
+    camion: 'truck',
+    'camión': 'truck',
+    shipping: 'truck',
+    delivery: 'truck',
+    envio: 'truck',
+    'envío': 'truck',
+    '🚚': 'truck',
+    gift: 'gift',
+    regalo: 'gift',
+    muestras: 'gift',
+    sample: 'gift',
+    samples: 'gift',
+    '🎁': 'gift',
+    whatsapp: 'whatsapp',
+    wa: 'whatsapp',
+    chat: 'whatsapp',
+    ayuda: 'whatsapp',
+    asesoria: 'whatsapp',
+    'asesoría': 'whatsapp',
+    soporte: 'whatsapp',
+    '💬': 'whatsapp',
+    'flag-kr': 'flag-kr',
+    flagkr: 'flag-kr',
+    kr: 'flag-kr',
+    korea: 'flag-kr',
+    'south-korea': 'flag-kr',
+    'korean-flag': 'flag-kr',
+    'korea-flag': 'flag-kr',
+    '🇰🇷': 'flag-kr',
+  };
+
+  return map[raw] || fallback;
+}
+
 const defaultSettings = {
   home: {
     hero: {
-      tag: 'Seleccion Bloomskin',
-      title: 'Una home mas curada, con',
-      emphasis: 'lo mejor primero',
-      description: 'La portada muestra seleccion editorial, best sellers y rutas rapidas para descubrir productos. El catalogo completo vive aparte, con filtros de compra mas serios.',
-      primary_cta_label: 'Ver mas vendidos',
-      secondary_cta_label: 'Ir al catalogo',
+      tag: 'Glow diario, ritual coreano',
+      title: 'Descubre tu rutina de',
+      emphasis: 'skincare coreano',
+      description: 'Una selección curada de fórmulas coreanas para limpiar, hidratar, proteger y tratar tu piel con textura ligera, ingredientes nobles y resultados visibles.',
+      primary_cta_label: 'Explorar favoritos',
+      secondary_cta_label: 'Ver catálogo',
     },
     categoryTiles: [
       { category: 'Serums', label: 'Serums', image_url: '' },
@@ -25,43 +67,43 @@ const defaultSettings = {
       { category: 'Proteccion Solar', label: 'Proteccion Solar', image_url: '' },
     ],
     promoItems: [
-      { icon: 'truck', title: 'Envio gratis', copy: 'Sobre $49.990' },
-      { icon: 'flag-kr', title: '100% originales', copy: 'Directo desde Corea del Sur' },
-      { icon: 'gift', title: 'Muestras y hallazgos', copy: 'Seleccion curada para descubrir favoritos' },
-      { icon: 'whatsapp', title: 'Te orientamos por WhatsApp', copy: 'Ayuda rapida para elegir tu rutina' },
+      { icon: 'truck', title: 'Envío gratis', copy: 'Sobre $49.990 en compras seleccionadas' },
+      { icon: 'flag-kr', title: 'Originales de Corea', copy: 'Selección auténtica de K-Beauty' },
+      { icon: 'gift', title: 'Hallazgos y favoritos', copy: 'Curaduría pensada para cada rutina' },
+      { icon: 'whatsapp', title: 'Asesoría por WhatsApp', copy: 'Te ayudamos a elegir según tu piel' },
     ],
     bestSellers: {
       tag: 'Best Sellers',
-      title: 'Los mas vendidos',
-      copy: 'Un bloque rapido con lo mas fuerte del catalogo y mejor senal comercial.',
-      link_label: 'Ver catalogo',
+      title: 'Favoritos Bloomskin',
+      copy: 'Los esenciales que más buscan nuestras clientas para una rutina simple, efectiva y rica de usar.',
+      link_label: 'Ver catálogo',
     },
     editorial: {
       tag: 'Descubre por necesidad',
       title: 'Explora la tienda como una rutina',
-      copy: 'En vez de mostrar todo de una, te guiamos por bloques mas claros y rapidos de navegar.',
+      copy: 'Explora por necesidad y encuentra texturas, beneficios e ingredientes que sí hacen sentido para tu piel.',
       cards: [
         {
           kicker: 'Rutina base',
           title: 'Empieza por una limpieza suave',
-          copy: 'Limpiadores y basicos para armar una rutina simple de dia o noche.',
-          link_label: 'Explorar limpiadores ->',
+          copy: 'Espumas, geles y básicos suaves para empezar una rutina coreana sin complicarte.',
+          link_label: 'Explorar limpiadores →',
           category: 'Limpiadores',
           tone: 'rose',
         },
         {
           kicker: 'Uso diario',
-          title: 'Proteccion solar que si vas a usar todos los dias',
-          copy: 'Solares comodos, ligeros y faciles de combinar con maquillaje.',
-          link_label: 'Ver solares ->',
+          title: 'Protección solar que sí vas a querer usar',
+          copy: 'Filtros ligeros, cómodos y amables con el maquillaje para todos los días.',
+          link_label: 'Ver solares →',
           category: 'Proteccion Solar',
           tone: 'sage',
         },
         {
           kicker: 'Tratamiento',
           title: 'Serums para brillo, textura y manchas',
-          copy: 'Una seleccion rapida para quienes quieren resultados sin revisar setenta fichas seguidas.',
-          link_label: 'Ir a serums ->',
+          copy: 'Serums para hidratación, luminosidad, textura y manchas con una selección más clara y útil.',
+          link_label: 'Ir a serums →',
           category: 'Serums',
           tone: 'cream',
         },
@@ -70,20 +112,20 @@ const defaultSettings = {
     newIn: {
       tag: 'New In',
       title: 'Novedades y hallazgos',
-      copy: 'Un bloque mas liviano para descubrir productos nuevos y cosas en tendencia.',
-      link_label: 'Ver todo',
+      copy: 'Novedades, lanzamientos y fórmulas que están marcando tendencia en el universo K-Beauty.',
+      link_label: 'Ver novedades',
     },
     catalogCta: {
-      tag: 'Catalogo completo',
-      title: 'Descubre todo el catalogo Bloomskin',
-      copy: 'Entra a una vista dedicada con categorias, marcas, precios, stock, promociones y orden.',
-      button_label: 'Abrir catalogo',
+      tag: 'Catálogo completo',
+      title: 'Explora todo el universo Bloomskin',
+      copy: 'Filtra por categoría, marca, precio, stock y promociones para encontrar lo que tu rutina necesita.',
+      button_label: 'Abrir catálogo',
     },
     newsletter: {
-      tag: 'Unete a la comunidad',
-      title: 'Skincare tips y',
-      emphasis: 'ofertas exclusivas',
-      copy: 'Suscribete y recibe novedades y lanzamientos de Bloomskin',
+      tag: 'Únete a Bloomskin',
+      title: 'Tips de K-Beauty y',
+      emphasis: 'novedades exclusivas',
+      copy: 'Suscríbete para recibir lanzamientos, rituales, favoritos coreanos y ofertas especiales.',
       placeholder: 'tu@email.com',
       button_label: 'Suscribirme',
     },
@@ -170,7 +212,7 @@ function sanitizeCategoryTiles(tiles) {
 function sanitizePromoItems(items) {
   const source = sanitizeArray(items, defaultSettings.home.promoItems);
   return source.slice(0, 4).map((item, index) => ({
-    icon: sanitizeString(item?.icon, defaultSettings.home.promoItems[index]?.icon || ''),
+    icon: normalizePromoIcon(item?.icon, defaultSettings.home.promoItems[index]?.icon || ''),
     title: sanitizeString(item?.title, defaultSettings.home.promoItems[index]?.title || ''),
     copy: sanitizeString(item?.copy, defaultSettings.home.promoItems[index]?.copy || ''),
   }));

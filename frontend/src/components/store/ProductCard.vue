@@ -68,7 +68,7 @@ const shortBrand = computed(() => {
 })
 
 const badgeLabel = computed(() => {
-  const map = { hot: 'Mas Vendido', new: 'Nuevo', sale: 'Oferta' }
+  const map = { hot: 'Más vendido', new: 'Nuevo', sale: 'Oferta' }
   return map[props.producto.badge] || ''
 })
 

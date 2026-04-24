@@ -26,13 +26,13 @@ router.get('/', requireAdminAuth, async (_req, res) => {
   try {
     const pool = await getPool();
     const result = await pool.request().query(`
-      SELECT c.id, c.nombre, c.email, c.rut, c.telefono, c.direccion, c.ciudad, c.region, c.tipo_piel, c.notas, c.creado_en,
+      SELECT c.id, c.nombre, c.email, c.rut, c.telefono, c.direccion, c.ciudad, c.region, c.tipo_piel, c.notas, c.activo, c.creado_en,
         COUNT(p.id) AS total_pedidos,
         COALESCE(SUM(p.total_clp), 0) AS total_comprado
       FROM clientes c
       LEFT JOIN pedidos p ON p.cliente_id = c.id
-      GROUP BY c.id, c.nombre, c.email, c.rut, c.telefono, c.direccion, c.ciudad, c.region, c.tipo_piel, c.notas, c.creado_en
-      ORDER BY total_comprado DESC
+      GROUP BY c.id, c.nombre, c.email, c.rut, c.telefono, c.direccion, c.ciudad, c.region, c.tipo_piel, c.notas, c.activo, c.creado_en
+      ORDER BY c.activo DESC, c.creado_en DESC, total_comprado DESC
     `);
     res.json(result.recordset);
   } catch (err) {
@@ -129,6 +129,30 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
   }
 });
 
+router.delete('/:id', requireAdminAuth, async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.request()
+      .input('id', sql.Int, req.params.id)
+      .query(`
+        UPDATE clientes
+        SET activo = 0,
+            password_hash = NULL
+        OUTPUT INSERTED.id, INSERTED.nombre, INSERTED.email, INSERTED.activo
+        WHERE id = @id AND activo = 1
+      `);
+
+    if (!result.recordset[0]) {
+      return res.status(404).json({ error: 'La clienta no existe o ya estaba desactivada.' });
+    }
+
+    res.json({ ok: true, cliente: result.recordset[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo desactivar la clienta.' });
+  }
+});
+
 router.put('/me/profile', requireClientAuth, async (req, res) => {
   const payload = {
     nombre: req.body?.nombre,
@@ -160,8 +184,12 @@ router.put('/me/profile', requireClientAuth, async (req, res) => {
         UPDATE clientes
         SET nombre=@nombre, rut=@rut, telefono=@telefono, direccion=@direccion, ciudad=@ciudad, region=@region, tipo_piel=@tipo_piel
         OUTPUT INSERTED.id, INSERTED.nombre, INSERTED.email, INSERTED.rut, INSERTED.telefono, INSERTED.direccion, INSERTED.ciudad, INSERTED.region, INSERTED.tipo_piel
-        WHERE id=@id
+        WHERE id=@id AND activo = 1
       `);
+
+    if (!result.recordset[0]) {
+      return res.status(404).json({ error: 'Tu cuenta ya no esta activa. Debes registrarte nuevamente.' });
+    }
 
     res.json({ user: { ...result.recordset[0], tipo: 'cliente' } });
   } catch (err) {

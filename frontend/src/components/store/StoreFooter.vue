@@ -29,17 +29,17 @@
 
         <div class="footer-col">
           <h4>Tienda</h4>
-          <RouterLink to="/catalogo">Catalogo</RouterLink>
-          <RouterLink to="/">Home</RouterLink>
+          <RouterLink to="/catalogo">Catálogo</RouterLink>
+          <RouterLink to="/">Inicio</RouterLink>
           <button type="button" class="footer-btn" @click="$emit('category-select', 'Limpiadores')">Limpiadores</button>
           <button type="button" class="footer-btn" @click="$emit('category-select', 'Serums')">Serums</button>
         </div>
 
         <div class="footer-col">
-          <h4>Informacion</h4>
-          <RouterLink to="/envios">Envios</RouterLink>
+          <h4>Información</h4>
+          <RouterLink to="/envios">Envíos</RouterLink>
           <RouterLink to="/cambios-y-devoluciones">Cambios y devoluciones</RouterLink>
-          <RouterLink to="/condiciones-de-envio">Condiciones de envio</RouterLink>
+          <RouterLink to="/condiciones-de-envio">Condiciones de envío</RouterLink>
           <RouterLink to="/contacto">Contacto</RouterLink>
         </div>
 

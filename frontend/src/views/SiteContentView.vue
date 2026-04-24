@@ -13,8 +13,8 @@
         </RouterLink>
 
         <nav class="content-nav">
-          <RouterLink to="/">Home</RouterLink>
-          <RouterLink to="/catalogo">Catalogo</RouterLink>
+          <RouterLink to="/">Inicio</RouterLink>
+          <RouterLink to="/catalogo">Catálogo</RouterLink>
           <RouterLink to="/contacto">Contacto</RouterLink>
         </nav>
       </div>
@@ -22,7 +22,7 @@
 
     <main class="content-main">
       <section class="content-hero">
-        <div class="content-tag">Informacion Bloomskin</div>
+        <div class="content-tag">Información Bloomskin</div>
         <h1>{{ page.title }}</h1>
         <p>{{ page.intro }}</p>
       </section>
@@ -30,7 +30,7 @@
       <section class="content-card">
         <p>{{ page.body }}</p>
         <div class="content-actions">
-          <RouterLink class="ghost-btn" to="/catalogo">Volver al catalogo</RouterLink>
+          <RouterLink class="ghost-btn" to="/catalogo">Volver al catálogo</RouterLink>
           <RouterLink class="primary-btn" to="/contacto">Hablar con Bloomskin</RouterLink>
         </div>
       </section>
@@ -52,19 +52,19 @@ const route = useRoute()
 const site = ref({
   legal: {
     shipping_policy: {
-      title: 'Tiempos y condiciones de envio',
-      intro: 'Despachamos desde Antofagasta y coordinamos cada pedido segun destino y disponibilidad.',
-      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envio es gratis cuando corresponda segun configuracion vigente. Los tiempos pueden variar en dias de alta demanda.',
+      title: 'Tiempos y condiciones de envío',
+      intro: 'Despachamos desde Antofagasta y coordinamos cada pedido según destino y disponibilidad.',
+      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envío es gratis cuando corresponda según configuración vigente. Los tiempos pueden variar en días de alta demanda.',
     },
     returns_policy: {
       title: 'Cambios y devoluciones',
-      intro: 'Si tu pedido llega con algun problema, escribenos para revisarlo caso a caso.',
-      body: 'Aceptamos revisiones por productos danados, errores de preparacion o incidencias de transporte. Para evaluar un caso necesitaremos numero de pedido, fotos y contacto dentro del plazo informado por Bloomskin.',
+      intro: 'Si tu pedido llega con algún problema, escríbenos para revisarlo caso a caso.',
+      body: 'Aceptamos revisiones por productos dañados, errores de preparación o incidencias de transporte. Para evaluar un caso necesitaremos número de pedido, fotos y contacto dentro del plazo informado por Bloomskin.',
     },
     shipping_conditions: {
       title: 'Condiciones de despacho',
-      intro: 'Estas condiciones resumen como operan nuestros envios dentro de Chile.',
-      body: 'La clienta debe ingresar datos correctos y completos para evitar retrasos. Si el courier no logra entregar por direccion incompleta o ausencia reiterada, el pedido puede requerir coordinacion adicional.',
+      intro: 'Estas condiciones resumen cómo operan nuestros envíos dentro de Chile.',
+      body: 'La clienta debe ingresar datos correctos y completos para evitar retrasos. Si el courier no logra entregar por dirección incompleta o ausencia reiterada, el pedido puede requerir coordinación adicional.',
     },
   },
 })

@@ -1,15 +1,50 @@
 <template>
   <header class="app-header">
     <div class="header-inner">
-      <nav class="header-nav">
-        <RouterLink class="nav-link" :to="homeTo">Inicio</RouterLink>
-        <RouterLink class="nav-link" :to="catalogTo">Catalogo</RouterLink>
-        <button class="nav-link" type="button" @click="$emit('category-select', 'Limpiadores')">Limpiadores</button>
-        <button class="nav-link" type="button" @click="$emit('category-select', 'Serums')">Serums</button>
-        <button class="nav-link" type="button" @click="$emit('category-select', 'Protección Solar')">Solar</button>
+      <div class="mobile-bar">
+        <button class="mobile-menu-btn" type="button" :aria-expanded="mobileMenuOpen ? 'true' : 'false'" aria-label="Abrir menu" @click="mobileMenuOpen = !mobileMenuOpen">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <RouterLink to="/" class="logo mobile-logo">
+          <span class="logo-lockup">
+            <img src="/brand/bloomskin-logo.png" alt="Bloomskin" class="logo-image" />
+            <span class="logo-wording">
+              <span class="logo-text">bloomskin</span>
+              <span class="logo-sub">K-Beauty - Chile</span>
+            </span>
+          </span>
+        </RouterLink>
+
+        <div class="mobile-actions">
+          <button class="icon-btn" type="button" aria-label="Favoritos" @click="$emit('favorites-click')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+          </button>
+
+          <button class="icon-btn cart-btn" type="button" aria-label="Carrito" @click="$emit('cart-click')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <path d="M16 10a4 4 0 0 1-8 0" />
+            </svg>
+            <span v-if="cartCount > 0" class="cart-badge">{{ cartCount }}</span>
+          </button>
+        </div>
+      </div>
+
+      <nav class="header-nav" :class="{ open: mobileMenuOpen }">
+        <RouterLink class="nav-link" :to="homeTo" @click="closeMobileMenu">Inicio</RouterLink>
+        <RouterLink class="nav-link" :to="catalogTo" @click="closeMobileMenu">Catalogo</RouterLink>
+        <button class="nav-link" type="button" @click="emitCategory('Limpiadores')">Limpiadores</button>
+        <button class="nav-link" type="button" @click="emitCategory('Serums')">Serums</button>
+        <button class="nav-link" type="button" @click="emitCategory('Protección Solar')">Solar</button>
       </nav>
 
-      <RouterLink to="/" class="logo">
+      <RouterLink to="/" class="logo desktop-logo">
         <span class="logo-lockup">
           <img src="/brand/bloomskin-logo.png" alt="Bloomskin" class="logo-image" />
           <span class="logo-wording">
@@ -19,7 +54,7 @@
         </span>
       </RouterLink>
 
-      <div class="header-right">
+      <div class="header-right" :class="{ open: mobileMenuOpen }">
         <form class="search-bar" @submit.prevent="emitSearchSubmit">
           <button class="search-submit" type="submit" aria-label="Buscar">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -36,19 +71,19 @@
           />
         </form>
 
-        <button class="account-btn" type="button" @click="$emit('account-click')">
+        <button class="account-btn" type="button" @click="$emit('account-click'); closeMobileMenu()">
           <span class="account-copy">
             <strong>{{ accountLabel }}</strong>
           </span>
         </button>
 
-        <button class="icon-btn" type="button" aria-label="Favoritos" @click="$emit('favorites-click')">
+        <button class="icon-btn desktop-only" type="button" aria-label="Favoritos" @click="$emit('favorites-click')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
           </svg>
         </button>
 
-        <button class="icon-btn cart-btn" type="button" aria-label="Carrito" @click="$emit('cart-click')">
+        <button class="icon-btn cart-btn desktop-only" type="button" aria-label="Carrito" @click="$emit('cart-click')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
             <line x1="3" y1="6" x2="21" y2="6" />
@@ -57,13 +92,14 @@
           <span v-if="cartCount > 0" class="cart-badge">{{ cartCount }}</span>
         </button>
 
-        <RouterLink v-if="showAdminLink" to="/admin/login" class="admin-link" title="Admin">⚙</RouterLink>
+        <RouterLink v-if="showAdminLink" to="/admin/login" class="admin-link" title="Admin" @click="closeMobileMenu">Panel</RouterLink>
       </div>
     </div>
   </header>
 </template>
 
 <script setup>
+import { ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
 const props = defineProps({
@@ -85,8 +121,24 @@ const emit = defineEmits([
   'category-select',
 ])
 
+const mobileMenuOpen = ref(false)
+
+watch(() => props.searchTerm, () => {
+  mobileMenuOpen.value = false
+})
+
+function closeMobileMenu() {
+  mobileMenuOpen.value = false
+}
+
 function emitSearchSubmit() {
   emit('search-submit')
+  closeMobileMenu()
+}
+
+function emitCategory(category) {
+  emit('category-select', category)
+  closeMobileMenu()
 }
 </script>
 
@@ -111,6 +163,10 @@ function emitSearchSubmit() {
   gap: 20px;
 }
 
+.mobile-bar {
+  display: none;
+}
+
 .header-nav {
   display: flex;
   align-items: center;
@@ -131,7 +187,10 @@ function emitSearchSubmit() {
   transition: all 0.2s;
 }
 
-.nav-link:hover { color: var(--rose); border-bottom-color: var(--rose); }
+.nav-link:hover {
+  color: var(--rose);
+  border-bottom-color: var(--rose);
+}
 
 .logo {
   text-align: center;
@@ -139,7 +198,12 @@ function emitSearchSubmit() {
   justify-content: center;
 }
 
-.logo-lockup { display: inline-flex; align-items: center; gap: 10px; }
+.logo-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .logo-image {
   width: 46px;
   height: 46px;
@@ -148,7 +212,14 @@ function emitSearchSubmit() {
   filter: drop-shadow(0 8px 18px rgba(217,109,144,.12));
   border-radius: 14px;
 }
-.logo-wording { display: flex; flex-direction: column; align-items: flex-start; }
+
+.logo-wording {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
 .logo-text {
   font-family: 'Cormorant Garamond', serif;
   font-size: 28px;
@@ -158,6 +229,7 @@ function emitSearchSubmit() {
   display: block;
   line-height: .9;
 }
+
 .logo-sub {
   font-size: 8px;
   letter-spacing: 0.28em;
@@ -172,6 +244,33 @@ function emitSearchSubmit() {
   justify-content: flex-end;
   align-items: center;
   gap: 14px;
+}
+
+.mobile-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-menu-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid #ead7dd;
+  background: linear-gradient(180deg, #fffafc, #fdf1f5);
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 10px;
+}
+
+.mobile-menu-btn span {
+  display: block;
+  width: 100%;
+  height: 1.5px;
+  border-radius: 999px;
+  background: var(--rose-dark);
 }
 
 .search-bar {
@@ -240,7 +339,9 @@ function emitSearchSubmit() {
   position: relative;
 }
 
-.icon-btn:hover { color: var(--rose); }
+.icon-btn:hover {
+  color: var(--rose);
+}
 
 .cart-badge {
   position: absolute;
@@ -259,12 +360,16 @@ function emitSearchSubmit() {
 }
 
 .admin-link {
-  font-size: 18px;
+  font-size: 12px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
   color: var(--text-muted);
   transition: color .2s;
 }
 
-.admin-link:hover { color: var(--rose); }
+.admin-link:hover {
+  color: var(--rose);
+}
 
 @media (max-width: 1180px) {
   .header-inner {
@@ -279,19 +384,77 @@ function emitSearchSubmit() {
 }
 
 @media (max-width: 720px) {
-  .header-nav { gap: 14px; }
+  .header-inner {
+    display: block;
+    min-height: auto;
+    padding: 12px 16px 16px;
+  }
+
+  .mobile-bar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .desktop-logo,
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-logo {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .logo-image {
+    width: 40px;
+    height: 40px;
+  }
+
+  .logo-text {
+    font-size: 22px;
+  }
+
+  .logo-sub {
+    font-size: 7px;
+    letter-spacing: .22em;
+  }
+
+  .header-nav,
   .header-right {
+    display: none;
+  }
+
+  .header-nav.open,
+  .header-right.open {
+    display: flex;
+  }
+
+  .header-nav {
+    margin-top: 14px;
+    gap: 10px 14px;
+    justify-content: flex-start;
+  }
+
+  .header-right {
+    margin-top: 14px;
     width: 100%;
     flex-wrap: wrap;
     gap: 10px;
+    justify-content: flex-start;
   }
+
   .search-bar {
-    order: 3;
+    order: 4;
     width: 100%;
     min-width: 0;
     max-width: none;
     flex: 1 1 100%;
   }
-  .account-btn { flex: 1; }
+
+  .account-btn {
+    flex: 1 1 auto;
+  }
 }
 </style>

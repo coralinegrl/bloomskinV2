@@ -103,7 +103,7 @@
             </label>
 
             <label class="field-block">
-              <span>Telefono</span>
+              <span>Teléfono</span>
               <input
                 :value="registerForm.telefono"
                 type="text"
@@ -123,7 +123,7 @@
             </label>
 
             <label class="field-block">
-              <span>Numero</span>
+              <span>Número</span>
               <input v-model.trim="registerForm.number" type="text" placeholder="860" :disabled="customerAuth.loading" />
             </label>
           </div>
@@ -141,7 +141,7 @@
             </label>
 
             <label class="field-block">
-              <span>Region</span>
+              <span>Región</span>
               <select v-model="registerForm.region" :disabled="customerAuth.loading">
                 <option value="">Selecciona una region</option>
                 <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>

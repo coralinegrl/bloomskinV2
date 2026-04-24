@@ -104,6 +104,7 @@ export const pedidosApi = {
 export const clientesApi = {
   listar: () => adminApi.get('/clientes'),
   actualizar: (id, data) => adminApi.put(`/clientes/${id}`, data),
+  eliminar: id => adminApi.delete(`/clientes/${id}`),
   actualizarPerfil: data => clientApi.put('/clientes/me/profile', data),
   wishlist: () => clientApi.get('/clientes/me/wishlist'),
   agregarWishlist: productoId => clientApi.post('/clientes/me/wishlist', { producto_id: productoId }),

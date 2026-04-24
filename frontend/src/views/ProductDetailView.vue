@@ -66,7 +66,7 @@
             <div class="detail-notes">
               <div>Envío gratis sobre $49.990</div>
               <div>Compra con tu cuenta Bloomskin</div>
-              <div>Catálogo sincronizado desde Bloomskin</div>
+              <div>Selección original de K-Beauty</div>
             </div>
           </div>
         </div>
@@ -380,6 +380,59 @@ function fmt(n) {
   }
   .detail-card {
     position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .detail-shell {
+    width: min(100vw, calc(100vw - 24px));
+    padding: 18px 0 40px;
+  }
+
+  .gallery-card,
+  .detail-card {
+    border-radius: 22px;
+  }
+
+  .gallery-card {
+    padding: 12px;
+  }
+
+  .gallery-image {
+    min-height: 360px;
+  }
+
+  .fallback-orb {
+    width: 160px;
+    height: 160px;
+  }
+
+  .fallback-copy {
+    inset: auto 16px 16px 16px;
+    padding: 18px;
+  }
+
+  .fallback-copy strong {
+    font-size: 28px;
+  }
+
+  .detail-card {
+    padding: 22px 18px;
+  }
+
+  .detail-card h1 {
+    font-size: 34px;
+  }
+
+  .detail-meta,
+  .detail-actions,
+  .related-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-price-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

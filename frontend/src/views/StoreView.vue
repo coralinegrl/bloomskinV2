@@ -1,65 +1,16 @@
 ﻿<template>
   <div>
     <AnnouncementBar />
-
-    <header>
-      <div class="header-inner">
-        <nav>
-          <RouterLink class="nav-link" to="/catalogo">Catalogo</RouterLink>
-          <button class="nav-link" @click="selectCategory('Limpiadores')">Limpiadores</button>
-          <button class="nav-link" @click="selectCategory('Serums')">Serums</button>
-          <button class="nav-link" @click="selectCategory('Protección Solar')">Solar</button>
-          <button class="nav-link" @click="selectCategory('Maquillaje')">Maquillaje</button>
-        </nav>
-
-        <RouterLink to="/" class="logo">
-          <span class="logo-lockup">
-            <img src="/brand/bloomskin-logo.png" alt="Bloomskin" class="logo-image" />
-            <span class="logo-wording">
-              <span class="logo-text">bloomskin</span>
-              <span class="logo-sub">K-Beauty - Chile</span>
-            </span>
-          </span>
-        </RouterLink>
-
-        <div class="header-right">
-          <form class="search-link" @submit.prevent="submitHeaderSearch">
-            <button class="search-icon-btn" type="submit" aria-label="Buscar">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#9A7B85">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-            </button>
-            <input
-              v-model.trim="headerSearch"
-              type="text"
-              placeholder="Buscar productos..."
-            />
-          </form>
-
-          <button class="account-btn" @click="handleAccountClick">
-            <span class="account-copy">
-              <strong>{{ customerAuth.isAuthenticated ? 'Mi cuenta' : 'Entrar' }}</strong>
-            </span>
-          </button>
-
-          <button class="icon-btn" @click="handleFavoritesClick">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-            </svg>
-          </button>
-
-          <button class="icon-btn" style="position:relative" @click="cart.openDrawer('cart')">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <path d="M16 10a4 4 0 0 1-8 0" />
-            </svg>
-            <span v-if="cart.count > 0" class="cart-badge">{{ cart.count }}</span>
-          </button>
-        </div>
-      </div>
-    </header>
+    <AppHeader
+      v-model:search-term="headerSearch"
+      :account-label="customerAuth.isAuthenticated ? 'Mi cuenta' : 'Entrar'"
+      :cart-count="cart.count"
+      @search-submit="submitHeaderSearch"
+      @account-click="handleAccountClick"
+      @favorites-click="handleFavoritesClick"
+      @cart-click="cart.openDrawer('cart')"
+      @category-select="selectCategory"
+    />
 
     <section class="hero">
       <div class="hero-left">
@@ -95,30 +46,47 @@
 
     <div class="promo-band">
       <div v-for="(promo, index) in homeContent.promoItems" :key="`promo-${index}`" class="promo-item">
-        <div v-if="promo.icon === 'flag-kr'" class="promo-icon promo-flag-icon" aria-hidden="true">
-        <svg viewBox="0 0 64 64" class="flag-svg">
-          <circle cx="32" cy="32" r="30" fill="#fff" />
-          <path d="M32 18a14 14 0 0 1 0 28c-7.732 0-14-6.268-14-14s6.268-14 14-14Z" fill="#cd2e3a" />
-          <path d="M32 46a14 14 0 0 1 0-28c7.732 0 14 6.268 14 14s-6.268 14-14 14Z" fill="#0047a0" />
-          <path d="M26 25a7 7 0 0 0 12 7a7 7 0 0 1-12-7Z" fill="#0047a0" />
-          <path d="M38 39a7 7 0 0 0-12-7a7 7 0 0 1 12 7Z" fill="#cd2e3a" />
-          <g fill="#111">
-            <rect x="11" y="16" width="10" height="2" rx="1" transform="rotate(-28 16 17)" />
-            <rect x="12" y="20" width="10" height="2" rx="1" transform="rotate(-28 17 21)" />
-            <rect x="13" y="24" width="10" height="2" rx="1" transform="rotate(-28 18 25)" />
-            <rect x="41" y="39" width="10" height="2" rx="1" transform="rotate(-28 46 40)" />
-            <rect x="42" y="43" width="10" height="2" rx="1" transform="rotate(-28 47 44)" />
-            <rect x="43" y="47" width="10" height="2" rx="1" transform="rotate(-28 48 48)" />
-            <rect x="41" y="16" width="10" height="2" rx="1" transform="rotate(28 46 17)" />
-            <rect x="42" y="20" width="10" height="2" rx="1" transform="rotate(28 47 21)" />
-            <rect x="43" y="24" width="10" height="2" rx="1" transform="rotate(28 48 25)" />
-            <rect x="11" y="39" width="10" height="2" rx="1" transform="rotate(28 16 40)" />
-            <rect x="12" y="43" width="10" height="2" rx="1" transform="rotate(28 17 44)" />
-            <rect x="13" y="47" width="10" height="2" rx="1" transform="rotate(28 18 48)" />
-          </g>
-        </svg>
-      </div>
-        <div v-else class="promo-icon">{{ promo.icon }}</div>
+        <div class="promo-icon" :class="{ 'promo-flag-icon': promoIconKey(promo.icon) === 'flag-kr' }" aria-hidden="true">
+          <svg v-if="promoIconKey(promo.icon) === 'truck'" viewBox="0 0 24 24" class="promo-svg" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 7h11v8H3z" />
+            <path d="M14 10h3l3 3v2h-6z" />
+            <circle cx="7.5" cy="17.5" r="1.5" />
+            <circle cx="17.5" cy="17.5" r="1.5" />
+          </svg>
+          <svg v-else-if="promoIconKey(promo.icon) === 'gift'" viewBox="0 0 24 24" class="promo-svg" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 9h16v11H4z" />
+            <path d="M12 9v11" />
+            <path d="M3 9h18v-3H3z" />
+            <path d="M12 9H7.5a2.5 2.5 0 1 1 0-5c2.4 0 3.6 2.5 4.5 5Z" />
+            <path d="M12 9h4.5a2.5 2.5 0 1 0 0-5C14.1 4 12.9 6.5 12 9Z" />
+          </svg>
+          <svg v-else-if="promoIconKey(promo.icon) === 'whatsapp'" viewBox="0 0 24 24" class="promo-svg" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M20 11.5a8 8 0 1 1-14.9 4L4 20l4.7-1.1A8 8 0 1 1 20 11.5Z" />
+            <path d="M9 8.8c.2-.4.4-.4.7-.4h.6c.2 0 .4 0 .5.4l.6 1.6c.1.2.1.4 0 .6l-.5.8c-.1.2-.1.4 0 .6c.5.8 1.2 1.5 2 2c.2.1.4.1.6 0l.8-.5c.2-.1.4-.1.6 0l1.6.6c.4.1.4.3.4.5v.6c0 .3 0 .5-.4.7c-.6.3-1.3.5-2 .4c-1.1-.1-2.5-.8-3.9-2.2c-1.4-1.4-2.1-2.8-2.2-3.9c-.1-.7.1-1.4.4-2Z" />
+          </svg>
+          <svg v-else-if="promoIconKey(promo.icon) === 'flag-kr'" viewBox="0 0 64 64" class="flag-svg">
+            <circle cx="32" cy="32" r="30" fill="#fff" />
+            <path d="M32 18a14 14 0 0 1 0 28c-7.732 0-14-6.268-14-14s6.268-14 14-14Z" fill="#cd2e3a" />
+            <path d="M32 46a14 14 0 0 1 0-28c7.732 0 14 6.268 14 14s-6.268 14-14 14Z" fill="#0047a0" />
+            <path d="M26 25a7 7 0 0 0 12 7a7 7 0 0 1-12-7Z" fill="#0047a0" />
+            <path d="M38 39a7 7 0 0 0-12-7a7 7 0 0 1 12 7Z" fill="#cd2e3a" />
+            <g fill="#111">
+              <rect x="11" y="16" width="10" height="2" rx="1" transform="rotate(-28 16 17)" />
+              <rect x="12" y="20" width="10" height="2" rx="1" transform="rotate(-28 17 21)" />
+              <rect x="13" y="24" width="10" height="2" rx="1" transform="rotate(-28 18 25)" />
+              <rect x="41" y="39" width="10" height="2" rx="1" transform="rotate(-28 46 40)" />
+              <rect x="42" y="43" width="10" height="2" rx="1" transform="rotate(-28 47 44)" />
+              <rect x="43" y="47" width="10" height="2" rx="1" transform="rotate(-28 48 48)" />
+              <rect x="41" y="16" width="10" height="2" rx="1" transform="rotate(28 46 17)" />
+              <rect x="42" y="20" width="10" height="2" rx="1" transform="rotate(28 47 21)" />
+              <rect x="43" y="24" width="10" height="2" rx="1" transform="rotate(28 48 25)" />
+              <rect x="11" y="39" width="10" height="2" rx="1" transform="rotate(28 16 40)" />
+              <rect x="12" y="43" width="10" height="2" rx="1" transform="rotate(28 17 44)" />
+              <rect x="13" y="47" width="10" height="2" rx="1" transform="rotate(28 18 48)" />
+            </g>
+          </svg>
+          <span v-else class="promo-fallback">{{ promo.title?.slice(0, 1) || 'B' }}</span>
+        </div>
         <div class="promo-text"><strong>{{ promo.title }}</strong><span>{{ promo.copy }}</span></div>
       </div>
     </div>
@@ -163,8 +131,6 @@
       </div>
     </section>
 
-    <div class="section-divider" aria-hidden="true"></div>
-
     <section class="showcase-section showcase-section-centered">
       <div class="section-header section-header-centered">
         <div>
@@ -193,6 +159,39 @@
       </div>
     </section>
 
+    <div v-if="newsItems.length || newsLoading" class="section-divider" aria-hidden="true"></div>
+
+    <section v-if="newsItems.length" class="news-section">
+      <div class="section-header section-header-centered">
+        <div>
+          <div class="section-tag">K-Beauty News</div>
+          <h2 class="section-title">Qué se está moviendo en Corea del Sur</h2>
+          <p class="section-copy section-copy-centered">
+            Noticias y señales de la industria coreana para entender lanzamientos, marcas y tendencias que hoy inspiran el skincare.
+          </p>
+        </div>
+      </div>
+
+      <div class="news-grid">
+        <a
+          v-for="item in newsItems"
+          :key="item.url"
+          class="news-card"
+          :href="item.url"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span class="news-source">{{ item.source }}</span>
+          <strong>{{ item.title }}</strong>
+          <span class="news-link">Leer noticia</span>
+        </a>
+      </div>
+    </section>
+
+    <div v-else-if="newsLoading" class="news-loading">Cargando noticias de K-Beauty...</div>
+
+    <div class="section-divider" aria-hidden="true"></div>
+
     <section class="newsletter-section">
       <div class="newsletter-tag">{{ homeContent.newsletter.tag }}</div>
       <h2 class="newsletter-title">{{ homeContent.newsletter.title }}<br /><em>{{ homeContent.newsletter.emphasis }}</em></h2>
@@ -212,7 +211,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { mensajesApi, productosApi, resolveAssetUrl, settingsApi } from '../api/index.js'
+import { mensajesApi, newsApi, productosApi, resolveAssetUrl, settingsApi } from '../api/index.js'
+import AppHeader from '../components/store/AppHeader.vue'
 import ProductCard from '../components/store/ProductCard.vue'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import AnnouncementBar from '../components/ui/AnnouncementBar.vue'
@@ -229,53 +229,53 @@ const productos = ref([])
 const siteSettings = ref({
   home: {
     hero: {
-      tag: 'Selección Bloomskin',
-      title: 'Una home más curada, con',
-      emphasis: 'lo mejor primero',
-      description: 'La portada muestra selección editorial, best sellers y rutas rápidas para descubrir productos. El catálogo completo vive aparte, con filtros de compra más serios.',
-      primary_cta_label: 'Ver más vendidos',
-      secondary_cta_label: 'Ir al catálogo',
+      tag: 'Glow diario, ritual coreano',
+      title: 'Descubre tu rutina de',
+      emphasis: 'skincare coreano',
+      description: 'Una selección curada de fórmulas coreanas para limpiar, hidratar, proteger y tratar tu piel con texturas ligeras, ingredientes nobles y resultados visibles.',
+      primary_cta_label: 'Explorar favoritos',
+      secondary_cta_label: 'Ver catálogo',
     },
     categoryTiles: [],
     promoItems: [
-      { icon: '🚚', title: 'Envío gratis', copy: 'Sobre $49.990' },
-      { icon: 'flag-kr', title: '100% originales', copy: 'Directo desde Corea del Sur' },
-      { icon: '🎁', title: 'Muestras y hallazgos', copy: 'Selección curada para descubrir favoritos' },
-      { icon: '💬', title: 'Te orientamos por WhatsApp', copy: 'Ayuda rápida para elegir tu rutina' },
+      { icon: 'truck', title: 'Envío gratis', copy: 'Sobre $49.990 en compras seleccionadas' },
+      { icon: 'flag-kr', title: 'Originales de Corea', copy: 'Selección auténtica de K-Beauty' },
+      { icon: 'gift', title: 'Hallazgos y favoritos', copy: 'Curaduría pensada para cada rutina' },
+      { icon: 'whatsapp', title: 'Asesoría por WhatsApp', copy: 'Te ayudamos a elegir según tu piel' },
     ],
     bestSellers: {
       tag: 'Best Sellers',
-      title: 'Los más vendidos',
-      copy: 'Un bloque rápido con lo más fuerte del catálogo y mejor señal comercial.',
+      title: 'Favoritos Bloomskin',
+      copy: 'Los esenciales que más buscan nuestras clientas para una rutina simple, efectiva y rica de usar.',
       link_label: 'Ver catálogo',
     },
     editorial: {
       tag: 'Descubre por necesidad',
       title: 'Explora la tienda como una rutina',
-      copy: 'En vez de mostrar todo de una, te guiamos por bloques más claros y rápidos de navegar.',
+      copy: 'Explora por necesidad y encuentra texturas, beneficios e ingredientes que sí hacen sentido para tu piel.',
       cards: [
-        { kicker: 'Rutina base', title: 'Empieza por una limpieza suave', copy: 'Limpiadores y básicos para armar una rutina simple de día o noche.', link_label: 'Explorar limpiadores →', category: 'Limpiadores', tone: 'rose' },
-        { kicker: 'Uso diario', title: 'Protección solar que sí vas a usar todos los días', copy: 'Solares cómodos, ligeros y fáciles de combinar con maquillaje.', link_label: 'Ver solares →', category: 'Protección Solar', tone: 'sage' },
-        { kicker: 'Tratamiento', title: 'Serums para brillo, textura y manchas', copy: 'Una selección rápida para quienes quieren resultados sin revisar setenta fichas seguidas.', link_label: 'Ir a serums →', category: 'Serums', tone: 'cream' },
+        { kicker: 'Rutina base', title: 'Empieza por una limpieza suave', copy: 'Espumas, geles y básicos suaves para empezar una rutina coreana sin complicarte.', link_label: 'Explorar limpiadores →', category: 'Limpiadores', tone: 'rose' },
+        { kicker: 'Uso diario', title: 'Protección solar que sí vas a querer usar', copy: 'Filtros ligeros, cómodos y amables con el maquillaje para todos los días.', link_label: 'Ver solares →', category: 'Protección Solar', tone: 'sage' },
+        { kicker: 'Tratamiento', title: 'Serums para hidratación y glow', copy: 'Serums para hidratación, luminosidad, textura y manchas con una selección más clara y útil.', link_label: 'Ir a serums →', category: 'Serums', tone: 'cream' },
       ],
     },
     newIn: {
       tag: 'New In',
       title: 'Novedades y hallazgos',
-      copy: 'Un bloque más liviano para descubrir productos nuevos y cosas en tendencia.',
-      link_label: 'Ver todo',
+      copy: 'Novedades, lanzamientos y fórmulas que están marcando tendencia en el universo K-Beauty.',
+      link_label: 'Ver novedades',
     },
     catalogCta: {
       tag: 'Catálogo completo',
-      title: 'Descubre todo el catálogo Bloomskin',
-      copy: 'Entra a una vista dedicada con categorías, marcas, precios, stock, promociones y orden.',
+      title: 'Explora todo el universo Bloomskin',
+      copy: 'Filtra por categoría, marca, precio, stock y promociones para encontrar lo que tu rutina necesita.',
       button_label: 'Abrir catálogo',
     },
     newsletter: {
       tag: 'Únete a la comunidad',
-      title: 'Skincare tips y',
-      emphasis: 'ofertas exclusivas',
-      copy: 'Suscríbete y recibe novedades y lanzamientos de Bloomskin',
+      title: 'Tips de K-Beauty y',
+      emphasis: 'novedades exclusivas',
+      copy: 'Suscríbete para recibir lanzamientos, rituales, favoritos coreanos y ofertas especiales.',
       placeholder: 'tu@email.com',
       button_label: 'Suscribirme',
     },
@@ -285,6 +285,8 @@ const headerSearch = ref('')
 const newsletterEmail = ref('')
 const newsletterLoading = ref(false)
 const suscritoOk = ref(false)
+const newsItems = ref([])
+const newsLoading = ref(false)
 
 const categoryAliases = {
   'Tónicos': 'Tonicos',
@@ -352,6 +354,15 @@ onMounted(async () => {
       categoria: normalizeCategory(product.categoria),
     }))
     siteSettings.value = settingsData || siteSettings.value
+    newsLoading.value = true
+    try {
+      const { data: newsData } = await newsApi.kbeauty()
+      newsItems.value = Array.isArray(newsData?.items) ? newsData.items.slice(0, 4) : []
+    } catch (newsError) {
+      console.error('Error cargando noticias K-Beauty', newsError)
+    } finally {
+      newsLoading.value = false
+    }
   } catch (error) {
     console.error('Error cargando home', error)
     ui.error('No pudimos cargar la portada. Intenta nuevamente.')
@@ -361,6 +372,13 @@ onMounted(async () => {
 function normalizeCategory(category) {
   if (!category) return 'Sin categoría'
   return categoryAliases[category] || category
+}
+
+function promoIconKey(icon) {
+  return String(icon || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, '-')
 }
 
 function goToCatalog(category) {
@@ -471,8 +489,10 @@ nav { display: flex; gap: 24px; }
 .promo-band,.showcase-section,.editorial-section,.catalog-cta-section,footer { max-width: 1280px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 .promo-band { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-top: 28px; }
 .promo-item { background: var(--sage-light); border: 1px solid #c8dcc8; border-radius: 22px; padding: 18px 18px; display: flex; align-items: center; gap: 12px; }
-.promo-icon { width: 36px; height: 36px; background: var(--sage); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.promo-icon { width: 40px; height: 40px; background: var(--sage); color: #335f4a; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .promo-flag-icon { padding: 0; overflow: hidden; }
+.promo-svg { width: 20px; height: 20px; display: block; }
+.promo-fallback { font-size: 13px; font-weight: 700; }
 .flag-svg { width: 24px; height: 24px; display: block; }
 .promo-text strong { display: block; font-size: 12px; }
 .promo-text span { font-size: 12px; color: var(--text-muted); }
@@ -519,6 +539,49 @@ nav { display: flex; gap: 24px; }
 
 .catalog-cta-card { padding: 28px; border-radius: 30px; background: linear-gradient(135deg,#fff5f8,#f7e9ee); border: 1px solid rgba(191,84,122,.1); display: flex; justify-content: space-between; align-items: end; gap: 18px; }
 
+.news-section { max-width: 1280px; margin: 0 auto; padding: 58px 32px 0; }
+.news-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(4,1fr); gap: 18px; }
+.news-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-height: 220px;
+  padding: 24px;
+  border-radius: 26px;
+  background: linear-gradient(160deg,#fff9fb,#f5e9ef);
+  border: 1px solid rgba(191,84,122,.12);
+  color: var(--dark);
+}
+.news-source {
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--rose);
+}
+.news-card strong {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 30px;
+  line-height: 1.08;
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+.news-link {
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--rose-dark);
+}
+.news-loading {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 22px 32px 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .newsletter-section { max-width: 920px; margin: 0 auto; padding-left: 32px; padding-right: 32px; padding-bottom: 72px; text-align: center; }
 .newsletter-form { display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-top: 22px; }
 .newsletter-form input { border: 1px solid #ead7dd; border-radius: 999px; padding: 15px 18px; font-size: 13px; outline: none; }
@@ -540,16 +603,16 @@ footer { padding-top: 36px; padding-bottom: 42px; }
   .header-inner { grid-template-columns: 1fr; min-height: auto; padding: 16px 24px; }
   nav,.header-right { justify-content: center; flex-wrap: wrap; }
   .hero,.section-header.split,.catalog-cta-card,.footer-top { grid-template-columns: 1fr; display: grid; }
-  .promo-band,.showcase-grid,.editorial-grid { grid-template-columns: repeat(2,1fr); }
+  .promo-band,.showcase-grid,.editorial-grid,.news-grid { grid-template-columns: repeat(2,1fr); }
 }
 
 @media (max-width: 720px) {
   .search-link { order: 3; width: 100%; justify-content: center; }
   .account-btn { flex: 1; }
-  .hero-left,.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,footer,.newsletter-section { padding-left: 20px; padding-right: 20px; }
+  .hero-left,.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,footer,.newsletter-section,.news-section { padding-left: 20px; padding-right: 20px; }
   .hero-left { padding-top: 56px; padding-bottom: 56px; }
   .hero-title,.section-title,.newsletter-title { font-size: 42px; }
-  .promo-band,.showcase-grid,.editorial-grid,.hero-right,.newsletter-form,.footer-top { grid-template-columns: 1fr; }
+  .promo-band,.showcase-grid,.editorial-grid,.hero-right,.newsletter-form,.footer-top,.news-grid { grid-template-columns: 1fr; }
   .footer-bottom { flex-direction: column; }
 }
 </style>

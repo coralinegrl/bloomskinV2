@@ -7,13 +7,13 @@
           <div class="eyebrow">Mi cuenta</div>
           <h1>{{ customerAuth.user?.nombre || 'Tu cuenta Bloomskin' }}</h1>
           <p>
-            Revisa tus datos, manten tu perfil al dia, guarda favoritos y sigue el estado de cada compra.
+            Revisa tus datos, mantén tu perfil al día, guarda favoritos y sigue el estado de cada compra.
           </p>
         </div>
         <div class="hero-card">
           <span>Cuenta activa</span>
           <strong>{{ customerAuth.user?.email }}</strong>
-          <button class="ghost-btn" @click="logout">Cerrar sesion</button>
+          <button class="ghost-btn" @click="logout">Cerrar sesión</button>
         </div>
       </div>
     </section>
@@ -46,7 +46,7 @@
             <small v-if="fieldErrors.rut" class="field-error">{{ fieldErrors.rut }}</small>
           </label>
           <label>
-            <span>Telefono</span>
+            <span>Teléfono</span>
             <input :value="profileForm.telefono" type="text" :disabled="saving" @input="profileForm.telefono = formatPhoneInput($event.target.value)" />
             <small v-if="fieldErrors.telefono" class="field-error">{{ fieldErrors.telefono }}</small>
           </label>
@@ -56,7 +56,7 @@
             <small v-if="fieldErrors.direccion" class="field-error">{{ fieldErrors.direccion }}</small>
           </label>
           <label>
-            <span>Numero</span>
+            <span>Número</span>
             <input v-model.trim="profileForm.number" type="text" :disabled="saving" />
           </label>
           <label>
@@ -69,9 +69,9 @@
             <small v-if="fieldErrors.ciudad" class="field-error">{{ fieldErrors.ciudad }}</small>
           </label>
           <label class="full-span">
-            <span>Region</span>
+            <span>Región</span>
             <select v-model="profileForm.region" :disabled="saving">
-              <option value="">Selecciona una region</option>
+              <option value="">Selecciona una región</option>
               <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
             </select>
             <small v-if="fieldErrors.region" class="field-error">{{ fieldErrors.region }}</small>
@@ -87,15 +87,15 @@
         <article class="summary-card">
           <span>Pedidos</span>
           <strong>{{ orders.length }}</strong>
-          <small>{{ orders.length ? 'Tu historial esta disponible mas abajo.' : 'Todavia no tienes compras registradas.' }}</small>
+          <small>{{ orders.length ? 'Tu historial está disponible más abajo.' : 'Todavía no tienes compras registradas.' }}</small>
         </article>
         <article class="summary-card">
           <span>Favoritos</span>
           <strong>{{ wishlist.count }}</strong>
-          <small>{{ wishlist.count ? 'Tus productos guardados estan disponibles mas abajo.' : 'Guarda productos con el corazon para verlos aqui.' }}</small>
+          <small>{{ wishlist.count ? 'Tus productos guardados están disponibles más abajo.' : 'Guarda productos con el corazón para verlos aquí.' }}</small>
         </article>
         <article class="summary-card">
-          <span>Ultima compra</span>
+          <span>Última compra</span>
           <strong>{{ latestOrderLabel }}</strong>
           <small>{{ latestOrderAmount }}</small>
         </article>
@@ -118,7 +118,7 @@
       </div>
 
       <div v-else-if="wishlist.items.length === 0" class="orders-empty">
-        <p>Todavia no has guardado productos.</p>
+        <p>Todavía no has guardado productos.</p>
         <RouterLink to="/" class="shop-link">Ir a comprar</RouterLink>
       </div>
 
@@ -143,7 +143,7 @@
       </div>
 
       <div v-else-if="orders.length === 0" class="orders-empty">
-        <p>Todavia no tienes compras registradas.</p>
+        <p>Todavía no tienes compras registradas.</p>
         <RouterLink to="/" class="shop-link">Ir a comprar</RouterLink>
       </div>
 
@@ -162,7 +162,7 @@
 
           <div class="order-meta">
             <div>
-              <span>Metodo de envio</span>
+              <span>Método de envío</span>
               <strong>{{ formatShippingMethod(order.metodo_envio) }}</strong>
             </div>
             <div>
@@ -187,7 +187,7 @@
           </div>
 
           <div v-else class="cancelled-box">
-            Este pedido fue cancelado. Si necesitas ayuda, escribenos por WhatsApp o correo.
+            Este pedido fue cancelado. Si necesitas ayuda, escríbenos por WhatsApp o correo.
           </div>
 
           <ul class="order-items">
@@ -199,7 +199,7 @@
 
           <div class="order-financials">
             <span>Subtotal: {{ formatCurrency(order.subtotal_clp) }}</span>
-            <span>Envio: {{ formatCurrency(order.envio_clp) }}</span>
+            <span>Envío: {{ formatCurrency(order.envio_clp) }}</span>
             <span>Total: {{ formatCurrency(order.total_clp) }}</span>
           </div>
 
@@ -247,11 +247,11 @@ const fieldErrors = reactive({
 })
 
 const timelineLabels = {
-  created: { label: 'Pedido creado', helper: 'Tu compra ya quedo registrada en Bloomskin.' },
+  created: { label: 'Pedido creado', helper: 'Tu compra ya quedó registrada en Bloomskin.' },
   pending_payment: { label: 'Esperando transferencia', helper: 'Realiza la transferencia con los datos del pedido.' },
-  payment_submitted: { label: 'Comprobante recibido', helper: 'Tu comprobante esta pendiente de revision.' },
+  payment_submitted: { label: 'Comprobante recibido', helper: 'Tu comprobante está pendiente de revisión.' },
   paid: { label: 'Pago validado', helper: 'El pago ya fue confirmado por Bloomskin.' },
-  shipped: { label: 'En preparacion o enviado', helper: 'Estamos preparando o despachando tu pedido.' },
+  shipped: { label: 'En preparación o enviado', helper: 'Estamos preparando o despachando tu pedido.' },
   delivered: { label: 'Entregado', helper: 'Tu pedido ya fue entregado o marcado como recibido.' },
 }
 
@@ -317,7 +317,7 @@ async function saveProfile() {
       ui.error(customerAuth.error || 'No pudimos guardar tus datos.')
       return
     }
-    ui.success('Tu perfil se actualizo correctamente.')
+    ui.success('Tu perfil se actualizó correctamente.')
   } finally {
     saving.value = false
   }
@@ -325,7 +325,7 @@ async function saveProfile() {
 
 function logout() {
   customerAuth.logout()
-  ui.info('Tu sesion se cerro correctamente.')
+  ui.info('Tu sesión se cerró correctamente.')
   router.push({ name: 'store' })
 }
 
@@ -354,7 +354,7 @@ function formatStatus(status) {
 
 function formatShippingMethod(method) {
   const labels = {
-    free_shipping: 'Envio gratis',
+    free_shipping: 'Envío gratis',
     blue_express: 'Blue Express',
     local_delivery: 'Despacho Bloomskin',
   }
@@ -428,35 +428,34 @@ function absoluteAssetUrl(path) {
 .account-hero h1,
 .panel h2,
 .orders-head h2 {
-  margin-top: 12px;
+  margin-top: 10px;
   font-family: 'Cormorant Garamond', serif;
-  font-size: 42px;
-  font-weight: 400;
+  font-size: clamp(34px, 4vw, 52px);
+  line-height: 1;
 }
 
 .account-hero p {
-  margin-top: 12px;
+  margin-top: 16px;
+  max-width: 620px;
   color: var(--dark-mid);
-  line-height: 1.7;
-  max-width: 560px;
+  line-height: 1.8;
 }
 
 .hero-card,
 .panel,
 .summary-card,
 .order-card {
-  background: rgba(255,255,255,.9);
-  border: 1px solid rgba(139,63,85,.08);
-  border-radius: 24px;
-  box-shadow: 0 18px 40px rgba(139,63,85,.06);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(191, 84, 122, 0.12);
+  border-radius: 28px;
+  box-shadow: 0 20px 50px rgba(139, 63, 85, 0.06);
 }
 
-.hero-card,
-.summary-card {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.hero-card {
+  padding: 28px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
 }
 
 .hero-card span,
@@ -471,34 +470,42 @@ function absoluteAssetUrl(path) {
 .hero-card strong,
 .summary-card strong {
   font-size: 20px;
-  color: var(--dark);
+  color: var(--rose-dark);
 }
 
 .ghost-btn,
 .save-btn,
-.shop-link {
+.shop-link,
+.proof-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  padding: 10px 16px;
-  font-size: 12px;
-  letter-spacing: .08em;
+  padding: 11px 16px;
+  font-size: 11px;
+  letter-spacing: .1em;
   text-transform: uppercase;
 }
 
 .ghost-btn,
 .shop-link {
-  border: 1px solid #e6ccd4;
-  background: #fff7f9;
+  border: 1px solid rgba(191, 84, 122, 0.2);
   color: var(--rose-dark);
+  background: #fff;
 }
 
-.panel { padding: 28px; }
+.save-btn {
+  border: none;
+  background: var(--rose-dark);
+  color: #fff;
+}
+
+.panel {
+  padding: 28px;
+}
 
 .panel-head,
-.orders-head,
-.order-top {
+.orders-head {
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -506,128 +513,150 @@ function absoluteAssetUrl(path) {
 }
 
 .form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
   margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .form-grid label {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 8px;
 }
 
 .form-grid span {
-  font-size: 12px;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
   color: var(--dark-mid);
 }
 
 .form-grid input,
 .form-grid select {
-  width: 100%;
-  border: 1px solid #edd8df;
-  background: #fff;
-  color: var(--dark);
-  border-radius: 12px;
-  padding: 12px 14px;
-  font-size: 13px;
+  border-radius: 18px;
+  border: 1px solid rgba(191, 84, 122, 0.16);
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.full-span {
+  grid-column: 1 / -1;
 }
 
 .field-error {
-  color: #b54768;
+  color: #c05779;
   font-size: 12px;
 }
 
-.full-span { grid-column: 1 / -1; }
-
-.save-btn {
-  border: none;
-  background: var(--rose-dark);
-  color: white;
-}
-
 .summary-stack {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 18px;
 }
 
-.summary-card small {
-  color: var(--text-muted);
-  line-height: 1.6;
+.summary-card {
+  padding: 24px;
+  display: grid;
+  gap: 10px;
 }
 
-.orders-section { padding: 10px 0 48px; }
+.summary-card small,
+.timeline-copy small,
+.orders-state,
+.orders-empty,
+.order-notes {
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.orders-section {
+  margin-top: 28px;
+}
 
 .orders-state,
 .orders-empty {
-  margin-top: 24px;
+  margin-top: 18px;
   padding: 28px;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-.orders-list {
-  display: grid;
-  gap: 18px;
-  margin-top: 24px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px dashed rgba(191, 84, 122, 0.18);
 }
 
 .wishlist-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
   margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
 }
 
-.order-card { padding: 22px 24px; }
-.order-code { font-size: 13px; font-weight: 700; color: var(--dark); }
-.order-date { margin-top: 6px; color: var(--text-muted); font-size: 12px; }
+.orders-list {
+  margin-top: 22px;
+  display: grid;
+  gap: 20px;
+}
 
-.order-summary {
+.order-card {
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.order-top,
+.order-meta,
+.order-financials {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.order-code {
+  font-size: 12px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--rose);
+}
+
+.order-date {
+  margin-top: 6px;
+  color: var(--text-muted);
 }
 
 .status-pill {
-  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
-  font-size: 11px;
+  padding: 8px 12px;
+  font-size: 10px;
+  letter-spacing: .12em;
   text-transform: uppercase;
-  letter-spacing: .08em;
 }
 
-.status-pending_payment { background: #fff1dc; color: #9a6500; }
-.status-payment_submitted { background: #fde7ef; color: #b45474; }
-.status-paid { background: #e8f6ec; color: #2e7a45; }
-.status-shipped { background: #e7f2ff; color: #255ea8; }
-.status-delivered { background: #e4f5e8; color: #2e7a45; }
-.status-cancelled { background: #fde7e9; color: #b74a4a; }
-
-.order-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 18px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: #fff7f9;
-  border: 1px solid #f0d8e0;
+.status-pending_payment,
+.status-payment_submitted {
+  background: #fff3dc;
+  color: #8f6520;
 }
 
-.order-meta strong {
-  display: block;
-  margin-top: 6px;
-  font-size: 14px;
-  color: var(--dark);
+.status-paid,
+.status-delivered {
+  background: #e7f7ed;
+  color: #2f7a50;
+}
+
+.status-shipped {
+  background: #edf2ff;
+  color: #4b63b5;
+}
+
+.status-cancelled {
+  background: #fde8ee;
+  color: #b14d6e;
 }
 
 .timeline {
   display: grid;
   gap: 12px;
-  margin-top: 18px;
 }
 
 .timeline-step {
@@ -635,111 +664,73 @@ function absoluteAssetUrl(path) {
   grid-template-columns: 18px 1fr;
   gap: 12px;
   align-items: start;
-  opacity: .5;
-}
-
-.timeline-step.done,
-.timeline-step.current {
-  opacity: 1;
 }
 
 .timeline-dot {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  margin-top: 2px;
-  background: #f0d8e0;
-  border: 2px solid #e2b7c7;
-  box-shadow: 0 0 0 6px rgba(226,183,199,.14);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ead4dc;
+  margin-top: 5px;
 }
 
-.timeline-step.done .timeline-dot {
-  background: var(--rose-dark);
-  border-color: var(--rose-dark);
-}
-
+.timeline-step.done .timeline-dot,
 .timeline-step.current .timeline-dot {
-  background: white;
-  border-color: var(--rose-dark);
+  background: var(--rose);
 }
 
 .timeline-copy strong {
   display: block;
-  font-size: 14px;
-  color: var(--dark);
-}
-
-.timeline-copy small {
-  display: block;
-  margin-top: 4px;
-  line-height: 1.6;
-  color: var(--text-muted);
+  margin-bottom: 4px;
 }
 
 .cancelled-box {
-  margin-top: 18px;
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-radius: 18px;
-  background: #fff1f3;
-  border: 1px solid #f0c8d0;
-  color: #a54861;
+  background: #fff2f6;
+  color: #b14d6e;
 }
 
 .order-items {
-  list-style: none;
   display: grid;
   gap: 10px;
-  margin-top: 18px;
-  padding: 0;
 }
 
-.order-items li,
-.order-financials {
+.order-items li {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  color: var(--dark-mid);
-  font-size: 13px;
-}
-
-.order-financials {
+  gap: 18px;
   flex-wrap: wrap;
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid #efdee4;
+  color: var(--dark-mid);
 }
 
 .proof-link {
-  display: inline-flex;
-  margin-top: 14px;
-  color: var(--rose-dark);
-  font-size: 12px;
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  width: fit-content;
 }
 
-.order-notes {
-  margin-top: 14px;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .hero-grid,
   .account-layout,
   .form-grid,
-  .order-meta,
   .wishlist-grid {
     grid-template-columns: 1fr;
   }
+}
 
-  .panel-head,
-  .orders-head,
+@media (max-width: 720px) {
+  .account-hero,
+  .account-layout,
+  .orders-section {
+    width: min(1120px, calc(100vw - 24px));
+  }
+
   .order-top,
-  .order-items,
-  .order-financials {
-    align-items: flex-start;
+  .order-meta,
+  .order-financials,
+  .panel-head,
+  .orders-head {
     flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

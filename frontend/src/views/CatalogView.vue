@@ -14,14 +14,14 @@
 
     <section class="catalog-hero">
       <div>
-        <div class="section-tag">Catalogo Bloomskin</div>
-        <h1>Compra con filtros y busqueda real.</h1>
-        <p>El buscador ahora es el mismo de la home y sincroniza la URL del catalogo.</p>
+        <div class="section-tag">Catálogo Bloomskin</div>
+        <h1>Explora tu rutina con filtros útiles.</h1>
+        <p>Encuentra tu próximo favorito por marca, categoría, precio, stock y tipo de destaque.</p>
       </div>
       <div class="hero-metrics">
         <div class="metric-card"><span>Productos</span><strong>{{ filteredProducts.length }}</strong></div>
         <div class="metric-card"><span>Marcas</span><strong>{{ availableBrands.length }}</strong></div>
-        <div class="metric-card"><span>Categorias</span><strong>{{ tabs.length - 1 }}</strong></div>
+        <div class="metric-card"><span>Categorías</span><strong>{{ tabs.length - 1 }}</strong></div>
       </div>
     </section>
 
@@ -53,7 +53,7 @@
             <StoreSelect v-model="priceFilter" :options="priceOptions" />
           </label>
           <label class="filter-field">
-            <span>Promocion</span>
+            <span>Promoción</span>
             <StoreSelect v-model="badgeFilter" :options="badgeOptions" />
           </label>
           <label class="filter-field">
@@ -72,7 +72,7 @@
         <div v-for="n in 8" :key="n" class="skeleton-card"></div>
       </div>
       <div v-else-if="filteredProducts.length === 0" class="no-results">
-        No encontramos productos con esa combinacion de filtros.
+        No encontramos productos con esa combinación de filtros.
       </div>
       <div v-else class="products-grid">
         <ProductCard v-for="product in filteredProducts" :key="product.id" :producto="product" />
@@ -112,8 +112,8 @@ const priceFilter = ref('all')
 const badgeFilter = ref('all')
 const sortBy = ref('featured')
 
-const categoryOrder = ['Limpiadores', 'Tonicos', 'Esencias', 'Serums', 'Ampollas', 'Contorno de Ojos', 'Hidratantes', 'Protección Solar', 'Maquillaje', 'Extras']
-const categoryAliases = { Tónicos: 'Tonicos', 'Protección Solar': 'Protección Solar' }
+const categoryOrder = ['Limpiadores', 'Tónicos', 'Esencias', 'Serums', 'Ampollas', 'Contorno de Ojos', 'Hidratantes', 'Protección Solar', 'Maquillaje', 'Extras']
+const categoryAliases = { Tónicos: 'Tónicos', 'Protección Solar': 'Protección Solar' }
 
 const tabs = computed(() => {
   const seen = new Set()
@@ -137,8 +137,8 @@ const availableBrands = computed(() => [...new Set(productos.value.map(product =
 const brandOptions = computed(() => [{ value: 'all', label: 'Todas las marcas' }, ...availableBrands.value.map(brand => ({ value: brand, label: brand }))])
 const stockOptions = [{ value: 'all', label: 'Todo el stock' }, { value: 'in', label: 'Solo con stock' }, { value: 'low', label: 'Stock bajo' }, { value: 'out', label: 'Agotados' }]
 const priceOptions = [{ value: 'all', label: 'Todos los precios' }, { value: 'under-15000', label: 'Hasta $15.000' }, { value: '15000-30000', label: '$15.000 a $30.000' }, { value: '30000-50000', label: '$30.000 a $50.000' }, { value: 'over-50000', label: 'Sobre $50.000' }]
-const badgeOptions = [{ value: 'all', label: 'Todas las etiquetas' }, { value: 'hot', label: 'Mas vendidos' }, { value: 'new', label: 'Nuevos' }, { value: 'sale', label: 'Ofertas' }]
-const sortOptions = [{ value: 'featured', label: 'Destacados' }, { value: 'price-asc', label: 'Precio: menor a mayor' }, { value: 'price-desc', label: 'Precio: mayor a menor' }, { value: 'name-asc', label: 'Nombre: A-Z' }, { value: 'brand-asc', label: 'Marca: A-Z' }, { value: 'reviews-desc', label: 'Mas reseñas' }]
+const badgeOptions = [{ value: 'all', label: 'Todas las etiquetas' }, { value: 'hot', label: 'Más vendidos' }, { value: 'new', label: 'Nuevos' }, { value: 'sale', label: 'Ofertas' }]
+const sortOptions = [{ value: 'featured', label: 'Destacados' }, { value: 'price-asc', label: 'Precio: menor a mayor' }, { value: 'price-desc', label: 'Precio: mayor a menor' }, { value: 'name-asc', label: 'Nombre: A-Z' }, { value: 'brand-asc', label: 'Marca: A-Z' }, { value: 'reviews-desc', label: 'Más reseñas' }]
 
 const filteredProducts = computed(() => {
   let list = [...productos.value]
@@ -169,7 +169,7 @@ onMounted(async () => {
     applyRouteFilters()
   } catch (error) {
     console.error(error)
-    ui.error('No pudimos cargar el catalogo.')
+    ui.error('No pudimos cargar el catálogo.')
   } finally {
     loading.value = false
   }
@@ -227,7 +227,7 @@ function resetFilters() {
 }
 
 function normalizeCategory(category) {
-  if (!category) return 'Sin categoria'
+  if (!category) return 'Sin categoría'
   return categoryAliases[category] || category
 }
 

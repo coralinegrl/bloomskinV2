@@ -13,9 +13,9 @@
         </RouterLink>
 
         <nav class="contact-nav">
-          <RouterLink to="/">Home</RouterLink>
-          <RouterLink to="/catalogo">Catalogo</RouterLink>
-          <RouterLink to="/envios">Envios</RouterLink>
+          <RouterLink to="/">Inicio</RouterLink>
+          <RouterLink to="/catalogo">Catálogo</RouterLink>
+          <RouterLink to="/envios">Envíos</RouterLink>
         </nav>
       </div>
     </header>
@@ -30,7 +30,7 @@
       <section class="contact-grid">
         <article class="contact-card accent-card">
           <h2>Canales directos</h2>
-          <p>Resuelve dudas de productos, despacho o seguimiento usando el canal que te acomode mas.</p>
+          <p>Resuelve dudas de productos, despacho o seguimiento usando el canal que te acomode más.</p>
 
           <div class="contact-actions">
             <a class="primary-btn" :href="footer.whatsapp_url" target="_blank" rel="noreferrer">
@@ -94,7 +94,7 @@ async function loadSite() {
     if (data?.footer) footer.value = { ...footer.value, ...data.footer }
     if (data?.contact) contact.value = { ...contact.value, ...data.contact }
   } catch (error) {
-    console.error('No se pudo cargar la pagina de contacto', error)
+    console.error('No se pudo cargar la página de contacto', error)
   }
 }
 

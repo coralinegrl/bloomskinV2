@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { getPool, sql } = require('../config/db');
 
 function getTokenFromRequest(req) {
   const header = req.headers.authorization;
@@ -37,20 +38,50 @@ function optionalAuth(req, res, next) {
 }
 
 function requireAdminAuth(req, res, next) {
-  requireAuth(req, res, () => {
+  requireAuth(req, res, async () => {
     if (req.user?.tipo !== 'admin') {
       return res.status(403).json({ error: 'Acceso solo para administradores' });
     }
-    next();
+
+    try {
+      const pool = await getPool();
+      const result = await pool.request()
+        .input('id', sql.Int, req.user.id)
+        .query('SELECT id, activo FROM usuarios WHERE id = @id');
+
+      const admin = result.recordset[0];
+      if (!admin || admin.activo !== true) {
+        return res.status(401).json({ error: 'Tu sesion de admin ya no esta activa' });
+      }
+
+      next();
+    } catch {
+      return res.status(401).json({ error: 'No pudimos validar tu sesion de admin' });
+    }
   });
 }
 
 function requireClientAuth(req, res, next) {
-  requireAuth(req, res, () => {
+  requireAuth(req, res, async () => {
     if (req.user?.tipo !== 'cliente') {
       return res.status(403).json({ error: 'Acceso solo para clientas' });
     }
-    next();
+
+    try {
+      const pool = await getPool();
+      const result = await pool.request()
+        .input('id', sql.Int, req.user.id)
+        .query('SELECT id, activo FROM clientes WHERE id = @id');
+
+      const client = result.recordset[0];
+      if (!client || client.activo !== true) {
+        return res.status(401).json({ error: 'Tu cuenta ya no esta activa. Debes registrarte nuevamente.' });
+      }
+
+      next();
+    } catch {
+      return res.status(401).json({ error: 'No pudimos validar tu sesion de clienta' });
+    }
   });
 }
 

@@ -25,8 +25,8 @@
         </div>
 
         <div v-if="cart.items.length === 0 && !checkoutOk" class="drawer-empty">
-          <strong>Tu carrito esta vacio</strong>
-          <p>Agrega productos desde la home o el catalogo para empezar una compra.</p>
+          <strong>Tu carrito está vacío</strong>
+          <p>Agrega productos desde la tienda o el catálogo para empezar tu compra.</p>
           <button class="ghost-btn" type="button" @click="closeDrawer">Seguir comprando</button>
         </div>
 
@@ -65,11 +65,11 @@
                 <strong class="summary-save">-{{ fmt(cart.savings) }}</strong>
               </div>
               <div class="summary-row muted">
-                <span>Envio</span>
+                <span>Envío</span>
                 <span>Se calcula en checkout</span>
               </div>
               <div class="summary-banner">
-                <strong>{{ cart.total >= 49990 ? 'Ya tienes envio gratis.' : `Te faltan ${fmt(49990 - cart.total)} para envio gratis.` }}</strong>
+                <strong>{{ cart.total >= 49990 ? 'Ya tienes envío gratis.' : `Te faltan ${fmt(49990 - cart.total)} para envío gratis.` }}</strong>
                 <span>Antofagasta se calcula por distancia. Fuera de Antofagasta usamos Blue Express.</span>
               </div>
               <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Hablar por WhatsApp</a>
@@ -81,7 +81,7 @@
           <div v-else class="drawer-body checkout-body">
             <div class="checkout-panel compact">
               <div class="panel-head">
-                <strong>Resumen rapido</strong>
+                <strong>Resumen rápido</strong>
                 <button class="text-btn" type="button" @click="cart.view = 'cart'">Editar carrito</button>
               </div>
               <div class="summary-row">
@@ -93,7 +93,7 @@
                 <strong>{{ fmt(displaySubtotal) }}</strong>
               </div>
               <div class="summary-row">
-                <span>Envio</span>
+                <span>Envío</span>
                 <strong>{{ shippingValueLabel }}</strong>
               </div>
               <div class="summary-row total">
@@ -103,10 +103,10 @@
             </div>
 
             <div v-if="!customerAuth.isAuthenticated" class="checkout-panel login-panel">
-              <strong>Necesitas iniciar sesion para continuar</strong>
-              <p>El carrito ya esta listo. Abre el acceso en un modal y vuelves aqui al terminar.</p>
+              <strong>Necesitas iniciar sesión para continuar</strong>
+              <p>Tu carrito ya está listo. Abre el acceso en el modal y vuelves aquí al terminar.</p>
               <div class="login-actions">
-                <button class="primary-btn" type="button" @click="ui.openAuthModal('login')">Iniciar sesion</button>
+                <button class="primary-btn" type="button" @click="ui.openAuthModal('login')">Iniciar sesión</button>
                 <button class="ghost-btn" type="button" @click="ui.openAuthModal('register')">Crear cuenta</button>
               </div>
             </div>
@@ -114,17 +114,17 @@
             <template v-else-if="!checkoutOk">
               <div class="checkout-panel">
                 <div class="panel-head">
-                  <strong>Datos de envio</strong>
+                  <strong>Datos de envío</strong>
                   <button class="text-btn" type="button" :disabled="shippingLoading" @click="calculateShipping">
-                    {{ shippingLoading ? 'Calculando...' : 'Recalcular envio' }}
+                    {{ shippingLoading ? 'Calculando...' : 'Recalcular envío' }}
                   </button>
                 </div>
 
                 <div class="form-grid">
                   <label class="field-block">
-                    <span>Region</span>
+                    <span>Región</span>
                     <select v-model="shippingForm.region" :disabled="submitting || shippingLoading">
-                      <option value="">Selecciona una region</option>
+                      <option value="">Selecciona una región</option>
                       <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
                     </select>
                     <small v-if="shippingErrors.region" class="field-error">{{ shippingErrors.region }}</small>
@@ -143,7 +143,7 @@
                   </label>
 
                   <label class="field-block">
-                    <span>Numero</span>
+                    <span>Número</span>
                     <input v-model.trim="shippingForm.number" type="text" placeholder="860" :disabled="submitting || shippingLoading" />
                   </label>
 
@@ -154,12 +154,12 @@
 
                   <label class="field-block">
                     <span>Referencia</span>
-                    <input v-model.trim="shippingForm.reference" type="text" placeholder="Casa verde, porton negro" :disabled="submitting || shippingLoading" />
+                    <input v-model.trim="shippingForm.reference" type="text" placeholder="Casa verde, portón negro" :disabled="submitting || shippingLoading" />
                   </label>
                 </div>
 
                 <p class="panel-copy">
-                  Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express por {{ fmt(3990) }}. Sobre {{ fmt(49990) }} el envio es gratis.
+                  Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express por {{ fmt(3990) }}. Sobre {{ fmt(49990) }} el envío es gratis.
                 </p>
                 <p v-if="shippingQuote" class="panel-ok">
                   {{ shippingQuote.provider }} - {{ shippingQuote.tier_label }}
@@ -169,7 +169,7 @@
               </div>
 
               <div class="checkout-panel">
-                <strong>Datos de contacto y facturacion</strong>
+                <strong>Datos de contacto y facturación</strong>
                 <div class="form-grid">
                   <label class="field-block">
                     <span>Nombre completo</span>
@@ -189,7 +189,7 @@
                   </label>
 
                   <label class="field-block">
-                    <span>Telefono</span>
+                    <span>Teléfono</span>
                     <input :value="profileForm.telefono" type="text" placeholder="+56 9 1234 5678" :disabled="submitting" @input="profileForm.telefono = formatPhoneInput($event.target.value)" />
                     <small v-if="profileErrors.telefono" class="field-error">{{ profileErrors.telefono }}</small>
                   </label>
@@ -201,7 +201,7 @@
                   </label>
 
                   <label class="field-block">
-                    <span>Numero</span>
+                    <span>Número</span>
                     <input v-model.trim="profileForm.number" type="text" placeholder="860" :disabled="submitting" />
                   </label>
 
@@ -217,9 +217,9 @@
                   </label>
 
                   <label class="field-block full-span">
-                    <span>Region</span>
+                    <span>Región</span>
                     <select v-model="profileForm.region" :disabled="submitting">
-                      <option value="">Selecciona una region</option>
+                      <option value="">Selecciona una región</option>
                       <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
                     </select>
                     <small v-if="profileErrors.region" class="field-error">{{ profileErrors.region }}</small>
@@ -260,7 +260,7 @@
                 <div class="transfer-grid">
                   <span>Banco</span><strong>{{ paymentConfig?.transfer?.bank_name || 'Por definir' }}</strong>
                   <span>Tipo</span><strong>{{ paymentConfig?.transfer?.account_type || 'Por definir' }}</strong>
-                  <span>Numero</span><strong>{{ paymentConfig?.transfer?.account_number || 'Por definir' }}</strong>
+                  <span>Número</span><strong>{{ paymentConfig?.transfer?.account_number || 'Por definir' }}</strong>
                   <span>Titular</span><strong>{{ paymentConfig?.transfer?.account_holder || 'Bloomskin' }}</strong>
                   <span>RUT</span><strong>{{ paymentConfig?.transfer?.account_rut || 'Por definir' }}</strong>
                   <span>Email</span><strong>{{ paymentConfig?.transfer?.transfer_email || 'Por definir' }}</strong>
@@ -333,8 +333,8 @@ const shippingForm = reactive({
 const profileErrors = reactive({ nombre: '', rut: '', telefono: '', direccion: '', ciudad: '', region: '' })
 const shippingErrors = reactive({ direccion: '', city: '', region: '' })
 
-const currentStepLabel = computed(() => (cart.view === 'checkout' ? 'Checkout Bloomskin' : 'Tu seleccion'))
-const currentTitle = computed(() => (cart.view === 'checkout' ? 'Carrito y envio' : `Tu carrito (${cart.count})`))
+const currentStepLabel = computed(() => (cart.view === 'checkout' ? 'Checkout Bloomskin' : 'Tu selección'))
+const currentTitle = computed(() => (cart.view === 'checkout' ? 'Carrito y envío' : `Tu carrito (${cart.count})`))
 const displaySubtotal = computed(() => checkoutOk.value?.subtotal_clp || cart.total)
 const orderTotal = computed(() => checkoutOk.value?.total_clp || (cart.total + (shippingQuote.value?.fee_clp || 0)))
 
@@ -348,7 +348,7 @@ const shippingValueLabel = computed(() => {
 const isTransferReady = computed(() => paymentConfig.value?.transfer?.is_complete !== false)
 const transferConfigWarning = computed(() => {
   if (isTransferReady.value) return ''
-  return 'La tienda aun no tiene completos los datos bancarios para recibir transferencias. Configuralos en admin antes de crear pedidos.'
+  return 'La tienda aún no tiene completos los datos bancarios para recibir transferencias. Configúralos en admin antes de crear pedidos.'
 })
 
 function resetProfileErrors() {
@@ -596,7 +596,7 @@ async function copyAllTransferData() {
     `Pedido: ${checkoutOk.value.codigo}`,
     `Banco: ${transfer.bank_name || 'Por definir'}`,
     `Tipo: ${transfer.account_type || 'Por definir'}`,
-    `Numero: ${transfer.account_number || 'Por definir'}`,
+    `Número: ${transfer.account_number || 'Por definir'}`,
     `Titular: ${transfer.account_holder || 'Bloomskin'}`,
     `RUT: ${transfer.account_rut || 'Por definir'}`,
     `Email: ${transfer.transfer_email || 'Por definir'}`,
@@ -981,8 +981,91 @@ async function copyAllTransferData() {
 }
 
 @media (max-width: 640px) {
+  .drawer {
+    max-width: none;
+    width: 100vw;
+  }
+
+  .drawer-header,
+  .drawer-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .drawer-header {
+    padding-top: 18px;
+    padding-bottom: 14px;
+  }
+
+  .drawer-title {
+    font-size: 24px;
+  }
+
+  .drawer-steps {
+    padding: 12px 16px 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .step-chip {
+    width: 100%;
+    text-align: center;
+    padding: 10px 8px;
+    letter-spacing: 0.05em;
+  }
+
+  .cart-item {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .cart-item-side {
+    grid-column: 1 / -1;
+    justify-items: stretch;
+    align-content: start;
+  }
+
+  .remove-btn {
+    justify-self: flex-end;
+  }
+
+  .qty-control {
+    justify-self: flex-start;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .summary-card,
+  .checkout-panel {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .panel-head,
+  .summary-row,
+  .login-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-head,
+  .summary-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .transfer-grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .transfer-grid strong {
+    margin-bottom: 8px;
+  }
+
+  .primary-btn,
+  .ghost-btn {
+    width: 100%;
   }
 }
 </style>
