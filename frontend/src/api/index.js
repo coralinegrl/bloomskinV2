@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const adminUnauthorizedEvent = 'bloomskin:admin-unauthorized'
 const clientUnauthorizedEvent = 'bloomskin:client-unauthorized'
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '/api').trim()
 const apiOrigin = apiBaseUrl.startsWith('http')
   ? apiBaseUrl.replace(/\/api\/?$/, '')
   : ''

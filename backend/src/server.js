@@ -5,6 +5,10 @@ const express = require('express');
 const cors = require('cors');
 const { getPool } = require('./config/db');
 
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET no esta configurado. Revisa backend/.env antes de iniciar el servidor.');
+}
+
 const app = express();
 const uploadsRoot = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
@@ -14,14 +18,28 @@ const frontendDist = process.env.FRONTEND_DIST
   : path.resolve(__dirname, '../../frontend/dist');
 const frontendIndex = path.join(frontendDist, 'index.html');
 const hasFrontendBuild = fs.existsSync(frontendIndex);
-const allowedOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || 'http://localhost:5173')
+const allowedOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || 'http://localhost:5173,http://localhost,http://127.0.0.1,http://localhost:3000,http://127.0.0.1:3000,http://bloomskin.cl,http://www.bloomskin.cl,https://bloomskin.cl,https://www.bloomskin.cl')
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);
 
+function isAllowedOrigin(origin) {
+  if (!origin || allowedOrigins.includes(origin)) return true;
+
+  try {
+    const parsed = new URL(origin);
+    const isLocalHost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    const isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+
+    return isLocalHost && isHttp;
+  } catch (_err) {
+    return false;
+  }
+}
+
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
     return callback(new Error('Origen no permitido por CORS'));

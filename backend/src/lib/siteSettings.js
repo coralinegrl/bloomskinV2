@@ -106,7 +106,7 @@ const defaultSettings = {
     account_holder: 'Bloomskin',
     account_rut: '',
     transfer_email: '',
-    instructions: 'Transfiere el total del pedido y luego sube tu comprobante para validarlo en admin.',
+    instructions: 'Transfiere el total exacto del pedido y usa el numero de pedido como asunto o referencia. Luego sube tu comprobante para validarlo en Bloomskin.',
   },
   seo: {
     site_name: 'Bloomskin',

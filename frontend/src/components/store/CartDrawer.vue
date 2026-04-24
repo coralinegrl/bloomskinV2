@@ -235,9 +235,10 @@
               <div class="checkout-panel">
                 <strong>Pago por transferencia</strong>
                 <p class="panel-copy">Creas el pedido, transfieres el total exacto y luego subes tu comprobante.</p>
-                <p v-if="checkoutError" class="panel-error">{{ checkoutError }}</p>
+                <p v-if="transferConfigWarning" class="panel-error">{{ transferConfigWarning }}</p>
+                <p v-else-if="checkoutError" class="panel-error">{{ checkoutError }}</p>
                 <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Ayuda por WhatsApp</a>
-                <button class="primary-btn" type="button" :disabled="submitting || shippingLoading || !shippingQuote" @click="handleCheckout">
+                <button class="primary-btn" type="button" :disabled="submitting || shippingLoading || !shippingQuote || !isTransferReady" @click="handleCheckout">
                   {{ submitting ? 'Creando pedido...' : 'Crear pedido por transferencia' }}
                 </button>
               </div>
@@ -247,6 +248,7 @@
               <div class="checkout-panel success-panel">
                 <strong>Pedido {{ checkoutOk.codigo }} creado</strong>
                 <p>Transfiere {{ fmt(checkoutOk.total_clp) }} y luego sube tu comprobante.</p>
+                <p class="panel-copy">Usa <strong>{{ checkoutOk.codigo }}</strong> como asunto o referencia de la transferencia.</p>
                 <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Enviar dudas por WhatsApp</a>
               </div>
 
@@ -262,6 +264,7 @@
                   <span>Titular</span><strong>{{ paymentConfig?.transfer?.account_holder || 'Bloomskin' }}</strong>
                   <span>RUT</span><strong>{{ paymentConfig?.transfer?.account_rut || 'Por definir' }}</strong>
                   <span>Email</span><strong>{{ paymentConfig?.transfer?.transfer_email || 'Por definir' }}</strong>
+                  <span>Asunto</span><strong>{{ checkoutOk.codigo }}</strong>
                   <span>Total</span><strong>{{ fmt(checkoutOk.total_clp) }}</strong>
                 </div>
                 <p class="panel-copy">{{ paymentConfig?.transfer?.instructions }}</p>
@@ -341,6 +344,11 @@ const shippingValueLabel = computed(() => {
   if (!shippingQuote.value) return 'Pendiente'
   if (shippingQuote.value.fee_clp === 0) return 'Gratis'
   return fmt(shippingQuote.value.fee_clp)
+})
+const isTransferReady = computed(() => paymentConfig.value?.transfer?.is_complete !== false)
+const transferConfigWarning = computed(() => {
+  if (isTransferReady.value) return ''
+  return 'La tienda aun no tiene completos los datos bancarios para recibir transferencias. Configuralos en admin antes de crear pedidos.'
 })
 
 function resetProfileErrors() {
@@ -519,6 +527,10 @@ async function handleCheckout() {
       checkoutError.value = 'Primero calcula el envio.'
       return
     }
+    if (!isTransferReady.value) {
+      checkoutError.value = transferConfigWarning.value
+      return
+    }
 
     const profileUpdated = await customerAuth.updateProfile(profileValidation.normalized)
     if (!profileUpdated) {
@@ -588,6 +600,7 @@ async function copyAllTransferData() {
     `Titular: ${transfer.account_holder || 'Bloomskin'}`,
     `RUT: ${transfer.account_rut || 'Por definir'}`,
     `Email: ${transfer.transfer_email || 'Por definir'}`,
+    `Asunto/Referencia: ${checkoutOk.value.codigo}`,
     `Monto: ${fmt(checkoutOk.value.total_clp)}`,
   ].join('\n')
 

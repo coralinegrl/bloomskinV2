@@ -76,18 +76,19 @@ export function combineAddressParts({ street, number, apartment }) {
 }
 
 export function buildProfileForm(user = {}) {
-  const address = splitStoredAddress(user.direccion)
+  const safeUser = user || {}
+  const address = splitStoredAddress(safeUser.direccion)
   return {
-    nombre: user.nombre || '',
-    email: user.email || '',
-    rut: formatRutInput(user.rut || ''),
-    telefono: formatPhoneInput(user.telefono || ''),
+    nombre: safeUser.nombre || '',
+    email: safeUser.email || '',
+    rut: formatRutInput(safeUser.rut || ''),
+    telefono: formatPhoneInput(safeUser.telefono || ''),
     street: address.street,
     number: address.number,
     apartment: address.apartment,
-    city: user.ciudad || '',
-    region: user.region || '',
-    tipo_piel: user.tipo_piel || '',
+    city: safeUser.ciudad || '',
+    region: safeUser.region || '',
+    tipo_piel: safeUser.tipo_piel || '',
   }
 }
 

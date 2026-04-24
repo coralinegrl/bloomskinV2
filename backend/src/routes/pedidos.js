@@ -51,14 +51,26 @@ const uploadProof = multer({
 function getTransferConfig() {
   const settings = readSettings();
   const configuredTransfer = settings.payment || {};
-  return {
+  const transfer = {
     bank_name: configuredTransfer.bank_name || process.env.BANK_NAME || 'Banco por definir',
     account_type: configuredTransfer.account_type || process.env.BANK_ACCOUNT_TYPE || 'Cuenta corriente',
     account_number: configuredTransfer.account_number || process.env.BANK_ACCOUNT_NUMBER || '',
     account_holder: configuredTransfer.account_holder || process.env.BANK_ACCOUNT_HOLDER || 'Bloomskin',
     account_rut: configuredTransfer.account_rut || process.env.BANK_ACCOUNT_RUT || '',
     transfer_email: configuredTransfer.transfer_email || process.env.BANK_TRANSFER_EMAIL || process.env.SMTP_FROM || '',
-    instructions: configuredTransfer.instructions || process.env.BANK_TRANSFER_INSTRUCTIONS || 'Transfiere el total del pedido y luego sube tu comprobante para validarlo en admin.',
+    instructions: configuredTransfer.instructions || process.env.BANK_TRANSFER_INSTRUCTIONS || 'Transfiere el total exacto del pedido y usa el numero de pedido como asunto o referencia. Luego sube tu comprobante para validarlo en Bloomskin.',
+  };
+  const missing_fields = [
+    !cleanString(transfer.bank_name) || transfer.bank_name === 'Banco por definir' ? 'bank_name' : null,
+    !cleanString(transfer.account_number) ? 'account_number' : null,
+    !cleanString(transfer.account_rut) ? 'account_rut' : null,
+    !normalizeEmail(transfer.transfer_email) || !isValidEmail(transfer.transfer_email) ? 'transfer_email' : null,
+  ].filter(Boolean);
+
+  return {
+    ...transfer,
+    is_complete: missing_fields.length === 0,
+    missing_fields,
   };
 }
 
@@ -260,11 +272,17 @@ router.post('/', requireClientAuth, async (req, res) => {
       || (!isValidChileanRut(clienteRut) ? 'RUT invalido en el perfil.' : null)
       || (!clienteTelefono ? 'Telefono es requerido.' : null)
       || (!isValidChileanPhone(clienteTelefono) ? 'Telefono invalido en el perfil.' : null);
+    const transferConfig = getTransferConfig();
 
     if (customerValidationError) {
       await transaction.rollback();
       transactionClosed = true;
       return res.status(400).json({ error: customerValidationError });
+    }
+    if (!transferConfig.is_complete) {
+      await transaction.rollback();
+      transactionClosed = true;
+      return res.status(400).json({ error: 'La configuracion de transferencia esta incompleta. Completa los datos bancarios en admin antes de recibir pedidos.' });
     }
 
     let subtotal = 0;
