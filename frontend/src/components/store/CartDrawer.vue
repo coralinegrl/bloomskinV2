@@ -79,6 +79,13 @@
           </div>
 
           <div v-else class="drawer-body checkout-body">
+            <div v-if="customerAuth.isAuthenticated && cart.items.length > 0 && !checkoutOk" class="checkout-panel reservation-panel">
+              <strong>Tu carrito está reservado por {{ reservationCountdownLabel }}</strong>
+              <p class="panel-copy">Tienes 20 minutos para terminar la compra antes de que el stock vuelva a liberarse automáticamente.</p>
+              <p v-if="reservationLoading" class="panel-copy">Actualizando reserva...</p>
+              <p v-if="reservationError" class="panel-error">{{ reservationError }}</p>
+            </div>
+
             <div class="checkout-panel compact">
               <div class="panel-head">
                 <strong>Resumen rápido</strong>
@@ -274,6 +281,9 @@
                 <strong>Pedido {{ checkoutOk.codigo }} creado</strong>
                 <p>Transfiere {{ fmt(checkoutOk.total_clp) }} y luego sube tu comprobante.</p>
                 <p class="panel-copy">Usa <strong>{{ checkoutOk.codigo }}</strong> como asunto o referencia de la transferencia.</p>
+                <p class="panel-copy" v-if="checkoutOk.comprobante_limite_en">
+                  Tienes <strong>{{ uploadProofCountdownLabel }}</strong> para subir tu comprobante antes de que el pedido se cancele automáticamente.
+                </p>
                 <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Enviar dudas por WhatsApp</a>
               </div>
 
@@ -325,7 +335,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { descuentosApi, pedidosApi, settingsApi } from '../../api/index.js'
 import { useCartStore } from '../../stores/cart.js'
@@ -363,7 +373,15 @@ const proofFile = ref(null)
 const proofUploadedUrl = ref('')
 const proofSuccessModalOpen = ref(false)
 const whatsappUrl = ref('https://wa.me/569948418523')
+const reservationInfo = ref(null)
+const reservationLoading = ref(false)
+const reservationError = ref('')
+const nowTick = ref(Date.now())
 let shippingDebounce = null
+let reservationSyncDebounce = null
+const timerInterval = window.setInterval(() => {
+  nowTick.value = Date.now()
+}, 1000)
 
 const profileForm = reactive(buildProfileForm(customerAuth.user))
 const shippingForm = reactive({
@@ -383,6 +401,24 @@ const displaySubtotal = computed(() => checkoutOk.value?.subtotal_clp || cart.to
 const displayDiscount = computed(() => checkoutOk.value?.descuento_clp || appliedDiscount.value?.discount_clp || 0)
 const discountedSubtotal = computed(() => checkoutOk.value?.subtotal_pagado_clp || Math.max(0, cart.total - displayDiscount.value))
 const orderTotal = computed(() => checkoutOk.value?.total_clp || (discountedSubtotal.value + (shippingQuote.value?.fee_clp || 0)))
+const reservationSecondsLeft = computed(() => {
+  if (!reservationInfo.value?.expires_en) return 0
+  return Math.max(0, Math.floor((new Date(reservationInfo.value.expires_en).getTime() - nowTick.value) / 1000))
+})
+const reservationCountdownLabel = computed(() => {
+  const minutes = String(Math.floor(reservationSecondsLeft.value / 60)).padStart(2, '0')
+  const seconds = String(reservationSecondsLeft.value % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
+})
+const uploadProofSecondsLeft = computed(() => {
+  if (!checkoutOk.value?.comprobante_limite_en) return 0
+  return Math.max(0, Math.floor((new Date(checkoutOk.value.comprobante_limite_en).getTime() - nowTick.value) / 1000))
+})
+const uploadProofCountdownLabel = computed(() => {
+  const minutes = String(Math.floor(uploadProofSecondsLeft.value / 60)).padStart(2, '0')
+  const seconds = String(uploadProofSecondsLeft.value % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
+})
 
 const shippingValueLabel = computed(() => {
   if (checkoutOk.value) return fmt(checkoutOk.value.envio_clp)
@@ -459,12 +495,33 @@ watch(
   }
 )
 
+watch(
+  () => cart.items.map(item => `${item.id}:${item.cantidad}`).join('|'),
+  () => {
+    if (checkoutOk.value || cart.view !== 'checkout' || !customerAuth.isAuthenticated || cart.items.length === 0) return
+    clearTimeout(reservationSyncDebounce)
+    reservationSyncDebounce = setTimeout(() => {
+      void syncCheckoutReservation()
+    }, 250)
+  }
+)
+
 watch(discountCode, value => {
   if (!appliedDiscount.value) return
   if (String(value || '').trim().toUpperCase() !== String(appliedDiscount.value.code || '').trim().toUpperCase()) {
     appliedDiscount.value = null
     discountError.value = ''
   }
+})
+
+watch(reservationSecondsLeft, seconds => {
+  if (checkoutOk.value || !reservationInfo.value) return
+  if (seconds > 0) return
+  reservationInfo.value = null
+  reservationError.value = 'Tu reserva de 20 minutos venció. Volvimos a liberar el stock.'
+  checkoutError.value = reservationError.value
+  cart.view = 'cart'
+  ui.error(reservationError.value)
 })
 
 watch(
@@ -476,6 +533,7 @@ watch(
     proofUploadedUrl.value = ''
     proofFile.value = null
     proofSuccessModalOpen.value = false
+    reservationError.value = ''
     if (cart.view !== 'checkout') cart.view = 'cart'
 
     if (customerAuth.isAuthenticated) {
@@ -505,6 +563,10 @@ watch(
         console.error(error)
       }
     }
+
+    if (customerAuth.isAuthenticated && cart.view === 'checkout' && !checkoutOk.value && cart.items.length > 0) {
+      void syncCheckoutReservation()
+    }
   },
   { immediate: true }
 )
@@ -518,12 +580,29 @@ function closeDrawer() {
   proofSuccessModalOpen.value = false
 }
 
+async function syncCheckoutReservation() {
+  if (!customerAuth.isAuthenticated || checkoutOk.value || cart.items.length === 0) return
+  reservationLoading.value = true
+  reservationError.value = ''
+  try {
+    const { data } = await pedidosApi.reservarCheckout(cart.items.map(item => ({ producto_id: item.id, cantidad: item.cantidad })))
+    reservationInfo.value = data?.reservation || null
+  } catch (error) {
+    reservationInfo.value = null
+    reservationError.value = error.response?.data?.error || 'No pudimos reservar tu carrito en este momento.'
+    ui.error(reservationError.value)
+  } finally {
+    reservationLoading.value = false
+  }
+}
+
 function openCheckoutStep() {
   if (!customerAuth.isAuthenticated) {
     ui.openAuthModal('login')
     return
   }
   cart.view = 'checkout'
+  void syncCheckoutReservation()
   if (!shippingQuote.value && !shippingLoading.value) {
     clearTimeout(shippingDebounce)
     shippingDebounce = setTimeout(() => {
@@ -646,6 +725,13 @@ async function handleCheckout() {
       checkoutError.value = transferConfigWarning.value
       return
     }
+    if (!reservationInfo.value) {
+      await syncCheckoutReservation()
+    }
+    if (!reservationInfo.value) {
+      checkoutError.value = reservationError.value || 'Tu reserva ya no está activa. Intenta nuevamente.'
+      return
+    }
 
     const profileUpdated = await customerAuth.updateProfile(profileValidation.normalized)
     if (!profileUpdated) {
@@ -665,6 +751,7 @@ async function handleCheckout() {
     })
 
     checkoutOk.value = pedido
+    reservationInfo.value = null
     cart.vaciar()
     checkoutNotas.value = ''
     ui.success(`Tu pedido ${checkoutOk.value.codigo} fue creado. Ahora transfiere y sube tu comprobante.`)
@@ -733,6 +820,12 @@ function goToOrdersFromProofModal() {
   cart.open = false
   router.push({ name: 'customer-account', hash: '#mis-pedidos' })
 }
+
+onBeforeUnmount(() => {
+  if (timerInterval) window.clearInterval(timerInterval)
+  if (shippingDebounce) clearTimeout(shippingDebounce)
+  if (reservationSyncDebounce) clearTimeout(reservationSyncDebounce)
+})
 </script>
 
 <style scoped>

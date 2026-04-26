@@ -3,7 +3,7 @@
     <aside class="sidebar">
       <div class="sidebar-logo">
         <span class="sidebar-logo-text">bloomskin</span>
-        <span class="sidebar-badge">GestiÃ³n</span>
+        <span class="sidebar-badge">Gestión</span>
       </div>
 
       <nav class="sidebar-nav">
@@ -30,16 +30,16 @@
         <div>
           <div class="topbar-title">{{ currentTitle }}</div>
           <div class="topbar-subtitle">
-            <span v-if="loading">Cargando informaciÃ³n...</span>
+            <span v-if="loading">Cargando información...</span>
             <span v-else-if="lastSyncLabel">Actualizado {{ lastSyncLabel }}</span>
-            <span v-else>Sin actualizaciÃ³n reciente</span>
+            <span v-else>Sin actualización reciente</span>
           </div>
         </div>
 
         <div class="topbar-right">
           <span v-if="error" class="status-chip status-error">{{ error }}</span>
           <span v-else-if="loading" class="status-chip status-loading">Actualizando</span>
-          <span v-else class="status-chip status-ok">Todo en lÃ­nea</span>
+          <span v-else class="status-chip status-ok">Todo en línea</span>
           <button class="btn-ghost" :disabled="refreshing" @click="refreshAll">
             {{ refreshing ? 'Actualizando...' : 'Recargar' }}
           </button>
@@ -63,20 +63,20 @@
           <template v-if="activeSection === 'dashboard'">
             <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-label">FacturaciÃ³n del mes</div>
+                <div class="stat-label">Facturación del mes</div>
                 <div class="stat-value">{{ fmt(stats.ventas_mes || 0) }}</div>
                 <div class="stat-change up">Ritmo comercial actual</div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Pedidos ingresados</div>
                 <div class="stat-value">{{ stats.total_pedidos || 0 }}</div>
-                <div class="stat-change">{{ (stats.pendientes_pago || 0) + (stats.pagos_por_validar || 0) }} esperando revisiÃ³n</div>
+                <div class="stat-change">{{ (stats.pendientes_pago || 0) + (stats.pagos_por_validar || 0) }} esperando revisión</div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Transferencias por revisar</div>
                 <div class="stat-value">{{ stats.pagos_por_validar || 0 }}</div>
                 <div class="stat-change" :class="(stats.pagos_por_validar || 0) > 0 ? 'down' : 'up'">
-                  {{ (stats.pagos_por_validar || 0) > 0 ? 'Hay comprobantes pendientes' : 'Todo al dÃ­a' }}
+                  {{ (stats.pagos_por_validar || 0) > 0 ? 'Hay comprobantes pendientes' : 'Todo al día' }}
                 </div>
               </div>
               <div class="stat-card">
@@ -93,7 +93,7 @@
                 <div class="stat-label">Productos sin stock</div>
                 <div class="stat-value">{{ sinStock }}</div>
                 <div class="stat-change" :class="sinStock > 0 ? 'down' : 'up'">
-                  {{ sinStock > 0 ? 'Conviene reponer' : 'Inventario al dÃ­a' }}
+                  {{ sinStock > 0 ? 'Conviene reponer' : 'Inventario al día' }}
                 </div>
               </div>
             </div>
@@ -101,7 +101,7 @@
             <div class="dash-grid">
               <div class="ad-card">
                 <div class="ad-card-title">Pedidos recientes</div>
-                <div v-if="pedidos.length === 0" class="empty-state">No hay pedidos aÃºn.</div>
+                <div v-if="pedidos.length === 0" class="empty-state">No hay pedidos aún.</div>
                 <button
                   v-for="p in pedidos.slice(0, 6)"
                   :key="p.id"
@@ -121,7 +121,7 @@
 
               <div class="ad-card">
                 <div class="ad-card-title">Nuevas clientas</div>
-                <div v-if="recentClientes.length === 0" class="empty-state">AÃºn no hay clientas registradas.</div>
+                <div v-if="recentClientes.length === 0" class="empty-state">Aún no hay clientas registradas.</div>
                 <div v-for="cliente in recentClientes" :key="cliente.id" class="stock-alert-item recent-client-item">
                   <div>
                     <div class="sa-brand">{{ cliente.nombre }}</div>
@@ -137,8 +137,8 @@
               </div>
 
               <div class="ad-card">
-                <div class="ad-card-title">ReposiciÃ³n sugerida</div>
-                <div v-if="productosStockBajo.length === 0" class="empty-state">Todo el stock estÃ¡ OK.</div>
+                <div class="ad-card-title">Reposición sugerida</div>
+                <div v-if="productosStockBajo.length === 0" class="empty-state">Todo el stock está OK.</div>
                 <div v-for="p in productosStockBajo" :key="p.id" class="stock-alert-item">
                   <div>
                     <div class="sa-brand">{{ p.marca }}</div>
@@ -156,13 +156,13 @@
           <template v-if="activeSection === 'productos'">
             <div class="section-actions">
               <div>
-                <h2 class="section-h2">CatÃ¡logo</h2>
-                <p class="section-copy">Publica productos, ajusta precios y mantÃ©n el stock ordenado.</p>
+                <h2 class="section-h2">Catálogo</h2>
+                <p class="section-copy">Publica productos, ajusta precios y mantén el stock ordenado.</p>
               </div>
               <div class="actions-row">
                 <input v-model.trim="productoSearch" class="toolbar-input" type="text" placeholder="Buscar producto o marca">
                 <select v-model="productoCategoriaFilter" class="toolbar-select">
-                  <option value="all">Todas las categorÃ­as</option>
+                  <option value="all">Todas las categorías</option>
                   <option v-for="categoria in productoCategorias" :key="categoria" :value="categoria">{{ categoria }}</option>
                 </select>
                 <select v-model="productoMarcaFilter" class="toolbar-select">
@@ -264,7 +264,7 @@
                 <p class="section-copy">Revisa pagos, comprobantes y el avance de cada pedido.</p>
               </div>
               <div class="actions-row">
-                <input v-model.trim="pedidoSearch" class="toolbar-input" type="text" placeholder="Buscar por cÃ³digo, nombre o correo">
+                <input v-model.trim="pedidoSearch" class="toolbar-input" type="text" placeholder="Buscar por código, nombre o correo">
                 <select v-model="pedidoEstadoFilter" class="toolbar-select">
                   <option value="all">Todos los estados</option>
                   <option value="pending_payment">Esperando transferencia</option>
@@ -278,12 +278,16 @@
                 <button class="btn-ghost" type="button" :disabled="exportingVentas" @click="exportarVentasMensuales">
                   {{ exportingVentas ? 'Preparando Excel...' : 'Exportar Excel' }}
                 </button>
+                <button class="btn-primary" type="button" @click="openManualSaleModal">
+                  Registrar venta externa
+                </button>
               </div>
             </div>
 
             <div class="summary-strip">
               <div class="summary-pill">Pagos por revisar: {{ stats.pagos_por_validar || 0 }}</div>
               <div class="summary-pill">Esperando transferencia: {{ stats.pendientes_pago || 0 }}</div>
+              <div class="summary-pill">Ventas externas: {{ ventasExternasCount }}</div>
               <div class="summary-pill">Mes del reporte: {{ ventasExportMonth }}</div>
               <div class="summary-pill">Haz clic en un pedido para ver su detalle</div>
             </div>
@@ -293,6 +297,7 @@
                 <thead>
                   <tr>
                     <th>Codigo</th>
+                    <th>Origen</th>
                     <th>Cliente</th>
                     <th>Fecha</th>
                     <th>Total</th>
@@ -303,7 +308,7 @@
                 </thead>
                 <tbody>
                   <tr v-if="filteredPedidos.length === 0">
-                    <td colspan="7" class="empty-state table-empty">No hay pedidos para ese filtro.</td>
+                    <td colspan="8" class="empty-state table-empty">No hay pedidos para ese filtro.</td>
                   </tr>
                   <tr
                     v-for="p in filteredPedidos"
@@ -312,6 +317,7 @@
                     @click="openOrderDetails(p.id)"
                   >
                     <td class="td-code">{{ p.codigo }}</td>
+                    <td><span class="status-pill" :class="p.origen === 'manual' ? 's-shipped' : 's-delivered'">{{ p.origen === 'manual' ? 'Venta externa' : 'Tienda web' }}</span></td>
                     <td>{{ p.cliente_nombre }}<span class="muted d-block">{{ p.cliente_email }}</span></td>
                     <td class="muted">{{ formatDate(p.creado_en) }}</td>
                     <td class="td-price">{{ fmt(p.total_clp) }}</td>
@@ -454,6 +460,10 @@
                 <div>
                   <div class="detail-label">Pago</div>
                   <div>{{ selectedOrder.metodo_pago || 'Sin definir' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Origen</div>
+                  <div>{{ selectedOrder.origen === 'manual' ? 'Venta externa' : 'Tienda web' }}</div>
                 </div>
                 <div>
                   <div class="detail-label">Metodo envio</div>
@@ -642,8 +652,8 @@
           <template v-if="activeSection === 'newsletter'">
             <div class="section-actions">
               <div>
-                <h2 class="section-h2">CampaÃ±as por correo</h2>
-                <p class="section-copy">Escribe un envÃ­o simple para tu base activa y revÃ­salo antes de enviarlo.</p>
+                <h2 class="section-h2">Campañas por correo</h2>
+                <p class="section-copy">Escribe un envío simple para tu base activa y revísalo antes de enviarlo.</p>
               </div>
               <div class="actions-row">
                 <input v-model.trim="suscriptorSearch" class="toolbar-input" type="text" placeholder="Buscar suscriptora por email">
@@ -658,7 +668,7 @@
 
             <div class="dash-grid newsletter-grid">
               <div class="ad-card">
-                <div class="ad-card-title">Preparar campaÃ±a</div>
+                <div class="ad-card-title">Preparar campaña</div>
 
                 <div class="form-group">
                   <label>Asunto</label>
@@ -666,13 +676,13 @@
                 </div>
 
                 <div class="form-group">
-                  <label>TÃ­tulo principal</label>
+                  <label>Título principal</label>
                   <input v-model="newsletterForm.headline" type="text" placeholder="Skincare tips y hallazgos de la semana">
                 </div>
 
                 <div class="form-group">
                   <label>Texto de vista previa</label>
-                  <input v-model="newsletterForm.previewText" type="text" placeholder="La lÃ­nea corta que acompaÃ±a el asunto">
+                  <input v-model="newsletterForm.previewText" type="text" placeholder="La línea corta que acompaña el asunto">
                 </div>
 
                 <div class="form-group">
@@ -683,22 +693,22 @@
                 <div class="form-row">
                   <div class="form-group">
                     <label>Boton CTA</label>
-                    <input v-model="newsletterForm.ctaLabel" type="text" placeholder="Ver catÃ¡logo">
+                    <input v-model="newsletterForm.ctaLabel" type="text" placeholder="Ver catálogo">
                   </div>
                   <div class="form-group">
-                    <label>Enlace del botÃ³n</label>
+                    <label>Enlace del botón</label>
                     <input v-model="newsletterForm.ctaUrl" type="text" placeholder="https://bloomskin.cl/catalogo">
                   </div>
                 </div>
 
                 <div class="form-hint">
-                  Si el correo no sale, revisa la configuraciÃ³n del servidor antes de hacer un envÃ­o masivo.
+                  Si el correo no sale, revisa la configuración del servidor antes de hacer un envío masivo.
                 </div>
 
                 <div class="modal-actions">
                   <button class="btn-ghost" type="button" @click="resetNewsletterForm">Limpiar</button>
                   <button class="btn-primary" type="button" :disabled="sendingNewsletter" @click="enviarNewsletter">
-                    {{ sendingNewsletter ? 'Enviando...' : 'Enviar campaÃ±a' }}
+                    {{ sendingNewsletter ? 'Enviando...' : 'Enviar campaña' }}
                   </button>
                 </div>
               </div>
@@ -1101,7 +1111,7 @@
                 </div>
               </div>
               <div class="form-group">
-                  <label>MediciÃ³n de Google</label>
+                  <label>Medición de Google</label>
                   <input v-model="siteSettings.seo.ga_measurement_id" type="text" placeholder="G-XXXXXXXXXX">
                 </div>
               </article>
@@ -1233,8 +1243,8 @@
           </div>
 
           <div class="form-group">
-              <label>DescripciÃ³n</label>
-              <textarea v-model="form.descripcion" rows="3" placeholder="DescripciÃ³n breve para ubicarlo rÃ¡pido"></textarea>
+              <label>Descripción</label>
+              <textarea v-model="form.descripcion" rows="3" placeholder="Descripción breve para ubicarlo rápido"></textarea>
           </div>
 
           <div class="form-row">
@@ -1261,7 +1271,7 @@
 
           <div class="form-row">
             <div class="form-group">
-                    <label>CategorÃ­a</label>
+                    <label>Categoría</label>
               <select v-model="form.categoria">
                 <option>Limpiadores</option>
                 <option>Tonicos</option>
@@ -1386,6 +1396,102 @@
     </Transition>
 
     <Transition name="modal">
+      <div v-if="showManualSaleModal" class="modal-overlay" @click.self="showManualSaleModal = false">
+        <div class="modal">
+          <h3 class="modal-title">Registrar venta externa</h3>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nombre clienta</label>
+              <input v-model="manualSaleForm.cliente_nombre" type="text" placeholder="Nombre Apellido">
+            </div>
+            <div class="form-group">
+              <label>Email <span class="label-hint">(opcional)</span></label>
+              <input v-model="manualSaleForm.cliente_email" type="email" placeholder="cliente@email.com">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Telefono <span class="label-hint">(opcional)</span></label>
+              <input :value="manualSaleForm.cliente_telefono" type="text" placeholder="+56 9 1234 5678" @input="manualSaleForm.cliente_telefono = formatPhoneInput($event.target.value)">
+            </div>
+            <div class="form-group">
+              <label>RUT <span class="label-hint">(opcional)</span></label>
+              <input :value="manualSaleForm.cliente_rut" type="text" placeholder="12.345.678-5" @input="manualSaleForm.cliente_rut = formatRutInput($event.target.value)">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Fecha de la venta</label>
+              <input v-model="manualSaleForm.fecha_venta" type="date">
+            </div>
+            <div class="form-group">
+              <label>Estado</label>
+              <select v-model="manualSaleForm.estado">
+                <option value="paid">Pago validado</option>
+                <option value="shipped">Enviado</option>
+                <option value="delivered">Entregado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Metodo de pago</label>
+              <select v-model="manualSaleForm.metodo_pago">
+                <option value="cash">Efectivo</option>
+                <option value="card">Tarjeta</option>
+                <option value="transfer">Transferencia externa</option>
+                <option value="manual">Otro</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Resumen</label>
+              <div class="form-hint">Total estimado: {{ fmt(manualSaleSubtotal) }}</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Productos</label>
+            <div v-for="(item, index) in manualSaleForm.items" :key="`manual-item-${index}`" class="form-row">
+              <div class="form-group">
+                <select v-model.number="item.producto_id">
+                  <option :value="0">Selecciona un producto</option>
+                  <option v-for="producto in productosDisponiblesVentaManual" :key="producto.id" :value="producto.id">
+                    {{ producto.marca }} - {{ producto.nombre }} (stock {{ producto.stock }})
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <input v-model.number="item.cantidad" type="number" min="1" placeholder="Cantidad">
+              </div>
+              <div class="form-group">
+                <button class="btn-ghost" type="button" @click="removeManualSaleItem(index)">
+                  Quitar
+                </button>
+              </div>
+            </div>
+            <button class="btn-link" type="button" @click="addManualSaleItem">+ Agregar otro producto</button>
+          </div>
+
+          <div class="form-group">
+            <label>Notas internas <span class="label-hint">(opcional)</span></label>
+            <textarea v-model="manualSaleForm.notas" rows="3" placeholder="Ej. venta presencial, retiro en tienda, pago contra entrega..."></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn-ghost" @click="showManualSaleModal = false">Cancelar</button>
+            <button class="btn-primary" :disabled="savingManualSale" @click="guardarVentaManual">
+              {{ savingManualSale ? 'Guardando...' : 'Registrar venta' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="modal">
       <div v-if="showClienteModal" class="modal-overlay" @click.self="showClienteModal = false">
         <div class="modal">
           <h3 class="modal-title">Editar clienta</h3>
@@ -1481,7 +1587,7 @@ const router = useRouter()
 const activeSection = ref('dashboard')
 const navItems = [
   { section: 'dashboard', icon: 'R', label: 'Resumen' },
-  { section: 'productos', icon: 'C', label: 'CatÃ¡logo' },
+  { section: 'productos', icon: 'C', label: 'Catálogo' },
   { section: 'pedidos', icon: 'V', label: 'Ventas' },
   { section: 'descuentos', icon: '%', label: 'Promos' },
   { section: 'clientes', icon: 'L', label: 'Clientas' },
@@ -1489,14 +1595,14 @@ const navItems = [
 ]
 const titleMap = {
   dashboard: 'Resumen',
-  productos: 'CatÃ¡logo',
+  productos: 'Catálogo',
   pedidos: 'Ventas',
   descuentos: 'Promociones y descuentos',
   clientes: 'Clientas',
   mensajes: 'Bandeja de ayuda',
 }
-navItems.push({ section: 'newsletter', icon: 'E', label: 'CampaÃ±as' })
-titleMap.newsletter = 'CampaÃ±as por correo'
+navItems.push({ section: 'newsletter', icon: 'E', label: 'Campañas' })
+titleMap.newsletter = 'Campañas por correo'
 navItems.push({ section: 'home', icon: 'S', label: 'Contenido' })
 titleMap.home = 'Contenido del sitio'
 
@@ -1667,9 +1773,22 @@ const suscriptorSearch = ref('')
 const sendingNewsletter = ref(false)
 const savingSiteSettings = ref(false)
 const showDiscountModal = ref(false)
+const showManualSaleModal = ref(false)
 const savingDiscount = ref(false)
+const savingManualSale = ref(false)
 const editingDiscount = ref(null)
 const discountForm = ref({})
+const manualSaleForm = ref({
+  cliente_nombre: '',
+  cliente_email: '',
+  cliente_rut: '',
+  cliente_telefono: '',
+  metodo_pago: 'cash',
+  estado: 'delivered',
+  fecha_venta: '',
+  notas: '',
+  items: [{ producto_id: 0, cantidad: 1 }],
+})
 const uploadingHomeIndex = ref(null)
 const newsletterForm = ref({
   subject: '',
@@ -1685,6 +1804,7 @@ const productosActivos = computed(() => productos.value.length)
 const productosSinImagen = computed(() => productos.value.filter(p => !p.imagen_url).length)
 const sinStock = computed(() => productos.value.filter(p => p.stock === 0).length)
 const productosStockBajo = computed(() => productos.value.filter(p => p.stock <= 5).sort((a, b) => a.stock - b.stock))
+const productosDisponiblesVentaManual = computed(() => productos.value.filter(producto => producto.activo !== false))
 const productoCategorias = computed(() => [...new Set(productos.value.map(p => p.categoria).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es')))
 const productoMarcas = computed(() => [...new Set(productos.value.map(p => p.marca).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es')))
 const noLeidos = computed(() => mensajes.value.filter(m => !m.leido).length)
@@ -1709,6 +1829,11 @@ const clientasNuevasMes = computed(() => {
     return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
   }).length
 })
+const ventasExternasCount = computed(() => pedidos.value.filter(pedido => pedido.origen === 'manual').length)
+const manualSaleSubtotal = computed(() => (manualSaleForm.value.items || []).reduce((sum, item) => {
+  const producto = productos.value.find(p => p.id === Number(item.producto_id))
+  return sum + (producto ? Number(producto.precio_clp || 0) * Number(item.cantidad || 0) : 0)
+}, 0))
 
 const lastSyncLabel = computed(() => {
   if (!lastSync.value) return ''
@@ -1743,7 +1868,7 @@ const filteredProductos = computed(() => {
 const filteredPedidos = computed(() => {
   const q = pedidoSearch.value.trim().toLowerCase()
   return pedidos.value.filter(pedido => {
-    const matchesSearch = !q || [pedido.codigo, pedido.cliente_nombre, pedido.cliente_email]
+    const matchesSearch = !q || [pedido.codigo, pedido.cliente_nombre, pedido.cliente_email, pedido.origen === 'manual' ? 'venta externa' : 'tienda web']
       .filter(Boolean)
       .some(value => String(value).toLowerCase().includes(q))
 
@@ -1809,6 +1934,20 @@ const topCiudad = computed(() => {
 function currentMonthValue() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+function resetManualSaleForm() {
+  manualSaleForm.value = {
+    cliente_nombre: '',
+    cliente_email: '',
+    cliente_rut: '',
+    cliente_telefono: '',
+    metodo_pago: 'cash',
+    estado: 'delivered',
+    fecha_venta: currentMonthValue() + `-${String(new Date().getDate()).padStart(2, '0')}`,
+    notas: '',
+    items: [{ producto_id: 0, cantidad: 1 }],
+  }
 }
 
 function resetForm() {
@@ -1897,6 +2036,23 @@ function openDiscountModal(discount = null) {
   showDiscountModal.value = true
 }
 
+function openManualSaleModal() {
+  resetManualSaleForm()
+  showManualSaleModal.value = true
+}
+
+function addManualSaleItem() {
+  manualSaleForm.value.items.push({ producto_id: 0, cantidad: 1 })
+}
+
+function removeManualSaleItem(index) {
+  if (manualSaleForm.value.items.length === 1) {
+    manualSaleForm.value.items[0] = { producto_id: 0, cantidad: 1 }
+    return
+  }
+  manualSaleForm.value.items.splice(index, 1)
+}
+
 function handleImageFileChange(event) {
   selectedImageFile.value = event.target.files?.[0] || null
 }
@@ -1976,6 +2132,36 @@ async function cambiarEstado(id, estado) {
     showToast('Estado actualizado.')
   } catch (err) {
     showToast(err.response?.data?.error || 'No se pudo actualizar el estado.', 'error')
+  }
+}
+
+async function guardarVentaManual() {
+  const items = manualSaleForm.value.items
+    .map(item => ({
+      producto_id: Number(item.producto_id),
+      cantidad: Number(item.cantidad),
+    }))
+    .filter(item => item.producto_id && item.cantidad > 0)
+
+  if (!items.length) {
+    showToast('Agrega al menos un producto a la venta externa.', 'error')
+    return
+  }
+
+  savingManualSale.value = true
+  try {
+    const { data } = await pedidosApi.crearManual({
+      ...manualSaleForm.value,
+      items,
+    })
+    await Promise.all([cargarPedidos(), cargarStats(), cargarProductos()])
+    selectedOrderId.value = data.id
+    showManualSaleModal.value = false
+    showToast(`Venta externa ${data.codigo} registrada correctamente.`)
+  } catch (err) {
+    showToast(err.response?.data?.error || 'No se pudo registrar la venta externa.', 'error')
+  } finally {
+    savingManualSale.value = false
   }
 }
 

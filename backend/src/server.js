@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const { getPool } = require('./config/db');
 const { ensureDiscountSchema } = require('./lib/discounts');
+const pedidosRouter = require('./routes/pedidos');
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET no esta configurado. Revisa backend/.env antes de iniciar el servidor.');
@@ -53,7 +54,7 @@ app.use('/uploads', express.static(uploadsRoot));
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/productos', require('./routes/productos'));
-app.use('/api/pedidos', require('./routes/pedidos'));
+app.use('/api/pedidos', pedidosRouter);
 app.use('/api/clientes', require('./routes/clientes'));
 app.use('/api/mensajes', require('./routes/mensajes'));
 app.use('/api/news', require('./routes/news'));
@@ -84,6 +85,13 @@ const PORT = process.env.PORT || 3000;
 getPool()
   .then(async pool => {
     await ensureDiscountSchema(pool);
+    await pedidosRouter.ensurePedidosSchema(pool);
+    await pedidosRouter.runOrderMaintenance();
+    setInterval(() => {
+      pedidosRouter.runOrderMaintenance().catch(err => {
+        console.error('No se pudo ejecutar el mantenimiento de pedidos:', err.message);
+      });
+    }, 60 * 1000);
     app.listen(PORT, () => {
       console.log(`Bloomskin API corriendo en http://localhost:${PORT}`);
       if (hasFrontendBuild) {

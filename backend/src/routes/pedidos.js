@@ -60,6 +60,9 @@ const ORDER_STATUS_COPY = {
 };
 
 const INVENTORY_COMMITTED_STATES = new Set(['paid', 'shipped', 'delivered']);
+const MANUAL_SALES_CLIENT_EMAIL = 'ventas-manuales@bloomskin.local';
+const CHECKOUT_RESERVATION_MINUTES = 20;
+const PAYMENT_PROOF_WINDOW_MINUTES = 60;
 
 const proofStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, proofUploadsDir),
@@ -114,6 +117,270 @@ function getTransferConfig() {
 
 function orderCodeFromId(id) {
   return 'BS-' + String(id).padStart(4, '0');
+}
+
+async function ensurePedidosSchema(pool) {
+  await ensureDiscountSchema(pool);
+  await pool.request().batch(`
+    IF COL_LENGTH('pedidos', 'origen') IS NULL
+    BEGIN
+      ALTER TABLE pedidos
+      ADD origen NVARCHAR(20) NOT NULL
+        CONSTRAINT DF_pedidos_origen DEFAULT 'store';
+    END;
+
+    IF COL_LENGTH('pedidos', 'stock_comprometido') IS NULL
+    BEGIN
+      ALTER TABLE pedidos
+      ADD stock_comprometido BIT NOT NULL
+        CONSTRAINT DF_pedidos_stock_comprometido DEFAULT 0;
+    END;
+
+    IF COL_LENGTH('pedidos', 'reserva_expira_en') IS NULL
+      ALTER TABLE pedidos ADD reserva_expira_en DATETIME2 NULL;
+
+    IF COL_LENGTH('pedidos', 'comprobante_limite_en') IS NULL
+      ALTER TABLE pedidos ADD comprobante_limite_en DATETIME2 NULL;
+
+    IF OBJECT_ID(N'dbo.checkout_reservations', N'U') IS NULL
+    BEGIN
+      CREATE TABLE checkout_reservations (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        cliente_id INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+        expires_en DATETIME2 NOT NULL,
+        created_en DATETIME2 NOT NULL CONSTRAINT DF_checkout_reservations_created_en DEFAULT SYSUTCDATETIME(),
+        updated_en DATETIME2 NOT NULL CONSTRAINT DF_checkout_reservations_updated_en DEFAULT SYSUTCDATETIME()
+      );
+
+      CREATE UNIQUE INDEX UX_checkout_reservations_cliente_id ON checkout_reservations(cliente_id);
+      CREATE INDEX IX_checkout_reservations_expires_en ON checkout_reservations(expires_en);
+    END;
+
+    IF OBJECT_ID(N'dbo.checkout_reservation_items', N'U') IS NULL
+    BEGIN
+      CREATE TABLE checkout_reservation_items (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        reservation_id INT NOT NULL REFERENCES checkout_reservations(id) ON DELETE CASCADE,
+        producto_id INT NOT NULL REFERENCES productos(id),
+        cantidad INT NOT NULL
+      );
+
+      CREATE INDEX IX_checkout_reservation_items_reservation_id ON checkout_reservation_items(reservation_id);
+    END;
+  `);
+}
+
+async function getOrCreateManualSalesClient(transaction) {
+  const lookup = await new sql.Request(transaction)
+    .input('email', sql.NVarChar, MANUAL_SALES_CLIENT_EMAIL)
+    .query(`
+      SELECT TOP 1 id
+      FROM clientes
+      WHERE email = @email
+    `);
+
+  if (lookup.recordset[0]?.id) {
+    return lookup.recordset[0].id;
+  }
+
+  const insert = await new sql.Request(transaction)
+    .input('nombre', sql.NVarChar, 'Ventas manuales Bloomskin')
+    .input('email', sql.NVarChar, MANUAL_SALES_CLIENT_EMAIL)
+    .query(`
+      INSERT INTO clientes (nombre, email, password_hash, notas)
+      OUTPUT INSERTED.id
+      VALUES (@nombre, @email, NULL, 'Cliente tecnico para registrar ventas externas desde admin')
+    `);
+
+  return insert.recordset[0].id;
+}
+
+function normalizeManualSaleDate(value) {
+  if (!value) return null;
+  const candidate = new Date(String(value));
+  return Number.isNaN(candidate.getTime()) ? null : candidate;
+}
+
+async function getActiveReservation(transaction, clienteId) {
+  const reservationResult = await new sql.Request(transaction)
+    .input('cliente_id', sql.Int, clienteId)
+    .query(`
+      SELECT TOP 1 id, cliente_id, expires_en, created_en, updated_en
+      FROM checkout_reservations
+      WHERE cliente_id = @cliente_id
+      ORDER BY id DESC
+    `);
+
+  const reservation = reservationResult.recordset[0];
+  if (!reservation) return null;
+
+  const itemsResult = await new sql.Request(transaction)
+    .input('reservation_id', sql.Int, reservation.id)
+    .query(`
+      SELECT ri.producto_id, ri.cantidad, p.nombre, p.marca
+      FROM checkout_reservation_items ri
+      JOIN productos p ON p.id = ri.producto_id
+      WHERE ri.reservation_id = @reservation_id
+      ORDER BY ri.id ASC
+    `);
+
+  reservation.items = itemsResult.recordset;
+  return reservation;
+}
+
+async function releaseReservation(transaction, reservationId) {
+  const itemsResult = await new sql.Request(transaction)
+    .input('reservation_id', sql.Int, reservationId)
+    .query(`
+      SELECT producto_id, cantidad
+      FROM checkout_reservation_items
+      WHERE reservation_id = @reservation_id
+    `);
+
+  for (const item of itemsResult.recordset) {
+    await new sql.Request(transaction)
+      .input('producto_id', sql.Int, item.producto_id)
+      .input('cantidad', sql.Int, item.cantidad)
+      .query(`
+        UPDATE productos
+        SET stock = stock + @cantidad
+        WHERE id = @producto_id
+      `);
+  }
+
+  await new sql.Request(transaction)
+    .input('reservation_id', sql.Int, reservationId)
+    .query(`
+      DELETE FROM checkout_reservation_items WHERE reservation_id = @reservation_id;
+      DELETE FROM checkout_reservations WHERE id = @reservation_id;
+    `);
+}
+
+function normalizeReservationItems(items) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map(item => ({
+      producto_id: Number(item?.producto_id),
+      cantidad: Number(item?.cantidad),
+    }))
+    .filter(item => Number.isInteger(item.producto_id) && Number.isInteger(item.cantidad) && item.cantidad > 0);
+}
+
+function sameReservationItems(leftItems, rightItems) {
+  const normalize = list => [...list]
+    .map(item => `${Number(item.producto_id)}:${Number(item.cantidad)}`)
+    .sort();
+  const left = normalize(leftItems || []);
+  const right = normalize(rightItems || []);
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function formatReservationPayload(reservation) {
+  if (!reservation) return null;
+  return {
+    id: reservation.id,
+    cliente_id: reservation.cliente_id,
+    expires_en: reservation.expires_en,
+    expires_in_seconds: Math.max(0, Math.floor((new Date(reservation.expires_en).getTime() - Date.now()) / 1000)),
+    items: reservation.items || [],
+  };
+}
+
+async function cleanupExpiredReservations(pool) {
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
+  try {
+    const expired = await new sql.Request(transaction).query(`
+      SELECT id
+      FROM checkout_reservations
+      WHERE expires_en <= SYSUTCDATETIME()
+    `);
+
+    for (const reservation of expired.recordset) {
+      await releaseReservation(transaction, reservation.id);
+    }
+
+    await transaction.commit();
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
+}
+
+async function cleanupExpiredPendingOrders(pool) {
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
+  try {
+    const expiredOrders = await new sql.Request(transaction).query(`
+      SELECT id, cliente_nombre, cliente_email, total_clp
+      FROM pedidos
+      WHERE estado = 'pending_payment'
+        AND stock_comprometido = 1
+        AND comprobante_url IS NULL
+        AND comprobante_limite_en IS NOT NULL
+        AND comprobante_limite_en <= SYSUTCDATETIME()
+    `);
+
+    for (const order of expiredOrders.recordset) {
+      const itemsResult = await new sql.Request(transaction)
+        .input('pedido_id', sql.Int, order.id)
+        .query(`
+          SELECT producto_id, cantidad
+          FROM pedido_items
+          WHERE pedido_id = @pedido_id
+        `);
+
+      for (const item of itemsResult.recordset) {
+        await new sql.Request(transaction)
+          .input('producto_id', sql.Int, item.producto_id)
+          .input('cantidad', sql.Int, item.cantidad)
+          .query(`
+            UPDATE productos
+            SET stock = stock + @cantidad
+            WHERE id = @producto_id
+          `);
+      }
+
+      await new sql.Request(transaction)
+        .input('pedido_id', sql.Int, order.id)
+        .query(`
+          UPDATE pedidos
+          SET estado = 'cancelled',
+              stock_comprometido = 0,
+              actualizado_en = GETDATE(),
+              notas = CONCAT(ISNULL(notas, ''), CASE WHEN notas IS NULL OR notas = '' THEN '' ELSE CHAR(10) END, 'Cancelado automaticamente por no subir comprobante dentro de 1 hora.')
+          WHERE id = @pedido_id
+        `);
+    }
+
+    await transaction.commit();
+    return expiredOrders.recordset;
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
+}
+
+async function runOrderMaintenance() {
+  const pool = await getPool();
+  await ensurePedidosSchema(pool);
+  await cleanupExpiredReservations(pool);
+  const cancelledOrders = await cleanupExpiredPendingOrders(pool);
+
+  for (const order of cancelledOrders) {
+    try {
+      await sendOrderStatusEmail({
+        pedidoId: Number(order.id),
+        codigo: orderCodeFromId(order.id),
+        clienteNombre: order.cliente_nombre,
+        clienteEmail: order.cliente_email,
+        estado: 'cancelled',
+        totalClp: order.total_clp,
+      });
+    } catch (mailError) {
+      console.error('No se pudo enviar el correo de cancelacion automatica', mailError);
+    }
+  }
 }
 
 function parseMonthRange(monthParam) {
@@ -213,13 +480,13 @@ async function sendOrderStatusEmail({ pedidoId, codigo, clienteNombre, clienteEm
 router.get('/', requireAdminAuth, async (_req, res) => {
   try {
     const pool = await getPool();
-    await ensureDiscountSchema(pool);
+    await ensurePedidosSchema(pool);
     const result = await pool.request().query(`
       SELECT p.id, p.subtotal_clp, p.subtotal_pagado_clp, p.descuento_codigo, p.descuento_porcentaje, p.descuento_clp,
              p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
              p.cliente_nombre, p.cliente_email, p.cliente_rut, p.cliente_telefono,
              p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
-             p.estado, p.comprobante_url, p.notas,
+             p.estado, p.comprobante_url, p.notas, p.origen,
              p.creado_en, p.actualizado_en,
              c.nombre AS cliente_nombre_actual, c.email AS cliente_email_actual,
              c.rut AS cliente_rut_actual, c.telefono AS cliente_telefono_actual,
@@ -255,7 +522,7 @@ router.get('/', requireAdminAuth, async (_req, res) => {
 router.get('/stats', requireAdminAuth, async (_req, res) => {
   try {
     const pool = await getPool();
-    await ensureDiscountSchema(pool);
+    await ensurePedidosSchema(pool);
     const result = await pool.request().query(`
       SELECT
         COUNT(*) AS total_pedidos,
@@ -284,12 +551,12 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
 
   try {
     const pool = await getPool();
-    await ensureDiscountSchema(pool);
+    await ensurePedidosSchema(pool);
     const ordersResult = await pool.request()
       .input('start_date', sql.DateTime2, range.start)
       .input('end_date', sql.DateTime2, range.end)
       .query(`
-        SELECT p.id, p.subtotal_clp, p.subtotal_pagado_clp, p.descuento_codigo, p.descuento_porcentaje, p.descuento_clp,
+        SELECT p.id, p.subtotal_clp, p.subtotal_pagado_clp, p.descuento_codigo, p.descuento_porcentaje, p.descuento_clp, p.origen,
                p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
                p.cliente_nombre, p.cliente_email, p.cliente_rut, p.cliente_telefono,
                p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
@@ -345,6 +612,8 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
       { metric: 'Subtotal vendido', value: summary.totalSubtotal },
       { metric: 'Cobrado por envío', value: summary.totalEnvio },
       { metric: 'Ventas totales', value: summary.totalVentas },
+      { metric: 'Ventas web', value: orders.filter(order => (order.origen || 'store') === 'store').length },
+      { metric: 'Ventas externas', value: orders.filter(order => order.origen === 'manual').length },
       { metric: 'Esperando transferencia', value: summary.byStatus.pending_payment || 0 },
       { metric: 'Comprobante recibido', value: summary.byStatus.payment_submitted || 0 },
       { metric: 'Pago validado', value: summary.byStatus.paid || 0 },
@@ -356,6 +625,7 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
     const ordersSheet = workbook.addWorksheet('Pedidos');
     ordersSheet.columns = [
       { header: 'Código', key: 'codigo', width: 14 },
+      { header: 'Origen', key: 'origen_label', width: 18 },
       { header: 'Fecha', key: 'creado_en', width: 20 },
       { header: 'Cliente', key: 'cliente_nombre', width: 24 },
       { header: 'Email', key: 'cliente_email', width: 28 },
@@ -378,6 +648,7 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
     orders.forEach(order => {
       ordersSheet.addRow({
         ...order,
+        origen_label: order.origen === 'manual' ? 'Venta externa' : 'Tienda web',
         creado_en: excelDate(order.creado_en),
       });
     });
@@ -412,11 +683,11 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
     [ordersSheet, itemsSheet].forEach(sheet => {
       sheet.getRow(1).font = { bold: true };
       sheet.views = [{ state: 'frozen', ySplit: 1 }];
-      ['G', 'H', 'I'].forEach(column => {
-        if (sheet.getColumn(column)) {
+      if (sheet === ordersSheet) {
+        ['H', 'I', 'J'].forEach(column => {
           sheet.getColumn(column).numFmt = '"$"#,##0';
-        }
-      });
+        });
+      }
       if (sheet === itemsSheet) {
         sheet.getColumn('G').numFmt = '"$"#,##0';
         sheet.getColumn('H').numFmt = '"$"#,##0';
@@ -441,7 +712,7 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
 router.get('/mine', requireClientAuth, async (req, res) => {
   try {
     const pool = await getPool();
-    await ensureDiscountSchema(pool);
+    await ensurePedidosSchema(pool);
     const result = await pool.request()
       .input('cliente_id', sql.Int, req.user.id)
       .query(`
@@ -474,6 +745,136 @@ router.get('/mine', requireClientAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener tus pedidos' });
+  }
+});
+
+router.get('/reservation/current', requireClientAuth, async (req, res) => {
+  try {
+    const pool = await getPool();
+    await ensurePedidosSchema(pool);
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    const reservation = await getActiveReservation(transaction, req.user.id);
+    if (!reservation) {
+      await transaction.commit();
+      return res.json({ reservation: null });
+    }
+
+    if (new Date(reservation.expires_en).getTime() <= Date.now()) {
+      await releaseReservation(transaction, reservation.id);
+      await transaction.commit();
+      return res.json({ reservation: null });
+    }
+
+    await transaction.commit();
+    res.json({ reservation: formatReservationPayload(reservation) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo obtener la reserva activa.' });
+  }
+});
+
+router.post('/reservation', requireClientAuth, async (req, res) => {
+  const items = normalizeReservationItems(req.body?.items);
+  if (!items.length) {
+    return res.status(400).json({ error: 'Debes indicar al menos un producto para reservar.' });
+  }
+
+  let transaction;
+  let transactionClosed = false;
+  try {
+    const pool = await getPool();
+    await ensurePedidosSchema(pool);
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    const existingReservation = await getActiveReservation(transaction, req.user.id);
+    if (existingReservation) {
+      await releaseReservation(transaction, existingReservation.id);
+    }
+
+    const reservationResult = await new sql.Request(transaction)
+      .input('cliente_id', sql.Int, req.user.id)
+      .query(`
+        INSERT INTO checkout_reservations (cliente_id, expires_en, created_en, updated_en)
+        OUTPUT INSERTED.id, INSERTED.cliente_id, INSERTED.expires_en
+        VALUES (@cliente_id, DATEADD(MINUTE, ${CHECKOUT_RESERVATION_MINUTES}, SYSUTCDATETIME()), SYSUTCDATETIME(), SYSUTCDATETIME())
+      `);
+
+    const reservation = reservationResult.recordset[0];
+
+    for (const item of items) {
+      const productResult = await new sql.Request(transaction)
+        .input('producto_id', sql.Int, item.producto_id)
+        .query(`
+          SELECT id, nombre, marca, stock
+          FROM productos WITH (UPDLOCK, ROWLOCK)
+          WHERE id = @producto_id AND activo = 1
+        `);
+
+      const product = productResult.recordset[0];
+      if (!product) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: `Producto ${item.producto_id} no encontrado.` });
+      }
+
+      if (Number(product.stock || 0) < item.cantidad) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(409).json({ error: `No hay stock suficiente para ${product.nombre}.` });
+      }
+
+      await new sql.Request(transaction)
+        .input('reservation_id', sql.Int, reservation.id)
+        .input('producto_id', sql.Int, item.producto_id)
+        .input('cantidad', sql.Int, item.cantidad)
+        .query(`
+          INSERT INTO checkout_reservation_items (reservation_id, producto_id, cantidad)
+          VALUES (@reservation_id, @producto_id, @cantidad)
+        `);
+
+      await new sql.Request(transaction)
+        .input('producto_id', sql.Int, item.producto_id)
+        .input('cantidad', sql.Int, item.cantidad)
+        .query(`
+          UPDATE productos
+          SET stock = stock - @cantidad
+          WHERE id = @producto_id AND stock >= @cantidad
+        `);
+    }
+
+    reservation.items = items;
+    await transaction.commit();
+    transactionClosed = true;
+    res.status(201).json({ reservation: formatReservationPayload(reservation) });
+  } catch (err) {
+    if (transaction && !transactionClosed) {
+      try {
+        await transaction.rollback();
+      } catch (_) {}
+    }
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo reservar tu carrito.' });
+  }
+});
+
+router.delete('/reservation/current', requireClientAuth, async (req, res) => {
+  try {
+    const pool = await getPool();
+    await ensurePedidosSchema(pool);
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+    const reservation = await getActiveReservation(transaction, req.user.id);
+    if (reservation) {
+      await releaseReservation(transaction, reservation.id);
+    }
+    await transaction.commit();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo liberar la reserva.' });
   }
 });
 
@@ -541,7 +942,7 @@ router.post('/', requireClientAuth, async (req, res) => {
 
   try {
     const pool = await getPool();
-    await ensureDiscountSchema(pool);
+    await ensurePedidosSchema(pool);
     transaction = new sql.Transaction(pool);
     await transaction.begin();
 
@@ -586,15 +987,36 @@ router.post('/', requireClientAuth, async (req, res) => {
       return res.status(400).json({ error: 'La configuracion de transferencia esta incompleta. Completa los datos bancarios en admin antes de recibir pedidos.' });
     }
 
+    const activeReservation = await getActiveReservation(transaction, resolvedClienteId);
+    if (!activeReservation) {
+      await transaction.rollback();
+      transactionClosed = true;
+      return res.status(409).json({ error: 'Tu reserva ya no esta activa. Vuelve a checkout para reservar el stock otra vez.' });
+    }
+
+    if (new Date(activeReservation.expires_en).getTime() <= Date.now()) {
+      await releaseReservation(transaction, activeReservation.id);
+      await transaction.rollback();
+      transactionClosed = true;
+      return res.status(409).json({ error: 'Tu reserva de 20 minutos vencio. Vuelve a checkout para continuar.' });
+    }
+
+    const normalizedItems = normalizeReservationItems(items);
+    if (!sameReservationItems(activeReservation.items, normalizedItems)) {
+      await transaction.rollback();
+      transactionClosed = true;
+      return res.status(409).json({ error: 'Tu carrito cambio desde la reserva. Revisa el checkout para sincronizarlo.' });
+    }
+
     let subtotal = 0;
     const itemsProcesados = [];
 
-    for (const item of items) {
+    for (const item of normalizedItems) {
       const prod = await new sql.Request(transaction)
         .input('id', sql.Int, item.producto_id)
         .query(`
           SELECT precio_clp, stock
-          FROM productos WITH (UPDLOCK, ROWLOCK)
+          FROM productos
           WHERE id = @id AND activo = 1
         `);
 
@@ -602,12 +1024,6 @@ router.post('/', requireClientAuth, async (req, res) => {
         await transaction.rollback();
         transactionClosed = true;
         return res.status(400).json({ error: `Producto ${item.producto_id} no encontrado` });
-      }
-
-      if (prod.recordset[0].stock < item.cantidad) {
-        await transaction.rollback();
-        transactionClosed = true;
-        return res.status(400).json({ error: `Stock insuficiente para producto ${item.producto_id}` });
       }
 
       const precioUnitario = prod.recordset[0].precio_clp;
@@ -664,19 +1080,23 @@ router.post('/', requireClientAuth, async (req, res) => {
       .input('referencia_envio', sql.NVarChar, referencia || null)
       .input('distancia_envio_km', sql.Decimal(8, 2), shippingQuote.distance_km)
       .input('notas', sql.NVarChar, notas || null)
+      .input('reserva_expira_en', sql.DateTime2, activeReservation.expires_en)
+      .input('comprobante_limite_en', sql.DateTime2, new Date(Date.now() + (PAYMENT_PROOF_WINDOW_MINUTES * 60 * 1000)))
       .query(`
         INSERT INTO pedidos (
           cliente_id, cliente_nombre, cliente_email, cliente_rut, cliente_telefono,
           subtotal_clp, subtotal_pagado_clp, descuento_codigo, descuento_porcentaje, descuento_clp,
           envio_clp, total_clp, metodo_pago, metodo_envio,
-          region_envio, ciudad_envio, direccion_envio, referencia_envio, distancia_envio_km, notas, estado
+          region_envio, ciudad_envio, direccion_envio, referencia_envio, distancia_envio_km, notas, estado,
+          origen, stock_comprometido, reserva_expira_en, comprobante_limite_en
         )
         OUTPUT INSERTED.id
         VALUES (
           @cliente_id, @cliente_nombre, @cliente_email, @cliente_rut, @cliente_telefono,
           @subtotal_clp, @subtotal_pagado_clp, @descuento_codigo, @descuento_porcentaje, @descuento_clp,
           @envio_clp, @total_clp, @metodo_pago, @metodo_envio,
-          @region_envio, @ciudad_envio, @direccion_envio, @referencia_envio, @distancia_envio_km, @notas, 'pending_payment'
+          @region_envio, @ciudad_envio, @direccion_envio, @referencia_envio, @distancia_envio_km, @notas, 'pending_payment',
+          'store', 1, @reserva_expira_en, @comprobante_limite_en
         )
       `);
     const pedidoId = pedResult.recordset[0].id;
@@ -691,8 +1111,14 @@ router.post('/', requireClientAuth, async (req, res) => {
           INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario_clp)
           VALUES (@pedido_id, @producto_id, @cantidad, @precio_unitario_clp)
         `);
-
     }
+
+    await new sql.Request(transaction)
+      .input('reservation_id', sql.Int, activeReservation.id)
+      .query(`
+        DELETE FROM checkout_reservation_items WHERE reservation_id = @reservation_id;
+        DELETE FROM checkout_reservations WHERE id = @reservation_id;
+      `);
 
     if (appliedDiscount?.id) {
       const discountUpdate = await new sql.Request(transaction)
@@ -727,6 +1153,7 @@ router.post('/', requireClientAuth, async (req, res) => {
       total_clp: total,
       metodo_pago: 'bank_transfer',
       metodo_envio: shippingQuote.method,
+      comprobante_limite_en: new Date(Date.now() + (PAYMENT_PROOF_WINDOW_MINUTES * 60 * 1000)),
       shipping_quote: shippingQuote,
       transfer: getTransferConfig(),
     });
@@ -740,6 +1167,179 @@ router.post('/', requireClientAuth, async (req, res) => {
     }
     console.error(err);
     res.status(500).json({ error: 'Error al crear pedido' });
+  }
+});
+
+router.post('/manual', requireAdminAuth, async (req, res) => {
+  const {
+    cliente_nombre,
+    cliente_email,
+    cliente_rut,
+    cliente_telefono,
+    metodo_pago,
+    estado,
+    notas,
+    fecha_venta,
+    items,
+  } = req.body || {};
+
+  const allowedEstados = ['paid', 'shipped', 'delivered'];
+  const normalizedEstado = allowedEstados.includes(estado) ? estado : 'delivered';
+  const normalizedMetodoPago = cleanString(metodo_pago) || 'manual';
+  const normalizedNombre = cleanString(cliente_nombre) || 'Venta externa';
+  const normalizedEmail = normalizeEmail(cliente_email || '');
+  const normalizedRut = normalizeRut(cliente_rut || '');
+  const normalizedTelefono = normalizePhone(cliente_telefono || '');
+  const saleDate = normalizeManualSaleDate(fecha_venta) || new Date();
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Debes agregar al menos un producto a la venta externa.' });
+  }
+
+  let transaction;
+  let transactionClosed = false;
+
+  try {
+    const pool = await getPool();
+    await ensurePedidosSchema(pool);
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    const manualClientId = await getOrCreateManualSalesClient(transaction);
+    const itemsProcesados = [];
+    let subtotal = 0;
+
+    for (const rawItem of items) {
+      const productoId = Number(rawItem?.producto_id);
+      const cantidad = Number(rawItem?.cantidad);
+
+      if (!productoId || !Number.isInteger(cantidad) || cantidad <= 0) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: 'Cada producto debe tener una cantidad valida.' });
+      }
+
+      const prod = await new sql.Request(transaction)
+        .input('id', sql.Int, productoId)
+        .query(`
+          SELECT id, nombre, stock, precio_clp
+          FROM productos
+          WHERE id = @id AND activo = 1
+        `);
+
+      const producto = prod.recordset[0];
+      if (!producto) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: `Producto ${productoId} no encontrado.` });
+      }
+
+      if (Number(producto.stock || 0) < cantidad) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: `Stock insuficiente para ${producto.nombre}.` });
+      }
+
+      itemsProcesados.push({
+        producto_id: producto.id,
+        cantidad,
+        precio_unitario_clp: Number(producto.precio_clp || 0),
+      });
+      subtotal += Number(producto.precio_clp || 0) * cantidad;
+    }
+
+    const pedResult = await new sql.Request(transaction)
+      .input('cliente_id', sql.Int, manualClientId)
+      .input('cliente_nombre', sql.NVarChar, normalizedNombre)
+      .input('cliente_email', sql.NVarChar, normalizedEmail || null)
+      .input('cliente_rut', sql.NVarChar, normalizedRut || null)
+      .input('cliente_telefono', sql.NVarChar, normalizedTelefono || null)
+      .input('subtotal_clp', sql.Int, subtotal)
+      .input('subtotal_pagado_clp', sql.Int, subtotal)
+      .input('descuento_codigo', sql.NVarChar, null)
+      .input('descuento_porcentaje', sql.Int, null)
+      .input('descuento_clp', sql.Int, 0)
+      .input('envio_clp', sql.Int, 0)
+      .input('total_clp', sql.Int, subtotal)
+      .input('metodo_pago', sql.NVarChar, normalizedMetodoPago)
+      .input('metodo_envio', sql.NVarChar, 'external_sale')
+      .input('region_envio', sql.NVarChar, 'Venta externa')
+      .input('ciudad_envio', sql.NVarChar, 'Venta externa')
+      .input('direccion_envio', sql.NVarChar, 'Venta registrada desde admin')
+      .input('referencia_envio', sql.NVarChar, null)
+      .input('distancia_envio_km', sql.Decimal(8, 2), null)
+      .input('notas', sql.NVarChar, notas || null)
+      .input('estado', sql.NVarChar, normalizedEstado)
+      .input('origen', sql.NVarChar, 'manual')
+      .input('stock_comprometido', sql.Bit, 1)
+      .input('created_at', sql.DateTime2, saleDate)
+      .query(`
+        INSERT INTO pedidos (
+          cliente_id, cliente_nombre, cliente_email, cliente_rut, cliente_telefono,
+          subtotal_clp, subtotal_pagado_clp, descuento_codigo, descuento_porcentaje, descuento_clp,
+          envio_clp, total_clp, metodo_pago, metodo_envio,
+          region_envio, ciudad_envio, direccion_envio, referencia_envio, distancia_envio_km, notas, estado, origen, stock_comprometido,
+          creado_en, actualizado_en
+        )
+        OUTPUT INSERTED.id
+        VALUES (
+          @cliente_id, @cliente_nombre, @cliente_email, @cliente_rut, @cliente_telefono,
+          @subtotal_clp, @subtotal_pagado_clp, @descuento_codigo, @descuento_porcentaje, @descuento_clp,
+          @envio_clp, @total_clp, @metodo_pago, @metodo_envio,
+          @region_envio, @ciudad_envio, @direccion_envio, @referencia_envio, @distancia_envio_km, @notas, @estado, @origen, @stock_comprometido,
+          @created_at, @created_at
+        )
+      `);
+
+    const pedidoId = pedResult.recordset[0].id;
+
+    for (const item of itemsProcesados) {
+      await new sql.Request(transaction)
+        .input('pedido_id', sql.Int, pedidoId)
+        .input('producto_id', sql.Int, item.producto_id)
+        .input('cantidad', sql.Int, item.cantidad)
+        .input('precio_unitario_clp', sql.Int, item.precio_unitario_clp)
+        .query(`
+          INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario_clp)
+          VALUES (@pedido_id, @producto_id, @cantidad, @precio_unitario_clp)
+        `);
+
+      const stockUpdate = await new sql.Request(transaction)
+        .input('producto_id', sql.Int, item.producto_id)
+        .input('cantidad', sql.Int, item.cantidad)
+        .query(`
+          UPDATE productos
+          SET stock = stock - @cantidad
+          WHERE id = @producto_id AND stock >= @cantidad
+        `);
+
+      if (stockUpdate.rowsAffected[0] !== 1) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(409).json({ error: 'No se pudo descontar stock para la venta externa.' });
+      }
+    }
+
+    await transaction.commit();
+    transactionClosed = true;
+    res.status(201).json({
+      ok: true,
+      id: pedidoId,
+      codigo: orderCodeFromId(pedidoId),
+      total_clp: subtotal,
+      origen: 'manual',
+      estado: normalizedEstado,
+    });
+  } catch (err) {
+    if (transaction && !transactionClosed) {
+      try {
+        await transaction.rollback();
+      } catch (_) {
+        // ignore rollback errors
+      }
+    }
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo registrar la venta externa.' });
   }
 });
 
@@ -787,6 +1387,7 @@ router.post('/:id/comprobante', requireClientAuth, uploadProof.single('comproban
               WHEN estado = 'pending_payment' THEN 'payment_submitted'
               ELSE estado
             END,
+            comprobante_limite_en = NULL,
             actualizado_en = GETDATE()
         WHERE id = @id
       `);
@@ -826,7 +1427,7 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
     const pedidoLookup = await new sql.Request(transaction)
       .input('id', sql.Int, req.params.id)
       .query(`
-        SELECT id, estado, cliente_nombre, cliente_email, total_clp
+        SELECT id, estado, cliente_nombre, cliente_email, total_clp, stock_comprometido
         FROM pedidos
         WHERE id = @id
       `);
@@ -842,8 +1443,9 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
       return res.status(400).json({ error: 'No se puede reactivar un pedido cancelado desde admin.' });
     }
 
-    const stockWasCommitted = INVENTORY_COMMITTED_STATES.has(pedido.estado);
+    const stockWasCommitted = Boolean(pedido.stock_comprometido);
     const stockWillBeCommitted = INVENTORY_COMMITTED_STATES.has(estado);
+    const nextStockCommitted = stockWasCommitted ? estado !== 'cancelled' : stockWillBeCommitted;
 
     if (!stockWasCommitted && stockWillBeCommitted) {
       const itemsResult = await new sql.Request(transaction)
@@ -895,10 +1497,17 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
       }
     }
 
-    await new sql.Request(transaction)
-      .input('id', sql.Int, req.params.id)
-      .input('estado', sql.NVarChar, estado)
-      .query('UPDATE pedidos SET estado=@estado, actualizado_en=GETDATE() WHERE id=@id');
+      await new sql.Request(transaction)
+        .input('id', sql.Int, req.params.id)
+        .input('estado', sql.NVarChar, estado)
+        .input('stock_comprometido', sql.Bit, nextStockCommitted ? 1 : 0)
+      .query(`
+        UPDATE pedidos
+        SET estado=@estado,
+            stock_comprometido=@stock_comprometido,
+            actualizado_en=GETDATE()
+        WHERE id=@id
+      `);
 
     await transaction.commit();
 
@@ -923,3 +1532,5 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.ensurePedidosSchema = ensurePedidosSchema;
+module.exports.runOrderMaintenance = runOrderMaintenance;

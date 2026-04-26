@@ -66,12 +66,16 @@ CREATE TABLE pedidos (
   descuento_codigo NVARCHAR(50) NULL,
   descuento_porcentaje INT      NULL,
   descuento_clp   INT           NOT NULL DEFAULT 0,
+  stock_comprometido BIT        NOT NULL DEFAULT 0,
+  reserva_expira_en DATETIME2   NULL,
+  comprobante_limite_en DATETIME2 NULL,
   total_clp       INT           NOT NULL,
   cliente_nombre  NVARCHAR(150),
   cliente_email   NVARCHAR(150),
   cliente_rut     NVARCHAR(20),
   cliente_telefono NVARCHAR(20),
   estado          NVARCHAR(20)  NOT NULL DEFAULT 'pending',
+  origen          NVARCHAR(20)  NOT NULL DEFAULT 'store',
   region_envio    NVARCHAR(120),
   comprobante_url NVARCHAR(500),
   notas           NVARCHAR(MAX),
@@ -94,6 +98,21 @@ CREATE TABLE discount_codes (
   active            BIT           NOT NULL DEFAULT 1,
   created_en        DATETIME2     NOT NULL DEFAULT GETDATE(),
   updated_en        DATETIME2     NOT NULL DEFAULT GETDATE()
+);
+
+CREATE TABLE checkout_reservations (
+  id          INT IDENTITY(1,1) PRIMARY KEY,
+  cliente_id  INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  expires_en  DATETIME2 NOT NULL,
+  created_en  DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  updated_en  DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+);
+
+CREATE TABLE checkout_reservation_items (
+  id             INT IDENTITY(1,1) PRIMARY KEY,
+  reservation_id INT NOT NULL REFERENCES checkout_reservations(id) ON DELETE CASCADE,
+  producto_id    INT NOT NULL REFERENCES productos(id),
+  cantidad       INT NOT NULL
 );
 
 -- Líneas de pedido
@@ -140,6 +159,9 @@ CREATE INDEX IX_productos_activo ON productos(activo);
 CREATE INDEX IX_pedidos_estado   ON pedidos(estado);
 CREATE INDEX IX_pedidos_cliente  ON pedidos(cliente_id);
 CREATE INDEX IX_discount_codes_active ON discount_codes(active, starts_at, ends_at);
+CREATE UNIQUE INDEX UX_checkout_reservations_cliente_id ON checkout_reservations(cliente_id);
+CREATE INDEX IX_checkout_reservations_expires_en ON checkout_reservations(expires_en);
+CREATE INDEX IX_checkout_reservation_items_reservation_id ON checkout_reservation_items(reservation_id);
 CREATE INDEX IX_mensajes_leido   ON mensajes(leido);
 CREATE INDEX IX_cliente_wishlist_cliente ON cliente_wishlist(cliente_id);
 

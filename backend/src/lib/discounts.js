@@ -88,7 +88,7 @@ function validateDiscountRow(row, subtotalClp, now = new Date()) {
 }
 
 async function ensureDiscountSchema(pool) {
-  await pool.request().batch(`
+  await pool.request().query(`
     IF OBJECT_ID(N'dbo.discount_codes', N'U') IS NULL
     BEGIN
       CREATE TABLE discount_codes (
@@ -106,23 +106,38 @@ async function ensureDiscountSchema(pool) {
         created_en DATETIME2 NOT NULL CONSTRAINT DF_discount_codes_created_en DEFAULT GETDATE(),
         updated_en DATETIME2 NOT NULL CONSTRAINT DF_discount_codes_updated_en DEFAULT GETDATE()
       );
-
-      CREATE UNIQUE INDEX UX_discount_codes_code ON discount_codes(code);
-      CREATE INDEX IX_discount_codes_active ON discount_codes(active, starts_at, ends_at);
     END;
+  `);
 
+  await pool.request().query(`
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_discount_codes_code' AND object_id = OBJECT_ID('discount_codes'))
+      CREATE UNIQUE INDEX UX_discount_codes_code ON discount_codes(code);
+
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_discount_codes_active' AND object_id = OBJECT_ID('discount_codes'))
+      CREATE INDEX IX_discount_codes_active ON discount_codes(active, starts_at, ends_at);
+  `);
+
+  await pool.request().query(`
     IF COL_LENGTH('pedidos', 'descuento_codigo') IS NULL
       ALTER TABLE pedidos ADD descuento_codigo NVARCHAR(50) NULL;
+  `);
 
+  await pool.request().query(`
     IF COL_LENGTH('pedidos', 'descuento_porcentaje') IS NULL
       ALTER TABLE pedidos ADD descuento_porcentaje INT NULL;
+  `);
 
+  await pool.request().query(`
     IF COL_LENGTH('pedidos', 'descuento_clp') IS NULL
       ALTER TABLE pedidos ADD descuento_clp INT NOT NULL CONSTRAINT DF_pedidos_descuento_clp DEFAULT 0;
+  `);
 
+  await pool.request().query(`
     IF COL_LENGTH('pedidos', 'subtotal_pagado_clp') IS NULL
       ALTER TABLE pedidos ADD subtotal_pagado_clp INT NULL;
+  `);
 
+  await pool.request().query(`
     IF COL_LENGTH('pedidos', 'subtotal_pagado_clp') IS NOT NULL
     BEGIN
       UPDATE pedidos

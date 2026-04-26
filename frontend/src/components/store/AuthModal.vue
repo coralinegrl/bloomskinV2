@@ -26,7 +26,12 @@
           </label>
           <label class="field-block">
             <span>Contraseña</span>
-            <input v-model="loginForm.password" type="password" placeholder="Tu contraseña" :disabled="customerAuth.loading" />
+            <div class="password-field">
+              <input v-model="loginForm.password" :type="showLoginPassword ? 'text' : 'password'" placeholder="Tu contraseña" :disabled="customerAuth.loading" />
+              <button class="password-toggle" type="button" :disabled="customerAuth.loading" @click="showLoginPassword = !showLoginPassword">
+                {{ showLoginPassword ? 'Ocultar' : 'Ver' }}
+              </button>
+            </div>
           </label>
           <button class="link-btn" type="button" @click="switchMode('forgot')">Olvidé mi contraseña</button>
           <p v-if="loginError || customerAuth.error" class="auth-error">{{ loginError || customerAuth.error }}</p>
@@ -55,12 +60,22 @@
           </label>
           <label class="field-block">
             <span>Nueva contraseña</span>
-            <input v-model="resetForm.password" type="password" placeholder="Mínimo 8 caracteres" :disabled="customerAuth.loading" />
+            <div class="password-field">
+              <input v-model="resetForm.password" :type="showResetPassword ? 'text' : 'password'" placeholder="Mínimo 8 caracteres" :disabled="customerAuth.loading" />
+              <button class="password-toggle" type="button" :disabled="customerAuth.loading" @click="showResetPassword = !showResetPassword">
+                {{ showResetPassword ? 'Ocultar' : 'Ver' }}
+              </button>
+            </div>
             <small v-if="resetErrors.password" class="field-error">{{ resetErrors.password }}</small>
           </label>
           <label class="field-block">
             <span>Repite la contraseña</span>
-            <input v-model="resetForm.confirmPassword" type="password" placeholder="Repite tu contraseña" :disabled="customerAuth.loading" />
+            <div class="password-field">
+              <input v-model="resetForm.confirmPassword" :type="showResetConfirmPassword ? 'text' : 'password'" placeholder="Repite tu contraseña" :disabled="customerAuth.loading" />
+              <button class="password-toggle" type="button" :disabled="customerAuth.loading" @click="showResetConfirmPassword = !showResetConfirmPassword">
+                {{ showResetConfirmPassword ? 'Ocultar' : 'Ver' }}
+              </button>
+            </div>
             <small v-if="resetErrors.confirmPassword" class="field-error">{{ resetErrors.confirmPassword }}</small>
           </label>
           <p v-if="forgotMessage" class="auth-success">{{ forgotMessage }}</p>
@@ -73,7 +88,7 @@
         <form v-else class="auth-form" @submit.prevent="submitRegister">
           <label class="field-block">
             <span>Nombre completo</span>
-            <input v-model.trim="registerForm.nombre" type="text" placeholder="Andrea Saldana" :disabled="customerAuth.loading" />
+            <input v-model.trim="registerForm.nombre" type="text" placeholder="Nombre Apellido" :disabled="customerAuth.loading" />
             <small v-if="registerErrors.nombre" class="field-error">{{ registerErrors.nombre }}</small>
           </label>
 
@@ -85,7 +100,12 @@
 
           <label class="field-block">
             <span>Contraseña</span>
-            <input v-model="registerForm.password" type="password" placeholder="Mínimo 8 caracteres" :disabled="customerAuth.loading" />
+            <div class="password-field">
+              <input v-model="registerForm.password" :type="showRegisterPassword ? 'text' : 'password'" placeholder="Mínimo 8 caracteres" :disabled="customerAuth.loading" />
+              <button class="password-toggle" type="button" :disabled="customerAuth.loading" @click="showRegisterPassword = !showRegisterPassword">
+                {{ showRegisterPassword ? 'Ocultar' : 'Ver' }}
+              </button>
+            </div>
             <small v-if="registerErrors.password" class="field-error">{{ registerErrors.password }}</small>
           </label>
 
@@ -175,6 +195,10 @@ const router = useRouter()
 const formError = ref('')
 const loginError = ref('')
 const forgotMessage = ref('')
+const showLoginPassword = ref(false)
+const showRegisterPassword = ref(false)
+const showResetPassword = ref(false)
+const showResetConfirmPassword = ref(false)
 
 const loginForm = reactive({ email: '', password: '' })
 const forgotForm = reactive({ email: '' })
@@ -480,6 +504,10 @@ watch(() => route.query.reset, token => {
   color: var(--dark-mid);
 }
 
+.password-field {
+  position: relative;
+}
+
 .auth-form input,
 .auth-form select {
   width: 100%;
@@ -489,6 +517,28 @@ watch(() => route.query.reset, token => {
   padding: 13px 14px;
   font-size: 13px;
   outline: none;
+}
+
+.password-field input {
+  padding-right: 82px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--rose-dark);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.password-toggle:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .field-error,
