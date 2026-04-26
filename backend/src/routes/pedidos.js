@@ -682,7 +682,7 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
       { header: 'Cliente', key: 'cliente_nombre', width: 24 },
       { header: 'Marca', key: 'producto_marca', width: 20 },
       { header: 'Producto', key: 'producto_nombre', width: 36 },
-      { header: 'Tono', key: 'tono_seleccionado', width: 20 },
+      { header: 'Tipo', key: 'tono_seleccionado', width: 20 },
       { header: 'Cantidad', key: 'cantidad', width: 12 },
       { header: 'Precio unitario', key: 'precio_unitario_clp', width: 16 },
       { header: 'Total línea', key: 'line_total', width: 16 },
@@ -848,12 +848,12 @@ router.post('/reservation', requireClientAuth, async (req, res) => {
       if (product.usa_tonos && !item.tono_seleccionado) {
         await transaction.rollback();
         transactionClosed = true;
-        return res.status(400).json({ error: `Debes elegir un tono para ${product.nombre}.` });
+        return res.status(400).json({ error: `Debes elegir un tipo para ${product.nombre}.` });
       }
       if (item.tono_seleccionado && product.usa_tonos && !availableTones.includes(item.tono_seleccionado)) {
         await transaction.rollback();
         transactionClosed = true;
-        return res.status(400).json({ error: `El tono seleccionado para ${product.nombre} ya no está disponible.` });
+        return res.status(400).json({ error: `El tipo seleccionado para ${product.nombre} ya no está disponible.` });
       }
       if (!product.usa_tonos) {
         item.tono_seleccionado = null;
@@ -1075,12 +1075,12 @@ router.post('/', requireClientAuth, async (req, res) => {
       if (product.usa_tonos && !item.tono_seleccionado) {
         await transaction.rollback();
         transactionClosed = true;
-        return res.status(400).json({ error: `Debes elegir un tono para ${product.nombre}.` });
+        return res.status(400).json({ error: `Debes elegir un tipo para ${product.nombre}.` });
       }
       if (item.tono_seleccionado && product.usa_tonos && !availableTones.includes(item.tono_seleccionado)) {
         await transaction.rollback();
         transactionClosed = true;
-        return res.status(400).json({ error: `El tono seleccionado para ${product.nombre} ya no está disponible.` });
+        return res.status(400).json({ error: `El tipo seleccionado para ${product.nombre} ya no está disponible.` });
       }
 
       const precioUnitario = product.precio_clp;

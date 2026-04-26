@@ -36,7 +36,7 @@
       <div v-if="producto.stock === 0" class="stock-out">Sin stock</div>
       <div v-else-if="producto.stock <= 5" class="stock-low">Solo {{ producto.stock }} disponibles</div>
       <button class="add-to-cart" :disabled="producto.stock === 0" @click.stop="agregar">
-        {{ producto.stock === 0 ? 'Sin stock' : hasToneOptions ? 'Elegir tono' : 'Agregar al carro' }}
+        {{ producto.stock === 0 ? 'Sin stock' : hasToneOptions ? 'Elegir tipo' : 'Agregar al carro' }}
       </button>
     </div>
   </div>

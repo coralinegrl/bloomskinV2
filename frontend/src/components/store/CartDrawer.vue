@@ -41,7 +41,7 @@
                 <div class="cart-item-main">
                   <div class="cart-item-brand">{{ item.marca }}</div>
                   <div class="cart-item-name">{{ item.nombre }}</div>
-                  <div v-if="item.tono_seleccionado" class="cart-item-tone">Tono: {{ item.tono_seleccionado }}</div>
+                  <div v-if="item.tono_seleccionado" class="cart-item-tone">Tipo: {{ item.tono_seleccionado }}</div>
                   <div class="cart-item-price">{{ fmt(item.precio_clp) }}</div>
                 </div>
 

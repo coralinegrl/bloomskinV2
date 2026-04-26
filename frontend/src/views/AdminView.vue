@@ -219,7 +219,7 @@
                     <td>
                       <div class="td-name">{{ p.nombre }}</div>
                       <span class="muted d-block">{{ p.categoria || 'Sin categoría' }}</span>
-                      <span v-if="p.usa_tonos && p.tonos?.length" class="muted d-block">{{ p.tonos.length }} tonos configurados</span>
+                      <span v-if="p.usa_tonos && p.tonos?.length" class="muted d-block">{{ p.tonos.length }} tipos configurados</span>
                     </td>
                     <td>{{ p.marca }}</td>
                     <td class="td-price">{{ fmt(p.precio_clp) }}</td>
@@ -517,7 +517,7 @@
                 <div v-for="item in selectedOrder.items || []" :key="`${selectedOrder.id}-${item.producto_nombre}-${item.tono_seleccionado || 'base'}`" class="order-item-row">
                   <span>
                     {{ item.producto_marca }} - {{ item.producto_nombre }}
-                    <template v-if="item.tono_seleccionado"> · Tono: {{ item.tono_seleccionado }}</template>
+                    <template v-if="item.tono_seleccionado"> · Tipo: {{ item.tono_seleccionado }}</template>
                   </span>
                   <span>{{ item.cantidad }} x {{ fmt(item.precio_unitario_clp) }}</span>
                 </div>
@@ -1316,13 +1316,13 @@
           <div class="form-group">
             <label class="checkbox-row">
               <input v-model="form.usa_tonos" type="checkbox">
-              <span>Este producto permite elegir tono</span>
+              <span>Este producto permite elegir tipo</span>
             </label>
           </div>
 
           <div v-if="form.usa_tonos" class="form-group">
-            <label>Tonos disponibles <span class="label-hint">(uno por línea o separados por coma)</span></label>
-            <textarea v-model="form.tonos_texto" rows="4" placeholder="Rose nude&#10;Cherry balm&#10;Cool mauve"></textarea>
+            <label>Tipos disponibles <span class="label-hint">(uno por línea o separados por coma)</span></label>
+            <textarea v-model="form.tonos_texto" rows="4" placeholder="300&#10;700&#10;Set completo"></textarea>
           </div>
 
           <div class="form-group">

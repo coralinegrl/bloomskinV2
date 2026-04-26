@@ -48,7 +48,7 @@
             </p>
 
             <div v-if="hasToneOptions" class="tone-block">
-              <span class="tone-label">Tono</span>
+              <span class="tone-label">Tipo</span>
               <div class="tone-grid">
                 <button
                   v-for="tone in producto.tonos"
@@ -192,7 +192,7 @@ async function refreshProductData() {
 function addToCart() {
   if (!producto.value) return
   if (hasToneOptions.value && !selectedTone.value) {
-    ui.info('Elige un tono antes de agregar este producto.')
+    ui.info('Elige un tipo antes de agregar este producto.')
     return
   }
   const existing = cart.items.find(item =>

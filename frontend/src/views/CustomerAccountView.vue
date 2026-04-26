@@ -197,7 +197,7 @@
             <li v-for="item in order.items" :key="`${order.id}-${item.producto_nombre}-${item.tono_seleccionado || 'base'}`">
               <span>
                 {{ item.producto_marca }} · {{ item.producto_nombre }}
-                <template v-if="item.tono_seleccionado"> · Tono: {{ item.tono_seleccionado }}</template>
+                <template v-if="item.tono_seleccionado"> · Tipo: {{ item.tono_seleccionado }}</template>
               </span>
               <span>x{{ item.cantidad }} · {{ formatCurrency(item.precio_unitario_clp) }}</span>
             </li>
