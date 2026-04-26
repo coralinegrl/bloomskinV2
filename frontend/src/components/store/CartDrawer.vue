@@ -282,12 +282,19 @@
               <div class="checkout-panel">
                 <div class="panel-head">
                   <strong>Código de descuento</strong>
-                  <button class="text-btn" type="button" :disabled="discountLoading || !discountCode.trim()" @click="applyDiscountCode">
+                  <button class="text-btn" type="button" :disabled="submitting || discountLoading" @click="applyDiscountCode">
                     {{ discountLoading ? 'Aplicando...' : 'Aplicar código' }}
                   </button>
                 </div>
                 <div class="discount-row">
-                  <input v-model.trim="discountCode" type="text" placeholder="Ej. APERTURA15" :disabled="submitting || discountLoading" />
+                  <input
+                    v-model.trim="discountCode"
+                    type="text"
+                    placeholder="Ej. APERTURA15"
+                    :disabled="submitting || discountLoading"
+                    @input="discountError = ''"
+                    @keydown.enter.prevent="applyDiscountCode"
+                  />
                   <button class="ghost-btn discount-clear" type="button" :disabled="discountLoading || !appliedDiscount" @click="clearDiscountCode">
                     Quitar
                   </button>
@@ -671,9 +678,22 @@ function openCheckoutStep() {
 }
 
 async function applyDiscountCode() {
-  if (!discountCode.value.trim()) {
+  const normalizedCode = normalizeDiscountInput(discountCode.value)
+  discountCode.value = normalizedCode
+  appliedDiscount.value = null
+
+  if (!normalizedCode) {
     discountError.value = 'Ingresa un código antes de aplicarlo.'
-    appliedDiscount.value = null
+    return
+  }
+
+  if (cart.count <= 0 || cart.total <= 0) {
+    discountError.value = 'Agrega productos al carrito antes de usar un código.'
+    return
+  }
+
+  if (!isValidDiscountCode(normalizedCode)) {
+    discountError.value = 'El código debe tener entre 3 y 50 caracteres y usar solo letras, números, guion o guion bajo.'
     return
   }
 
@@ -681,7 +701,7 @@ async function applyDiscountCode() {
   discountError.value = ''
 
   try {
-    const { data } = await descuentosApi.validar({ code: discountCode.value, subtotal_clp: cart.total })
+    const { data } = await descuentosApi.validar({ code: normalizedCode, subtotal_clp: cart.total })
     appliedDiscount.value = data
     discountCode.value = data.code
     if (cart.view === 'checkout') {
@@ -690,7 +710,7 @@ async function applyDiscountCode() {
     ui.success(`Código ${data.code} aplicado correctamente.`)
   } catch (error) {
     appliedDiscount.value = null
-    discountError.value = error.response?.data?.error || 'No pudimos aplicar ese código.'
+    discountError.value = apiErrorMessage(error, 'No pudimos aplicar ese código.')
   } finally {
     discountLoading.value = false
   }
@@ -833,11 +853,37 @@ async function handleCheckout() {
     checkoutNotas.value = ''
     ui.success(`Tu pedido ${checkoutOk.value.codigo} fue creado. Ahora transfiere y sube tu comprobante.`)
   } catch (err) {
-    checkoutError.value = err.response?.data?.error || 'No se pudo crear el pedido.'
+    const message = apiErrorMessage(err, 'No se pudo crear el pedido.')
+    if (isDiscountErrorMessage(message)) {
+      appliedDiscount.value = null
+      discountError.value = message
+      checkoutError.value = 'Revisa el código de descuento antes de continuar.'
+    } else {
+      checkoutError.value = message
+    }
     ui.error(checkoutError.value)
   } finally {
     submitting.value = false
   }
+}
+
+function normalizeDiscountInput(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')
+}
+
+function isValidDiscountCode(value) {
+  return /^[A-Z0-9_-]{3,50}$/.test(value)
+}
+
+function apiErrorMessage(error, fallback) {
+  return error?.response?.data?.error || fallback
+}
+
+function isDiscountErrorMessage(message) {
+  return /c[oó]digo|descuento|subtotal m[ií]nimo|vigencia|venci[oó]|usos|promoci[oó]n/i.test(String(message || ''))
 }
 
 function handleProofSelected(event) {

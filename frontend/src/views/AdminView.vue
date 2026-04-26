@@ -2316,8 +2316,9 @@ async function guardarCliente() {
 }
 
 async function guardarDescuento() {
-  if (!discountForm.value.code || !discountForm.value.name || !discountForm.value.discount_percent) {
-    showToast('Código, nombre y porcentaje son obligatorios.', 'error')
+  const validationError = validateDiscountForm()
+  if (validationError) {
+    showToast(validationError, 'error')
     return
   }
 
@@ -2348,6 +2349,31 @@ async function guardarDescuento() {
   } finally {
     savingDiscount.value = false
   }
+}
+
+function validateDiscountForm() {
+  const code = String(discountForm.value.code || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')
+  const name = String(discountForm.value.name || '').trim()
+  const percent = Number(discountForm.value.discount_percent)
+  const maxUses = discountForm.value.max_uses === '' ? null : Number(discountForm.value.max_uses)
+  const minSubtotal = discountForm.value.min_subtotal_clp === '' ? null : Number(discountForm.value.min_subtotal_clp)
+  const startsAt = discountForm.value.starts_at ? new Date(`${discountForm.value.starts_at}T00:00:00`) : null
+  const endsAt = discountForm.value.ends_at ? new Date(`${discountForm.value.ends_at}T00:00:00`) : null
+
+  discountForm.value.code = code
+  if (!code) return 'Código, nombre y porcentaje son obligatorios.'
+  if (!/^[A-Z0-9_-]{3,50}$/.test(code)) return 'El código debe tener entre 3 y 50 caracteres y usar solo letras, números, guion o guion bajo.'
+  if (!name) return 'Debes indicar un nombre interno para la promoción.'
+  if (!Number.isInteger(percent) || percent < 1 || percent > 100) return 'El porcentaje de descuento debe estar entre 1 y 100.'
+  if (maxUses !== null && (!Number.isInteger(maxUses) || maxUses < 1)) return 'Los usos máximos deben ser un número mayor o igual a 1.'
+  if (minSubtotal !== null && (!Number.isInteger(minSubtotal) || minSubtotal < 0)) return 'El subtotal mínimo debe ser un número válido.'
+  if (startsAt && Number.isNaN(startsAt.getTime())) return 'La fecha de inicio no es válida.'
+  if (endsAt && Number.isNaN(endsAt.getTime())) return 'La fecha de término no es válida.'
+  if (startsAt && endsAt && startsAt > endsAt) return 'La fecha de inicio no puede ser posterior a la fecha de término.'
+  return ''
 }
 
 async function desactivarDescuento(descuento) {

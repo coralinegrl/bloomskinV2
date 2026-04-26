@@ -1202,7 +1202,7 @@ router.post('/', requireClientAuth, async (req, res) => {
       if (discountUpdate.rowsAffected[0] !== 1) {
         await transaction.rollback();
         transactionClosed = true;
-        return res.status(409).json({ error: 'No alcanzamos a reservar ese codigo de descuento. Intenta otra vez.' });
+        return res.status(409).json({ error: 'No alcanzamos a reservar ese código de descuento. Intenta otra vez.' });
       }
     }
 

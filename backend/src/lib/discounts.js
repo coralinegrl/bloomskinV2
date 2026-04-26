@@ -50,26 +50,30 @@ function buildDiscountResult(row, subtotalClp) {
 }
 
 function validateDiscountRow(row, subtotalClp, now = new Date()) {
-  if (!row) return { ok: false, error: 'Ese codigo no existe o ya no esta disponible.' };
+  if (!row) return { ok: false, error: 'Ese código no existe o ya no está disponible.' };
 
   const subtotal = Math.max(0, Math.round(Number(subtotalClp || 0)));
+  if (subtotal <= 0) {
+    return { ok: false, error: 'Agrega productos al carrito antes de usar un código de descuento.' };
+  }
+
   if (!row.active) {
-    return { ok: false, error: 'Ese codigo no esta activo en este momento.' };
+    return { ok: false, error: 'Ese código no está activo en este momento.' };
   }
 
   const startsAt = row.starts_at ? new Date(row.starts_at) : null;
   const endsAt = row.ends_at ? new Date(row.ends_at) : null;
 
   if (startsAt && now < startsAt) {
-    return { ok: false, error: 'Ese codigo aun no comienza su vigencia.' };
+    return { ok: false, error: 'Ese código aún no comienza su vigencia.' };
   }
 
   if (endsAt && now > endsAt) {
-    return { ok: false, error: 'Ese codigo ya vencio.' };
+    return { ok: false, error: 'Ese código ya venció.' };
   }
 
   if (row.max_uses !== null && row.max_uses !== undefined && Number(row.used_count || 0) >= Number(row.max_uses)) {
-    return { ok: false, error: 'Ese codigo ya alcanzo su limite de usos.' };
+    return { ok: false, error: 'Ese código ya alcanzó su límite de usos.' };
   }
 
   if (row.min_subtotal_clp !== null && row.min_subtotal_clp !== undefined && subtotal < Number(row.min_subtotal_clp)) {
@@ -81,7 +85,7 @@ function validateDiscountRow(row, subtotalClp, now = new Date()) {
 
   const result = buildDiscountResult(row, subtotal);
   if (result.discount_percent <= 0 || result.discount_clp <= 0) {
-    return { ok: false, error: 'Ese codigo no genera descuento para este pedido.' };
+    return { ok: false, error: 'Ese código no genera descuento para este pedido.' };
   }
 
   return { ok: true, discount: result };
@@ -176,24 +180,35 @@ function sanitizeDiscountPayload(payload = {}) {
   const minSubtotalRaw = payload.min_subtotal_clp === '' || payload.min_subtotal_clp === null || payload.min_subtotal_clp === undefined
     ? null
     : Math.round(Number(payload.min_subtotal_clp));
-  const startsAt = payload.starts_at ? startOfDay(payload.starts_at) : null;
-  const endsAt = payload.ends_at ? endOfDay(payload.ends_at) : null;
+  const startsAtInput = String(payload.starts_at || '').trim();
+  const endsAtInput = String(payload.ends_at || '').trim();
+  const startsAt = startsAtInput ? startOfDay(startsAtInput) : null;
+  const endsAt = endsAtInput ? endOfDay(endsAtInput) : null;
   const active = payload.active === false ? false : true;
 
   const errors = [];
-  if (!code) errors.push('Debes indicar un codigo.');
+  if (!code) errors.push('Debes indicar un código.');
+  if (code && !/^[A-Z0-9_-]{3,50}$/.test(code)) {
+    errors.push('El código debe tener entre 3 y 50 caracteres y usar solo letras, números, guion o guion bajo.');
+  }
   if (!name) errors.push('Debes indicar un nombre interno para la promoción.');
   if (!Number.isInteger(discountPercent) || discountPercent < 1 || discountPercent > 100) {
     errors.push('El porcentaje de descuento debe estar entre 1 y 100.');
   }
   if (maxUsesRaw !== null && (!Number.isInteger(maxUsesRaw) || maxUsesRaw < 1)) {
-    errors.push('La cantidad maxima de usos debe ser un numero mayor o igual a 1.');
+    errors.push('La cantidad máxima de usos debe ser un número mayor o igual a 1.');
   }
   if (minSubtotalRaw !== null && (!Number.isInteger(minSubtotalRaw) || minSubtotalRaw < 0)) {
     errors.push('El subtotal mínimo debe ser un número válido.');
   }
+  if (startsAtInput && !startsAt) {
+    errors.push('La fecha de inicio no es válida.');
+  }
+  if (endsAtInput && !endsAt) {
+    errors.push('La fecha de término no es válida.');
+  }
   if (startsAt && endsAt && startsAt > endsAt) {
-    errors.push('La fecha de inicio no puede ser posterior a la fecha de termino.');
+    errors.push('La fecha de inicio no puede ser posterior a la fecha de término.');
   }
 
   return {

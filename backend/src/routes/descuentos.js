@@ -30,7 +30,11 @@ router.post('/validate', async (req, res) => {
   const subtotalClp = Number(req.body?.subtotal_clp || 0);
 
   if (!code) {
-    return res.status(400).json({ error: 'Debes ingresar un codigo.' });
+    return res.status(400).json({ error: 'Debes ingresar un código.' });
+  }
+
+  if (!Number.isFinite(subtotalClp) || subtotalClp < 0) {
+    return res.status(400).json({ error: 'El subtotal del carrito no es válido.' });
   }
 
   try {
@@ -44,7 +48,7 @@ router.post('/validate', async (req, res) => {
     res.json(validation.discount);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'No se pudo validar el codigo.' });
+    res.status(500).json({ error: 'No se pudo validar el código.' });
   }
 });
 
@@ -59,7 +63,7 @@ router.post('/', requireAdminAuth, async (req, res) => {
     await ensureDiscountSchema(pool);
     const existing = await findDiscountByCode(pool.request(), payload.values.code);
     if (existing) {
-      return res.status(409).json({ error: 'Ese codigo ya existe.' });
+      return res.status(409).json({ error: 'Ese código ya existe.' });
     }
 
     const result = await pool.request()
@@ -92,7 +96,7 @@ router.post('/', requireAdminAuth, async (req, res) => {
 router.put('/:id', requireAdminAuth, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
-    return res.status(400).json({ error: 'Id invalido.' });
+    return res.status(400).json({ error: 'Id inválido.' });
   }
 
   const payload = sanitizeDiscountPayload(req.body || {});
@@ -114,7 +118,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       `);
 
     if (duplicate.recordset[0]) {
-      return res.status(409).json({ error: 'Ese codigo ya existe.' });
+      return res.status(409).json({ error: 'Ese código ya existe.' });
     }
 
     const result = await pool.request()
@@ -145,7 +149,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       `);
 
     if (!result.recordset[0]) {
-      return res.status(404).json({ error: 'No se encontro ese descuento.' });
+      return res.status(404).json({ error: 'No se encontró ese descuento.' });
     }
 
     res.json(result.recordset[0]);
@@ -158,7 +162,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
 router.delete('/:id', requireAdminAuth, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
-    return res.status(400).json({ error: 'Id invalido.' });
+    return res.status(400).json({ error: 'Id inválido.' });
   }
 
   try {
@@ -175,7 +179,7 @@ router.delete('/:id', requireAdminAuth, async (req, res) => {
       `);
 
     if (!result.recordset[0]) {
-      return res.status(404).json({ error: 'No se encontro ese descuento.' });
+      return res.status(404).json({ error: 'No se encontró ese descuento.' });
     }
 
     res.json({ ok: true, discount: result.recordset[0] });
