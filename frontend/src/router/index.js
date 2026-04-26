@@ -59,6 +59,11 @@ const routes = [
     component: () => import('../views/ContactView.vue'),
   },
   {
+    path: '/quienes-somos',
+    name: 'about',
+    component: () => import('../views/AboutView.vue'),
+  },
+  {
     path: '/recuperar-contrasena',
     name: 'password-reset',
     component: () => import('../views/PasswordResetView.vue'),

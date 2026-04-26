@@ -2,10 +2,13 @@ const router = require('express').Router();
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const nodemailer = require('nodemailer');
+const ExcelJS = require('exceljs');
 const { getPool, sql } = require('../config/db');
 const { requireAdminAuth, requireClientAuth } = require('../middleware/auth');
 const { quoteShipping } = require('../lib/shipping');
 const { readSettings } = require('../lib/siteSettings');
+const { normalizeDiscountCode, validateDiscountRow, findDiscountByCode, ensureDiscountSchema } = require('../lib/discounts');
 const {
   cleanString,
   normalizeEmail,
@@ -22,6 +25,41 @@ const uploadsRoot = process.env.UPLOADS_DIR
   : path.resolve(__dirname, '../../uploads');
 const proofUploadsDir = path.join(uploadsRoot, 'comprobantes');
 fs.mkdirSync(proofUploadsDir, { recursive: true });
+
+const ORDER_STATUS_COPY = {
+  pending_payment: {
+    subject: 'Tu pedido Bloomskin está esperando transferencia',
+    title: 'Tu pedido está esperando transferencia',
+    body: 'Tu pedido ya fue creado y quedó a la espera de tu transferencia bancaria. Cuando subas el comprobante, nuestro equipo podrá revisarlo.',
+  },
+  payment_submitted: {
+    subject: 'Recibimos tu comprobante en Bloomskin',
+    title: 'Tu comprobante quedó en revisión',
+    body: 'Ya recibimos tu comprobante y tu pedido quedó a la espera de confirmación. Te avisaremos por correo apenas revisemos el pago.',
+  },
+  paid: {
+    subject: 'Tu pago fue confirmado en Bloomskin',
+    title: 'Tu pago ya fue validado',
+    body: 'Confirmamos tu transferencia y tu pedido ya sigue al siguiente paso de preparación y despacho.',
+  },
+  shipped: {
+    subject: 'Tu pedido Bloomskin va en camino',
+    title: 'Tu pedido ya fue despachado',
+    body: 'Tu pedido ya salió o está en preparación final para entrega. Puedes seguir revisando su estado desde tu cuenta.',
+  },
+  delivered: {
+    subject: 'Tu pedido Bloomskin fue entregado',
+    title: 'Tu pedido fue marcado como entregado',
+    body: 'Tu pedido ya aparece como entregado. Esperamos que disfrutes tu compra y tu rutina K-Beauty.',
+  },
+  cancelled: {
+    subject: 'Tu pedido Bloomskin fue cancelado',
+    title: 'Tu pedido fue cancelado',
+    body: 'Tu pedido fue cancelado. Si necesitas ayuda o quieres revisar una nueva compra, escríbenos y te acompañamos.',
+  },
+};
+
+const INVENTORY_COMMITTED_STATES = new Set(['paid', 'shipped', 'delivered']);
 
 const proofStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, proofUploadsDir),
@@ -78,11 +116,107 @@ function orderCodeFromId(id) {
   return 'BS-' + String(id).padStart(4, '0');
 }
 
+function parseMonthRange(monthParam) {
+  const match = String(monthParam || '').match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+
+  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+  return { year, month, start, end };
+}
+
+function excelDate(value) {
+  if (!value) return '';
+  return new Date(value);
+}
+
+function createMailer() {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || user;
+
+  if (!host || !user || !pass || !from) return null;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+}
+
+function getStoreBaseUrl() {
+  return String(
+    process.env.STORE_BASE_URL
+    || process.env.PUBLIC_APP_URL
+    || 'https://www.bloomskin.cl'
+  ).replace(/\/$/, '');
+}
+
+async function sendOrderStatusEmail({ pedidoId, codigo, clienteNombre, clienteEmail, estado, totalClp }) {
+  const mailer = createMailer();
+  const copy = ORDER_STATUS_COPY[estado];
+  const email = normalizeEmail(clienteEmail);
+  if (!mailer || !copy || !isValidEmail(email)) return false;
+
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const accountUrl = `${getStoreBaseUrl()}/mi-cuenta#mis-pedidos`;
+  const safeName = cleanString(clienteNombre) || 'clienta';
+  const amount = '$' + Number(totalClp || 0).toLocaleString('es-CL');
+
+  await mailer.sendMail({
+    from,
+    to: email,
+    subject: copy.subject,
+    text: [
+      `Hola ${safeName},`,
+      '',
+      `${copy.title}.`,
+      copy.body,
+      '',
+      `Pedido: ${codigo || orderCodeFromId(pedidoId)}`,
+      `Total: ${amount}`,
+      `Revisa tu cuenta aquí: ${accountUrl}`,
+    ].join('\n'),
+    html: `
+      <div style="margin:0;padding:28px 14px;background:#f8eef2;">
+        <div style="max-width:620px;margin:0 auto;background:#fffafc;border:1px solid rgba(191,84,122,.14);border-radius:26px;overflow:hidden;font-family:Arial,sans-serif;color:#4a3240;">
+          <div style="padding:28px 30px;background:linear-gradient(135deg,#fff3f7 0%,#f7e9ef 55%,#f0dde4 100%);border-bottom:1px solid rgba(191,84,122,.12);">
+            <div style="font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:#bf547a;font-weight:700;">Bloomskin</div>
+            <h1 style="margin:12px 0 8px;font-family:Georgia,serif;font-size:38px;line-height:1;color:#3d2833;font-weight:500;">${copy.title}</h1>
+            <p style="margin:0;font-size:15px;line-height:1.8;color:#6e5560;">Hola ${safeName}, ${copy.body}</p>
+          </div>
+          <div style="padding:26px 30px 30px;">
+            <div style="display:grid;gap:10px;padding:18px;border-radius:20px;background:#fff;border:1px solid rgba(191,84,122,.1);">
+              <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#bf547a;font-weight:700;">Resumen del pedido</div>
+              <div style="font-size:15px;color:#4a3240;"><strong>Código:</strong> ${codigo || orderCodeFromId(pedidoId)}</div>
+              <div style="font-size:15px;color:#4a3240;"><strong>Total:</strong> ${amount}</div>
+            </div>
+            <div style="margin-top:22px;text-align:center;">
+              <a href="${accountUrl}" style="display:inline-block;padding:14px 22px;border-radius:999px;background:#bf547a;color:#fff;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;">Ver mis pedidos</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
 router.get('/', requireAdminAuth, async (_req, res) => {
   try {
     const pool = await getPool();
+    await ensureDiscountSchema(pool);
     const result = await pool.request().query(`
-      SELECT p.id, p.subtotal_clp, p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
+      SELECT p.id, p.subtotal_clp, p.subtotal_pagado_clp, p.descuento_codigo, p.descuento_porcentaje, p.descuento_clp,
+             p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
              p.cliente_nombre, p.cliente_email, p.cliente_rut, p.cliente_telefono,
              p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
              p.estado, p.comprobante_url, p.notas,
@@ -121,6 +255,7 @@ router.get('/', requireAdminAuth, async (_req, res) => {
 router.get('/stats', requireAdminAuth, async (_req, res) => {
   try {
     const pool = await getPool();
+    await ensureDiscountSchema(pool);
     const result = await pool.request().query(`
       SELECT
         COUNT(*) AS total_pedidos,
@@ -141,13 +276,177 @@ router.get('/stats', requireAdminAuth, async (_req, res) => {
   }
 });
 
+router.get('/export/monthly', requireAdminAuth, async (req, res) => {
+  const range = parseMonthRange(req.query.month);
+  if (!range) {
+    return res.status(400).json({ error: 'Debes indicar el mes en formato YYYY-MM.' });
+  }
+
+  try {
+    const pool = await getPool();
+    await ensureDiscountSchema(pool);
+    const ordersResult = await pool.request()
+      .input('start_date', sql.DateTime2, range.start)
+      .input('end_date', sql.DateTime2, range.end)
+      .query(`
+        SELECT p.id, p.subtotal_clp, p.subtotal_pagado_clp, p.descuento_codigo, p.descuento_porcentaje, p.descuento_clp,
+               p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
+               p.cliente_nombre, p.cliente_email, p.cliente_rut, p.cliente_telefono,
+               p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
+               p.estado, p.comprobante_url, p.notas, p.creado_en, p.actualizado_en
+        FROM pedidos p
+        WHERE p.creado_en >= @start_date AND p.creado_en < @end_date
+        ORDER BY p.creado_en ASC, p.id ASC
+      `);
+
+    const orders = ordersResult.recordset;
+    for (const order of orders) {
+      const items = await pool.request()
+        .input('pedido_id', sql.Int, order.id)
+        .query(`
+          SELECT pi.cantidad, pi.precio_unitario_clp,
+                 pr.nombre AS producto_nombre, pr.marca AS producto_marca
+          FROM pedido_items pi
+          JOIN productos pr ON pr.id = pi.producto_id
+          WHERE pi.pedido_id = @pedido_id
+          ORDER BY pr.marca, pr.nombre
+        `);
+      order.items = items.recordset;
+      order.codigo = orderCodeFromId(order.id);
+    }
+
+    const summary = orders.reduce((acc, order) => {
+      acc.totalPedidos += 1;
+      acc.totalVentas += Number(order.total_clp || 0);
+      acc.totalEnvio += Number(order.envio_clp || 0);
+      acc.totalSubtotal += Number(order.subtotal_clp || 0);
+      acc.byStatus[order.estado] = (acc.byStatus[order.estado] || 0) + 1;
+      return acc;
+    }, {
+      totalPedidos: 0,
+      totalVentas: 0,
+      totalEnvio: 0,
+      totalSubtotal: 0,
+      byStatus: {},
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Bloomskin';
+    workbook.created = new Date();
+
+    const summarySheet = workbook.addWorksheet('Resumen mensual');
+    summarySheet.columns = [
+      { header: 'Métrica', key: 'metric', width: 32 },
+      { header: 'Valor', key: 'value', width: 22 },
+    ];
+    summarySheet.addRows([
+      { metric: 'Mes', value: `${range.year}-${String(range.month).padStart(2, '0')}` },
+      { metric: 'Pedidos', value: summary.totalPedidos },
+      { metric: 'Subtotal vendido', value: summary.totalSubtotal },
+      { metric: 'Cobrado por envío', value: summary.totalEnvio },
+      { metric: 'Ventas totales', value: summary.totalVentas },
+      { metric: 'Esperando transferencia', value: summary.byStatus.pending_payment || 0 },
+      { metric: 'Comprobante recibido', value: summary.byStatus.payment_submitted || 0 },
+      { metric: 'Pago validado', value: summary.byStatus.paid || 0 },
+      { metric: 'Enviado', value: summary.byStatus.shipped || 0 },
+      { metric: 'Entregado', value: summary.byStatus.delivered || 0 },
+      { metric: 'Cancelado', value: summary.byStatus.cancelled || 0 },
+    ]);
+
+    const ordersSheet = workbook.addWorksheet('Pedidos');
+    ordersSheet.columns = [
+      { header: 'Código', key: 'codigo', width: 14 },
+      { header: 'Fecha', key: 'creado_en', width: 20 },
+      { header: 'Cliente', key: 'cliente_nombre', width: 24 },
+      { header: 'Email', key: 'cliente_email', width: 28 },
+      { header: 'Teléfono', key: 'cliente_telefono', width: 18 },
+      { header: 'Estado', key: 'estado', width: 20 },
+      { header: 'Subtotal', key: 'subtotal_clp', width: 14 },
+      { header: 'Envío', key: 'envio_clp', width: 14 },
+      { header: 'Total', key: 'total_clp', width: 14 },
+      { header: 'Pago', key: 'metodo_pago', width: 18 },
+      { header: 'Despacho', key: 'metodo_envio', width: 18 },
+      { header: 'Ciudad', key: 'ciudad_envio', width: 18 },
+      { header: 'Región', key: 'region_envio', width: 18 },
+      { header: 'Dirección', key: 'direccion_envio', width: 32 },
+      { header: 'Referencia', key: 'referencia_envio', width: 24 },
+      { header: 'KM', key: 'distancia_envio_km', width: 10 },
+      { header: 'Comprobante', key: 'comprobante_url', width: 30 },
+      { header: 'Notas', key: 'notas', width: 28 },
+    ];
+
+    orders.forEach(order => {
+      ordersSheet.addRow({
+        ...order,
+        creado_en: excelDate(order.creado_en),
+      });
+    });
+
+    const itemsSheet = workbook.addWorksheet('Productos por pedido');
+    itemsSheet.columns = [
+      { header: 'Código pedido', key: 'codigo', width: 14 },
+      { header: 'Fecha', key: 'creado_en', width: 20 },
+      { header: 'Cliente', key: 'cliente_nombre', width: 24 },
+      { header: 'Marca', key: 'producto_marca', width: 20 },
+      { header: 'Producto', key: 'producto_nombre', width: 36 },
+      { header: 'Cantidad', key: 'cantidad', width: 12 },
+      { header: 'Precio unitario', key: 'precio_unitario_clp', width: 16 },
+      { header: 'Total línea', key: 'line_total', width: 16 },
+    ];
+
+    orders.forEach(order => {
+      (order.items || []).forEach(item => {
+        itemsSheet.addRow({
+          codigo: order.codigo,
+          creado_en: excelDate(order.creado_en),
+          cliente_nombre: order.cliente_nombre,
+          producto_marca: item.producto_marca,
+          producto_nombre: item.producto_nombre,
+          cantidad: item.cantidad,
+          precio_unitario_clp: item.precio_unitario_clp,
+          line_total: Number(item.cantidad || 0) * Number(item.precio_unitario_clp || 0),
+        });
+      });
+    });
+
+    [ordersSheet, itemsSheet].forEach(sheet => {
+      sheet.getRow(1).font = { bold: true };
+      sheet.views = [{ state: 'frozen', ySplit: 1 }];
+      ['G', 'H', 'I'].forEach(column => {
+        if (sheet.getColumn(column)) {
+          sheet.getColumn(column).numFmt = '"$"#,##0';
+        }
+      });
+      if (sheet === itemsSheet) {
+        sheet.getColumn('G').numFmt = '"$"#,##0';
+        sheet.getColumn('H').numFmt = '"$"#,##0';
+      }
+      if (sheet.getColumn('B')) {
+        sheet.getColumn('B').numFmt = 'dd-mm-yyyy hh:mm';
+      }
+    });
+    summarySheet.getRow(1).font = { bold: true };
+
+    const filename = `bloomskin-ventas-${range.year}-${String(range.month).padStart(2, '0')}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo exportar el reporte mensual.' });
+  }
+});
+
 router.get('/mine', requireClientAuth, async (req, res) => {
   try {
     const pool = await getPool();
+    await ensureDiscountSchema(pool);
     const result = await pool.request()
       .input('cliente_id', sql.Int, req.user.id)
       .query(`
-        SELECT p.id, p.subtotal_clp, p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
+        SELECT p.id, p.subtotal_clp, p.subtotal_pagado_clp, p.descuento_codigo, p.descuento_porcentaje, p.descuento_clp,
+               p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
                p.cliente_nombre, p.cliente_email, p.cliente_rut, p.cliente_telefono,
                p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
                p.estado, p.comprobante_url, p.notas, p.creado_en, p.actualizado_en
@@ -212,6 +511,7 @@ router.post('/', requireClientAuth, async (req, res) => {
     items,
     notas,
     metodo_pago,
+    discount_code,
     ciudad_envio,
     direccion_envio,
     referencia_envio,
@@ -241,6 +541,7 @@ router.post('/', requireClientAuth, async (req, res) => {
 
   try {
     const pool = await getPool();
+    await ensureDiscountSchema(pool);
     transaction = new sql.Transaction(pool);
     await transaction.begin();
 
@@ -318,13 +619,29 @@ router.post('/', requireClientAuth, async (req, res) => {
       subtotal += precioUnitario * item.cantidad;
     }
 
+    let appliedDiscount = null;
+    const normalizedDiscountCode = normalizeDiscountCode(discount_code);
+
+    if (normalizedDiscountCode) {
+      const discountRow = await findDiscountByCode(new sql.Request(transaction), normalizedDiscountCode);
+      const discountValidation = validateDiscountRow(discountRow, subtotal);
+      if (!discountValidation.ok) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: discountValidation.error });
+      }
+      appliedDiscount = discountValidation.discount;
+    }
+
+    const subtotalPagado = Math.max(0, subtotal - Number(appliedDiscount?.discount_clp || 0));
+
     const shippingQuote = await quoteShipping({
       ciudad,
       direccion,
-      subtotal_clp: subtotal,
+      subtotal_clp: subtotalPagado,
     });
     const envioClp = shippingQuote.fee_clp;
-    const total = subtotal + envioClp;
+    const total = subtotalPagado + envioClp;
 
     const pedResult = await new sql.Request(transaction)
       .input('cliente_id', sql.Int, resolvedClienteId)
@@ -333,6 +650,10 @@ router.post('/', requireClientAuth, async (req, res) => {
       .input('cliente_rut', sql.NVarChar, clienteRut)
       .input('cliente_telefono', sql.NVarChar, clienteTelefono)
       .input('subtotal_clp', sql.Int, subtotal)
+      .input('subtotal_pagado_clp', sql.Int, subtotalPagado)
+      .input('descuento_codigo', sql.NVarChar, appliedDiscount?.code || null)
+      .input('descuento_porcentaje', sql.Int, appliedDiscount?.discount_percent || null)
+      .input('descuento_clp', sql.Int, appliedDiscount?.discount_clp || 0)
       .input('envio_clp', sql.Int, envioClp)
       .input('total_clp', sql.Int, total)
       .input('metodo_pago', sql.NVarChar, 'bank_transfer')
@@ -346,13 +667,15 @@ router.post('/', requireClientAuth, async (req, res) => {
       .query(`
         INSERT INTO pedidos (
           cliente_id, cliente_nombre, cliente_email, cliente_rut, cliente_telefono,
-          subtotal_clp, envio_clp, total_clp, metodo_pago, metodo_envio,
+          subtotal_clp, subtotal_pagado_clp, descuento_codigo, descuento_porcentaje, descuento_clp,
+          envio_clp, total_clp, metodo_pago, metodo_envio,
           region_envio, ciudad_envio, direccion_envio, referencia_envio, distancia_envio_km, notas, estado
         )
         OUTPUT INSERTED.id
         VALUES (
           @cliente_id, @cliente_nombre, @cliente_email, @cliente_rut, @cliente_telefono,
-          @subtotal_clp, @envio_clp, @total_clp, @metodo_pago, @metodo_envio,
+          @subtotal_clp, @subtotal_pagado_clp, @descuento_codigo, @descuento_porcentaje, @descuento_clp,
+          @envio_clp, @total_clp, @metodo_pago, @metodo_envio,
           @region_envio, @ciudad_envio, @direccion_envio, @referencia_envio, @distancia_envio_km, @notas, 'pending_payment'
         )
       `);
@@ -369,19 +692,24 @@ router.post('/', requireClientAuth, async (req, res) => {
           VALUES (@pedido_id, @producto_id, @cantidad, @precio_unitario_clp)
         `);
 
-      const stockUpdate = await new sql.Request(transaction)
-        .input('id', sql.Int, item.producto_id)
-        .input('cantidad', sql.Int, item.cantidad)
+    }
+
+    if (appliedDiscount?.id) {
+      const discountUpdate = await new sql.Request(transaction)
+        .input('id', sql.Int, appliedDiscount.id)
         .query(`
-          UPDATE productos
-          SET stock = stock - @cantidad
-          WHERE id = @id AND stock >= @cantidad
+          UPDATE discount_codes
+          SET used_count = used_count + 1,
+              updated_en = GETDATE()
+          WHERE id = @id
+            AND active = 1
+            AND (max_uses IS NULL OR used_count < max_uses)
         `);
 
-      if (stockUpdate.rowsAffected[0] !== 1) {
+      if (discountUpdate.rowsAffected[0] !== 1) {
         await transaction.rollback();
         transactionClosed = true;
-        return res.status(409).json({ error: `Stock insuficiente para producto ${item.producto_id}` });
+        return res.status(409).json({ error: 'No alcanzamos a reservar ese codigo de descuento. Intenta otra vez.' });
       }
     }
 
@@ -391,6 +719,10 @@ router.post('/', requireClientAuth, async (req, res) => {
       id: pedidoId,
       codigo: orderCodeFromId(pedidoId),
       subtotal_clp: subtotal,
+      subtotal_pagado_clp: subtotalPagado,
+      descuento_codigo: appliedDiscount?.code || null,
+      descuento_porcentaje: appliedDiscount?.discount_percent || null,
+      descuento_clp: appliedDiscount?.discount_clp || 0,
       envio_clp: envioClp,
       total_clp: total,
       metodo_pago: 'bank_transfer',
@@ -427,7 +759,7 @@ router.post('/:id/comprobante', requireClientAuth, uploadProof.single('comproban
     const lookup = await pool.request()
       .input('id', sql.Int, pedidoId)
       .query(`
-        SELECT p.id, p.cliente_id, c.email
+        SELECT p.id, p.cliente_id, p.total_clp, p.cliente_nombre, c.email
         FROM pedidos p
         JOIN clientes c ON c.id = p.cliente_id
         WHERE p.id = @id
@@ -459,6 +791,19 @@ router.post('/:id/comprobante', requireClientAuth, uploadProof.single('comproban
         WHERE id = @id
       `);
 
+    try {
+      await sendOrderStatusEmail({
+        pedidoId,
+        codigo: orderCodeFromId(pedidoId),
+        clienteNombre: pedido.cliente_nombre,
+        clienteEmail: pedido.email,
+        estado: 'payment_submitted',
+        totalClp: pedido.total_clp,
+      });
+    } catch (mailError) {
+      console.error('No se pudo enviar el correo de comprobante recibido', mailError);
+    }
+
     res.status(201).json({ ok: true, comprobante_url: fileUrl });
   } catch (err) {
     console.error(err);
@@ -481,7 +826,7 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
     const pedidoLookup = await new sql.Request(transaction)
       .input('id', sql.Int, req.params.id)
       .query(`
-        SELECT id, estado
+        SELECT id, estado, cliente_nombre, cliente_email, total_clp
         FROM pedidos
         WHERE id = @id
       `);
@@ -497,7 +842,39 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
       return res.status(400).json({ error: 'No se puede reactivar un pedido cancelado desde admin.' });
     }
 
-    if (pedido.estado !== 'cancelled' && estado === 'cancelled') {
+    const stockWasCommitted = INVENTORY_COMMITTED_STATES.has(pedido.estado);
+    const stockWillBeCommitted = INVENTORY_COMMITTED_STATES.has(estado);
+
+    if (!stockWasCommitted && stockWillBeCommitted) {
+      const itemsResult = await new sql.Request(transaction)
+        .input('pedido_id', sql.Int, req.params.id)
+        .query(`
+          SELECT pi.producto_id, pi.cantidad, p.nombre
+          FROM pedido_items pi
+          JOIN productos p ON p.id = pi.producto_id
+          WHERE pi.pedido_id = @pedido_id
+        `);
+
+      for (const item of itemsResult.recordset) {
+        const stockUpdate = await new sql.Request(transaction)
+          .input('producto_id', sql.Int, item.producto_id)
+          .input('cantidad', sql.Int, item.cantidad)
+          .query(`
+            UPDATE productos
+            SET stock = stock - @cantidad
+            WHERE id = @producto_id AND stock >= @cantidad
+          `);
+
+        if (stockUpdate.rowsAffected[0] !== 1) {
+          await transaction.rollback();
+          return res.status(409).json({
+            error: `No hay stock suficiente para validar este pedido. Revisa el producto "${item.nombre}".`,
+          });
+        }
+      }
+    }
+
+    if (stockWasCommitted && !stockWillBeCommitted) {
       const itemsResult = await new sql.Request(transaction)
         .input('pedido_id', sql.Int, req.params.id)
         .query(`
@@ -524,6 +901,20 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
       .query('UPDATE pedidos SET estado=@estado, actualizado_en=GETDATE() WHERE id=@id');
 
     await transaction.commit();
+
+    try {
+      await sendOrderStatusEmail({
+        pedidoId: Number(req.params.id),
+        codigo: orderCodeFromId(req.params.id),
+        clienteNombre: pedido.cliente_nombre,
+        clienteEmail: pedido.cliente_email,
+        estado,
+        totalClp: pedido.total_clp,
+      });
+    } catch (mailError) {
+      console.error('No se pudo enviar el correo de cambio de estado', mailError);
+    }
+
     res.json({ ok: true, estado });
   } catch (err) {
     console.error(err);

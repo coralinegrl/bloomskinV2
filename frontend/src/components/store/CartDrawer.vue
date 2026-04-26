@@ -92,6 +92,10 @@
                 <span>Subtotal</span>
                 <strong>{{ fmt(displaySubtotal) }}</strong>
               </div>
+              <div v-if="displayDiscount > 0" class="summary-row">
+                <span>Descuento</span>
+                <strong class="summary-save">-{{ fmt(displayDiscount) }}</strong>
+              </div>
               <div class="summary-row">
                 <span>Envío</span>
                 <strong>{{ shippingValueLabel }}</strong>
@@ -233,12 +237,33 @@
               </div>
 
               <div class="checkout-panel">
+                <div class="panel-head">
+                  <strong>Codigo de descuento</strong>
+                  <button class="text-btn" type="button" :disabled="discountLoading || !discountCode.trim()" @click="applyDiscountCode">
+                    {{ discountLoading ? 'Aplicando...' : 'Aplicar codigo' }}
+                  </button>
+                </div>
+                <div class="discount-row">
+                  <input v-model.trim="discountCode" type="text" placeholder="Ej. APERTURA15" :disabled="submitting || discountLoading" />
+                  <button class="ghost-btn discount-clear" type="button" :disabled="discountLoading || !appliedDiscount" @click="clearDiscountCode">
+                    Quitar
+                  </button>
+                </div>
+                <p v-if="appliedDiscount" class="panel-ok">
+                  {{ appliedDiscount.code }} aplicado: -{{ fmt(appliedDiscount.discount_clp) }}
+                  <span v-if="appliedDiscount.remaining_uses !== null"> · quedan {{ appliedDiscount.remaining_uses }} usos</span>
+                </p>
+                <p v-else class="panel-copy">Puedes usar codigos por apertura, campañas o temporadas especiales.</p>
+                <p v-if="discountError" class="panel-error">{{ discountError }}</p>
+              </div>
+
+              <div class="checkout-panel">
                 <strong>Pago por transferencia</strong>
                 <p class="panel-copy">Creas el pedido, transfieres el total exacto y luego subes tu comprobante.</p>
                 <p v-if="transferConfigWarning" class="panel-error">{{ transferConfigWarning }}</p>
                 <p v-else-if="checkoutError" class="panel-error">{{ checkoutError }}</p>
                 <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Ayuda por WhatsApp</a>
-                <button class="primary-btn" type="button" :disabled="submitting || shippingLoading || !shippingQuote || !isTransferReady" @click="handleCheckout">
+                <button class="primary-btn" type="button" :disabled="submitting || shippingLoading || !isTransferReady" @click="handleCheckout">
                   {{ submitting ? 'Creando pedido...' : 'Crear pedido por transferencia' }}
                 </button>
               </div>
@@ -283,13 +308,26 @@
           </div>
         </template>
       </aside>
+
+      <div v-if="proofSuccessModalOpen" class="proof-modal-backdrop" @click.self="goToOrdersFromProofModal">
+        <div class="proof-modal">
+          <div class="proof-modal-tag">Comprobante recibido</div>
+          <h3>Tu pedido quedó en espera de confirmación</h3>
+          <p>
+            Ya recibimos tu comprobante para el pedido <strong>{{ checkoutOk?.codigo }}</strong>.
+            Ahora nuestro equipo revisará el pago y te avisaremos por correo cada vez que el estado cambie.
+          </p>
+          <button class="primary-btn" type="button" @click="goToOrdersFromProofModal">OK, ir a mis pedidos</button>
+        </div>
+      </div>
     </div>
   </Transition>
 </template>
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { pedidosApi, settingsApi } from '../../api/index.js'
+import { useRouter } from 'vue-router'
+import { descuentosApi, pedidosApi, settingsApi } from '../../api/index.js'
 import { useCartStore } from '../../stores/cart.js'
 import { useCustomerAuthStore } from '../../stores/customerAuth.js'
 import { useUiStore } from '../../stores/ui.js'
@@ -306,18 +344,24 @@ import {
 const cart = useCartStore()
 const customerAuth = useCustomerAuthStore()
 const ui = useUiStore()
+const router = useRouter()
 
 const submitting = ref(false)
 const shippingLoading = ref(false)
 const proofUploading = ref(false)
+const discountLoading = ref(false)
 const checkoutError = ref('')
 const shippingError = ref('')
+const discountError = ref('')
 const checkoutOk = ref(null)
 const checkoutNotas = ref('')
 const paymentConfig = ref(null)
 const shippingQuote = ref(null)
+const discountCode = ref('')
+const appliedDiscount = ref(null)
 const proofFile = ref(null)
 const proofUploadedUrl = ref('')
+const proofSuccessModalOpen = ref(false)
 const whatsappUrl = ref('https://wa.me/569948418523')
 let shippingDebounce = null
 
@@ -336,7 +380,9 @@ const shippingErrors = reactive({ direccion: '', city: '', region: '' })
 const currentStepLabel = computed(() => (cart.view === 'checkout' ? 'Checkout Bloomskin' : 'Tu selección'))
 const currentTitle = computed(() => (cart.view === 'checkout' ? 'Carrito y envío' : `Tu carrito (${cart.count})`))
 const displaySubtotal = computed(() => checkoutOk.value?.subtotal_clp || cart.total)
-const orderTotal = computed(() => checkoutOk.value?.total_clp || (cart.total + (shippingQuote.value?.fee_clp || 0)))
+const displayDiscount = computed(() => checkoutOk.value?.descuento_clp || appliedDiscount.value?.discount_clp || 0)
+const discountedSubtotal = computed(() => checkoutOk.value?.subtotal_pagado_clp || Math.max(0, cart.total - displayDiscount.value))
+const orderTotal = computed(() => checkoutOk.value?.total_clp || (discountedSubtotal.value + (shippingQuote.value?.fee_clp || 0)))
 
 const shippingValueLabel = computed(() => {
   if (checkoutOk.value) return fmt(checkoutOk.value.envio_clp)
@@ -400,12 +446,36 @@ watch(
 )
 
 watch(
+  () => [cart.total, cart.count],
+  () => {
+    if (checkoutOk.value) return
+    if (appliedDiscount.value) {
+      appliedDiscount.value = null
+      discountError.value = ''
+      if (cart.view === 'checkout') {
+        void calculateShipping()
+      }
+    }
+  }
+)
+
+watch(discountCode, value => {
+  if (!appliedDiscount.value) return
+  if (String(value || '').trim().toUpperCase() !== String(appliedDiscount.value.code || '').trim().toUpperCase()) {
+    appliedDiscount.value = null
+    discountError.value = ''
+  }
+})
+
+watch(
   () => cart.open,
   async isOpen => {
     if (!isOpen) return
     checkoutError.value = ''
+    discountError.value = ''
     proofUploadedUrl.value = ''
     proofFile.value = null
+    proofSuccessModalOpen.value = false
     if (cart.view !== 'checkout') cart.view = 'cart'
 
     if (customerAuth.isAuthenticated) {
@@ -445,6 +515,7 @@ function fmt(n) {
 
 function closeDrawer() {
   cart.open = false
+  proofSuccessModalOpen.value = false
 }
 
 function openCheckoutStep() {
@@ -453,6 +524,47 @@ function openCheckoutStep() {
     return
   }
   cart.view = 'checkout'
+  if (!shippingQuote.value && !shippingLoading.value) {
+    clearTimeout(shippingDebounce)
+    shippingDebounce = setTimeout(() => {
+      calculateShipping()
+    }, 150)
+  }
+}
+
+async function applyDiscountCode() {
+  if (!discountCode.value.trim()) {
+    discountError.value = 'Ingresa un codigo antes de aplicarlo.'
+    appliedDiscount.value = null
+    return
+  }
+
+  discountLoading.value = true
+  discountError.value = ''
+
+  try {
+    const { data } = await descuentosApi.validar({ code: discountCode.value, subtotal_clp: cart.total })
+    appliedDiscount.value = data
+    discountCode.value = data.code
+    if (cart.view === 'checkout') {
+      await calculateShipping()
+    }
+    ui.success(`Codigo ${data.code} aplicado correctamente.`)
+  } catch (error) {
+    appliedDiscount.value = null
+    discountError.value = error.response?.data?.error || 'No pudimos aplicar ese codigo.'
+  } finally {
+    discountLoading.value = false
+  }
+}
+
+function clearDiscountCode() {
+  appliedDiscount.value = null
+  discountCode.value = ''
+  discountError.value = ''
+  if (cart.view === 'checkout') {
+    void calculateShipping()
+  }
 }
 
 async function calculateShipping() {
@@ -475,7 +587,7 @@ async function calculateShipping() {
     const { data } = await pedidosApi.quoteShipping({
       ciudad: shippingValidation.normalized.ciudad,
       direccion: shippingValidation.normalized.direccion,
-      subtotal_clp: cart.total,
+      subtotal_clp: discountedSubtotal.value,
     })
     shippingQuote.value = data
   } catch (err) {
@@ -524,8 +636,11 @@ async function handleCheckout() {
     }
 
     if (!shippingQuote.value) {
-      checkoutError.value = 'Primero calcula el envio.'
-      return
+      await calculateShipping()
+      if (!shippingQuote.value) {
+        checkoutError.value = shippingError.value || 'No pudimos calcular el envío para este pedido.'
+        return
+      }
     }
     if (!isTransferReady.value) {
       checkoutError.value = transferConfigWarning.value
@@ -542,6 +657,7 @@ async function handleCheckout() {
       items: cart.items.map(item => ({ producto_id: item.id, cantidad: item.cantidad })),
       notas: checkoutNotas.value || null,
       metodo_pago: 'bank_transfer',
+      discount_code: appliedDiscount.value?.code || null,
       region_envio: shippingValidation.normalized.region,
       ciudad_envio: shippingValidation.normalized.ciudad,
       direccion_envio: shippingValidation.normalized.direccion,
@@ -580,6 +696,7 @@ async function uploadProof() {
     })
     proofUploadedUrl.value = data.comprobante_url
     ui.success('Comprobante subido correctamente.')
+    proofSuccessModalOpen.value = true
   } catch (err) {
     checkoutError.value = err.response?.data?.error || 'No se pudo subir el comprobante.'
     ui.error(checkoutError.value)
@@ -610,6 +727,11 @@ async function copyAllTransferData() {
   } catch {
     ui.error('No se pudieron copiar todos los datos.')
   }
+}
+function goToOrdersFromProofModal() {
+  proofSuccessModalOpen.value = false
+  cart.open = false
+  router.push({ name: 'customer-account', hash: '#mis-pedidos' })
 }
 </script>
 
@@ -853,6 +975,12 @@ async function copyAllTransferData() {
   color: #fff;
 }
 
+.primary-btn:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+  filter: grayscale(.08);
+}
+
 .ghost-btn {
   border: 1px solid #ead7dd;
   background: #fff;
@@ -874,6 +1002,17 @@ async function copyAllTransferData() {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.7;
+}
+
+.discount-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.discount-clear {
+  min-width: 110px;
 }
 
 .panel-ok {
@@ -980,6 +1119,53 @@ async function copyAllTransferData() {
   transform: translateX(100%);
 }
 
+.proof-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(42, 24, 32, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 320;
+}
+
+.proof-modal {
+  width: min(460px, 100%);
+  border-radius: 28px;
+  background: linear-gradient(180deg, #fffefe, #fff6f8);
+  border: 1px solid rgba(191, 84, 122, 0.14);
+  box-shadow: 0 24px 60px rgba(98, 45, 64, 0.16);
+  padding: 28px 24px;
+  display: grid;
+  gap: 14px;
+  text-align: center;
+}
+
+.proof-modal-tag {
+  justify-self: center;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: rgba(191, 84, 122, 0.1);
+  color: var(--rose-dark);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.proof-modal h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--dark);
+}
+
+.proof-modal p {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
 @media (max-width: 640px) {
   .drawer {
     max-width: none;
@@ -1036,6 +1222,10 @@ async function copyAllTransferData() {
     grid-template-columns: 1fr;
   }
 
+  .discount-row {
+    grid-template-columns: 1fr;
+  }
+
   .summary-card,
   .checkout-panel {
     padding: 16px;
@@ -1066,6 +1256,20 @@ async function copyAllTransferData() {
   .primary-btn,
   .ghost-btn {
     width: 100%;
+  }
+
+  .proof-modal-backdrop {
+    align-items: flex-end;
+    padding: 12px;
+  }
+
+  .proof-modal {
+    border-radius: 24px 24px 0 0;
+    padding: 24px 18px;
+  }
+
+  .proof-modal h3 {
+    font-size: 28px;
   }
 }
 </style>

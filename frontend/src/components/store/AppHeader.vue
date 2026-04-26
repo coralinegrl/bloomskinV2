@@ -39,9 +39,9 @@
       <nav class="header-nav" :class="{ open: mobileMenuOpen }">
         <RouterLink class="nav-link" :to="homeTo" @click="closeMobileMenu">Inicio</RouterLink>
         <RouterLink class="nav-link" :to="catalogTo" @click="closeMobileMenu">Catalogo</RouterLink>
-        <button class="nav-link" type="button" @click="emitCategory('Limpiadores')">Limpiadores</button>
-        <button class="nav-link" type="button" @click="emitCategory('Serums')">Serums</button>
-        <button class="nav-link" type="button" @click="emitCategory('Protección Solar')">Solar</button>
+        <RouterLink class="nav-link" to="/contacto" @click="closeMobileMenu">Contactanos</RouterLink>
+        <RouterLink class="nav-link" to="/quienes-somos" @click="closeMobileMenu">Quienes somos</RouterLink>
+        <RouterLink class="nav-link" to="/envios" @click="closeMobileMenu">Envios</RouterLink>
       </nav>
 
       <RouterLink to="/" class="logo desktop-logo">
@@ -71,9 +71,13 @@
           />
         </form>
 
-        <button class="account-btn" type="button" @click="$emit('account-click'); closeMobileMenu()">
+        <button class="account-btn" type="button" :aria-label="isAuthenticated ? accountLabel : 'Ingresar o crear cuenta'" @click="$emit('account-click'); closeMobileMenu()">
           <span class="account-copy">
-            <strong>{{ accountLabel }}</strong>
+            <strong v-if="isAuthenticated">{{ accountLabel }}</strong>
+            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+              <path d="M20 21a8 8 0 0 0-16 0" />
+              <circle cx="12" cy="8" r="4" />
+            </svg>
           </span>
         </button>
 
@@ -106,6 +110,7 @@ const props = defineProps({
   searchTerm: { type: String, default: '' },
   searchPlaceholder: { type: String, default: 'Buscar productos...' },
   accountLabel: { type: String, default: 'Entrar' },
+  isAuthenticated: { type: Boolean, default: false },
   cartCount: { type: Number, default: 0 },
   homeTo: { type: [String, Object], default: '/' },
   catalogTo: { type: [String, Object], default: '/catalogo' },
@@ -133,11 +138,6 @@ function closeMobileMenu() {
 
 function emitSearchSubmit() {
   emit('search-submit')
-  closeMobileMenu()
-}
-
-function emitCategory(category) {
-  emit('category-select', category)
   closeMobileMenu()
 }
 </script>
@@ -209,7 +209,7 @@ function emitCategory(category) {
   height: 46px;
   object-fit: contain;
   display: block;
-  filter: drop-shadow(0 8px 18px rgba(217,109,144,.12));
+  filter: drop-shadow(0 8px 18px rgba(217, 109, 144, 0.12));
   border-radius: 14px;
 }
 
@@ -227,7 +227,7 @@ function emitCategory(category) {
   letter-spacing: 0.08em;
   color: var(--heart-deep);
   display: block;
-  line-height: .9;
+  line-height: 0.9;
 }
 
 .logo-sub {
@@ -324,8 +324,16 @@ function emitCategory(category) {
   font-size: 11px;
   color: var(--rose-dark);
   letter-spacing: 0.06em;
-  text-transform: uppercase;
   white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.account-copy svg {
+  color: var(--rose-dark);
+  display: block;
 }
 
 .icon-btn {
@@ -335,7 +343,7 @@ function emitCategory(category) {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color .2s;
+  transition: color 0.2s;
   position: relative;
 }
 
@@ -361,10 +369,10 @@ function emitCategory(category) {
 
 .admin-link {
   font-size: 12px;
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
-  transition: color .2s;
+  transition: color 0.2s;
 }
 
 .admin-link:hover {
@@ -418,7 +426,7 @@ function emitCategory(category) {
 
   .logo-sub {
     font-size: 7px;
-    letter-spacing: .22em;
+    letter-spacing: 0.22em;
   }
 
   .header-nav,

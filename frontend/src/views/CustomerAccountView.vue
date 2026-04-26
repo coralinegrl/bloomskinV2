@@ -127,7 +127,7 @@
       </div>
     </section>
 
-    <section class="orders-section">
+    <section id="mis-pedidos" class="orders-section">
       <div class="orders-head">
         <div>
           <div class="panel-tag">Historial</div>
@@ -178,7 +178,10 @@
               class="timeline-step"
               :class="{ done: step.state === 'done', current: step.state === 'current' }"
             >
-              <div class="timeline-dot"></div>
+              <div class="timeline-dot-wrap">
+                <div class="timeline-dot"></div>
+                <div class="timeline-line"></div>
+              </div>
               <div class="timeline-copy">
                 <strong>{{ step.label }}</strong>
                 <small>{{ step.helper }}</small>
@@ -199,6 +202,7 @@
 
           <div class="order-financials">
             <span>Subtotal: {{ formatCurrency(order.subtotal_clp) }}</span>
+            <span v-if="order.descuento_clp">Descuento: -{{ formatCurrency(order.descuento_clp) }}<template v-if="order.descuento_codigo"> con {{ order.descuento_codigo }}</template></span>
             <span>Envío: {{ formatCurrency(order.envio_clp) }}</span>
             <span>Total: {{ formatCurrency(order.total_clp) }}</span>
           </div>
@@ -656,14 +660,22 @@ function absoluteAssetUrl(path) {
 
 .timeline {
   display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
+  align-items: start;
 }
 
 .timeline-step {
   display: grid;
-  grid-template-columns: 18px 1fr;
-  gap: 12px;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
   align-items: start;
+}
+
+.timeline-dot-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .timeline-dot {
@@ -671,12 +683,28 @@ function absoluteAssetUrl(path) {
   height: 12px;
   border-radius: 50%;
   background: #ead4dc;
-  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.timeline-line {
+  height: 2px;
+  flex: 1;
+  background: #ead4dc;
+  border-radius: 999px;
 }
 
 .timeline-step.done .timeline-dot,
 .timeline-step.current .timeline-dot {
   background: var(--rose);
+}
+
+.timeline-step.done .timeline-line,
+.timeline-step.current .timeline-line {
+  background: rgba(191, 84, 122, 0.42);
+}
+
+.timeline-step:last-child .timeline-line {
+  display: none;
 }
 
 .timeline-copy strong {
@@ -714,6 +742,32 @@ function absoluteAssetUrl(path) {
   .form-grid,
   .wishlist-grid {
     grid-template-columns: 1fr;
+  }
+
+  .timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-step {
+    grid-template-columns: 18px 1fr;
+    grid-template-rows: none;
+    gap: 12px;
+  }
+
+  .timeline-dot-wrap {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .timeline-line {
+    width: 2px;
+    min-height: 28px;
+  }
+
+  .timeline-step:last-child .timeline-line {
+    display: block;
+    visibility: hidden;
   }
 }
 

@@ -1,9 +1,9 @@
-<template>
+﻿<template>
   <div class="admin-layout">
     <aside class="sidebar">
       <div class="sidebar-logo">
         <span class="sidebar-logo-text">bloomskin</span>
-        <span class="sidebar-badge">Admin</span>
+        <span class="sidebar-badge">GestiÃ³n</span>
       </div>
 
       <nav class="sidebar-nav">
@@ -30,18 +30,18 @@
         <div>
           <div class="topbar-title">{{ currentTitle }}</div>
           <div class="topbar-subtitle">
-            <span v-if="loading">Cargando datos...</span>
+            <span v-if="loading">Cargando informaciÃ³n...</span>
             <span v-else-if="lastSyncLabel">Actualizado {{ lastSyncLabel }}</span>
-            <span v-else>Sin sincronizacion reciente</span>
+            <span v-else>Sin actualizaciÃ³n reciente</span>
           </div>
         </div>
 
         <div class="topbar-right">
           <span v-if="error" class="status-chip status-error">{{ error }}</span>
-          <span v-else-if="loading" class="status-chip status-loading">Sincronizando</span>
-          <span v-else class="status-chip status-ok">Conectado</span>
+          <span v-else-if="loading" class="status-chip status-loading">Actualizando</span>
+          <span v-else class="status-chip status-ok">Todo en lÃ­nea</span>
           <button class="btn-ghost" :disabled="refreshing" @click="refreshAll">
-            {{ refreshing ? 'Actualizando...' : 'Actualizar' }}
+            {{ refreshing ? 'Actualizando...' : 'Recargar' }}
           </button>
           <span class="topbar-user">{{ auth.user?.nombre || 'Admin' }}</span>
           <div class="avatar">{{ auth.user?.nombre?.[0] || 'A' }}</div>
@@ -63,45 +63,45 @@
           <template v-if="activeSection === 'dashboard'">
             <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-label">Ventas del mes</div>
+                <div class="stat-label">FacturaciÃ³n del mes</div>
                 <div class="stat-value">{{ fmt(stats.ventas_mes || 0) }}</div>
-                <div class="stat-change up">Seguimiento comercial</div>
+                <div class="stat-change up">Ritmo comercial actual</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Pedidos totales</div>
+                <div class="stat-label">Pedidos ingresados</div>
                 <div class="stat-value">{{ stats.total_pedidos || 0 }}</div>
-                <div class="stat-change">{{ (stats.pendientes_pago || 0) + (stats.pagos_por_validar || 0) }} en espera</div>
+                <div class="stat-change">{{ (stats.pendientes_pago || 0) + (stats.pagos_por_validar || 0) }} esperando revisiÃ³n</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Pagos por validar</div>
+                <div class="stat-label">Transferencias por revisar</div>
                 <div class="stat-value">{{ stats.pagos_por_validar || 0 }}</div>
                 <div class="stat-change" :class="(stats.pagos_por_validar || 0) > 0 ? 'down' : 'up'">
-                  {{ (stats.pagos_por_validar || 0) > 0 ? 'Revisar comprobantes' : 'Sin validaciones pendientes' }}
+                  {{ (stats.pagos_por_validar || 0) > 0 ? 'Hay comprobantes pendientes' : 'Todo al dÃ­a' }}
                 </div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Clientas registradas</div>
+                <div class="stat-label">Clientas activas</div>
                 <div class="stat-value">{{ clientasActivas }}</div>
-                <div class="stat-change up">{{ clientasNuevasMes }} nuevas este mes</div>
+                <div class="stat-change up">{{ clientasNuevasMes }} se sumaron este mes</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Productos activos</div>
+                <div class="stat-label">Productos publicados</div>
                 <div class="stat-value">{{ productosActivos }}</div>
-                <div class="stat-change">Catálogo visible</div>
+                <div class="stat-change">Listos para vender</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Sin stock</div>
+                <div class="stat-label">Productos sin stock</div>
                 <div class="stat-value">{{ sinStock }}</div>
                 <div class="stat-change" :class="sinStock > 0 ? 'down' : 'up'">
-                  {{ sinStock > 0 ? 'Revisar inventario' : 'Inventario sano' }}
+                  {{ sinStock > 0 ? 'Conviene reponer' : 'Inventario al dÃ­a' }}
                 </div>
               </div>
             </div>
 
             <div class="dash-grid">
               <div class="ad-card">
-                <div class="ad-card-title">Últimos pedidos</div>
-                <div v-if="pedidos.length === 0" class="empty-state">No hay pedidos aún.</div>
+                <div class="ad-card-title">Pedidos recientes</div>
+                <div v-if="pedidos.length === 0" class="empty-state">No hay pedidos aÃºn.</div>
                 <button
                   v-for="p in pedidos.slice(0, 6)"
                   :key="p.id"
@@ -120,8 +120,8 @@
               </div>
 
               <div class="ad-card">
-                <div class="ad-card-title">Registros recientes</div>
-                <div v-if="recentClientes.length === 0" class="empty-state">Aún no hay clientas registradas.</div>
+                <div class="ad-card-title">Nuevas clientas</div>
+                <div v-if="recentClientes.length === 0" class="empty-state">AÃºn no hay clientas registradas.</div>
                 <div v-for="cliente in recentClientes" :key="cliente.id" class="stock-alert-item recent-client-item">
                   <div>
                     <div class="sa-brand">{{ cliente.nombre }}</div>
@@ -137,8 +137,8 @@
               </div>
 
               <div class="ad-card">
-                <div class="ad-card-title">Stock bajo o sin stock</div>
-                <div v-if="productosStockBajo.length === 0" class="empty-state">Todo el stock está OK.</div>
+                <div class="ad-card-title">ReposiciÃ³n sugerida</div>
+                <div v-if="productosStockBajo.length === 0" class="empty-state">Todo el stock estÃ¡ OK.</div>
                 <div v-for="p in productosStockBajo" :key="p.id" class="stock-alert-item">
                   <div>
                     <div class="sa-brand">{{ p.marca }}</div>
@@ -151,114 +151,43 @@
               </div>
             </div>
 
-            <div v-if="selectedOrder" class="ad-card detail-card">
-              <div class="detail-header">
-                <div>
-                  <div class="ad-card-title">Detalle del pedido {{ selectedOrder.codigo }}</div>
-                  <div class="detail-subtitle">{{ selectedOrder.cliente_nombre }} - {{ selectedOrder.cliente_email }}</div>
-                </div>
-                <span class="status-pill" :class="`s-${selectedOrder.estado}`">{{ estadoLabel(selectedOrder.estado) }}</span>
-              </div>
-
-              <div class="detail-grid">
-                <div>
-                  <div class="detail-label">Fecha</div>
-                  <div>{{ formatDateTime(selectedOrder.creado_en) }}</div>
-                </div>
-                <div>
-                  <div class="detail-label">Ciudad envio</div>
-                  <div>{{ selectedOrder.ciudad_envio || selectedOrder.cliente_ciudad_actual || 'Sin ciudad' }}</div>
-                </div>
-                <div>
-                  <div class="detail-label">Total</div>
-                  <div class="td-price">{{ fmt(selectedOrder.total_clp) }}</div>
-                </div>
-                <div>
-                  <div class="detail-label">Items</div>
-                  <div>{{ selectedOrder.items?.length || 0 }}</div>
-                </div>
-                <div>
-                  <div class="detail-label">Subtotal</div>
-                  <div>{{ fmt(selectedOrder.subtotal_clp || selectedOrder.total_clp) }}</div>
-                </div>
-                <div>
-                  <div class="detail-label">Envio</div>
-                  <div>{{ fmt(selectedOrder.envio_clp || 0) }}</div>
-                </div>
-                <div>
-                  <div class="detail-label">Pago</div>
-                  <div>{{ selectedOrder.metodo_pago || 'Sin definir' }}</div>
-                </div>
-                <div>
-                  <div class="detail-label">Metodo envio</div>
-                  <div>{{ selectedOrder.metodo_envio || 'Sin definir' }}</div>
-                </div>
-              </div>
-
-              
-              <div class="detail-grid">
-                <div>
-                  <div class="detail-label">Cliente</div>
-                  <div>{{ selectedOrder.cliente_nombre || selectedOrder.cliente_nombre_actual || 'Sin nombre' }}</div>
-                </div>
-                <div>
-                  <div class="detail-label">RUT</div>
-                  <div>{{ selectedOrder.cliente_rut || selectedOrder.cliente_rut_actual || 'Sin RUT' }}</div>
-                </div>
-                <div>
-                  <div class="detail-label">Telefono</div>
-                  <div>{{ selectedOrder.cliente_telefono || selectedOrder.cliente_telefono_actual || 'Sin telefono' }}</div>
-                </div>
-                <div>
-                  <div class="detail-label">Region</div>
-                  <div>{{ selectedOrder.region_envio || selectedOrder.cliente_region_actual || 'Sin region' }}</div>
-                </div>
-              </div>
-
-              <div class="order-notes">
-                <div class="detail-label">Despacho</div>
-                <p>{{ selectedOrder.direccion_envio || 'Sin direccion' }}</p>
-                <p>{{ selectedOrder.region_envio || selectedOrder.cliente_region_actual || 'Sin region' }} - {{ selectedOrder.ciudad_envio || selectedOrder.cliente_ciudad_actual || 'Sin ciudad' }}</p>
-                <p v-if="selectedOrder.referencia_envio">{{ selectedOrder.referencia_envio }}</p>
-                <p v-if="selectedOrder.distancia_envio_km">Distancia: {{ selectedOrder.distancia_envio_km }} km</p>
-                <p v-if="selectedOrder.comprobante_url">
-                  <a :href="selectedOrder.comprobante_url" target="_blank" rel="noreferrer">Ver comprobante</a>
-                </p>
-              </div>
-
-              <div class="order-items">
-                <div class="detail-label">Productos</div>
-                <div v-for="item in selectedOrder.items || []" :key="`${selectedOrder.id}-${item.producto_nombre}`" class="order-item-row">
-                  <span>{{ item.producto_marca }} - {{ item.producto_nombre }}</span>
-                  <span>{{ item.cantidad }} x {{ fmt(item.precio_unitario_clp) }}</span>
-                </div>
-              </div>
-
-              <div v-if="selectedOrder.notas" class="order-notes">
-                <div class="detail-label">Notas</div>
-                <p>{{ selectedOrder.notas }}</p>
-              </div>
-            </div>
           </template>
 
           <template v-if="activeSection === 'productos'">
             <div class="section-actions">
               <div>
-                <h2 class="section-h2">Productos</h2>
-                <p class="section-copy">Administra catalogo, precios y stock.</p>
+                <h2 class="section-h2">CatÃ¡logo</h2>
+                <p class="section-copy">Publica productos, ajusta precios y mantÃ©n el stock ordenado.</p>
               </div>
               <div class="actions-row">
                 <input v-model.trim="productoSearch" class="toolbar-input" type="text" placeholder="Buscar producto o marca">
+                <select v-model="productoCategoriaFilter" class="toolbar-select">
+                  <option value="all">Todas las categorÃ­as</option>
+                  <option v-for="categoria in productoCategorias" :key="categoria" :value="categoria">{{ categoria }}</option>
+                </select>
+                <select v-model="productoMarcaFilter" class="toolbar-select">
+                  <option value="all">Todas las marcas</option>
+                  <option v-for="marca in productoMarcas" :key="marca" :value="marca">{{ marca }}</option>
+                </select>
                 <select v-model="productoStockFilter" class="toolbar-select">
                   <option value="all">Todo el stock</option>
                   <option value="low">Solo stock bajo</option>
                   <option value="out">Solo sin stock</option>
                 </select>
-                <button class="btn-primary" @click="openProductoModal()">Agregar producto</button>
+                <select v-model="productoImagenFilter" class="toolbar-select">
+                  <option value="all">Todas las fotos</option>
+                  <option value="with">Con foto</option>
+                  <option value="without">Sin foto</option>
+                </select>
+                <button class="btn-primary" @click="openProductoModal()">Nuevo producto</button>
               </div>
             </div>
 
-            <CatalogJsonManager @toast="showToast" @imported="refreshAll" />
+            <div class="summary-strip">
+              <div class="summary-pill">Productos visibles: {{ filteredProductos.length }}</div>
+              <div class="summary-pill">Stock bajo: {{ productosStockBajo.length }}</div>
+              <div class="summary-pill">Sin foto: {{ productosSinImagen }}</div>
+            </div>
 
             <div class="ad-card table-card">
               <table>
@@ -268,7 +197,6 @@
                     <th>Imagen</th>
                     <th>Producto</th>
                     <th>Marca</th>
-                    <th>USD</th>
                     <th>Precio CLP</th>
                     <th>Oferta</th>
                     <th>Stock</th>
@@ -278,7 +206,7 @@
                 </thead>
                 <tbody>
                   <tr v-if="filteredProductos.length === 0">
-                    <td colspan="10" class="empty-state table-empty">No hay productos para ese filtro.</td>
+                    <td colspan="9" class="empty-state table-empty">No hay productos para ese filtro.</td>
                   </tr>
                   <tr v-for="(p, i) in filteredProductos" :key="p.id">
                     <td class="muted">{{ i + 1 }}</td>
@@ -293,9 +221,11 @@
                       <span class="muted d-block">{{ p.categoria || 'Sin categoria' }}</span>
                     </td>
                     <td>{{ p.marca }}</td>
-                    <td class="muted">{{ p.precio_usd ? `$${p.precio_usd}` : '-' }}</td>
                     <td class="td-price">{{ fmt(p.precio_clp) }}</td>
-                    <td class="muted">{{ p.precio_oferta_clp ? fmt(p.precio_oferta_clp) : '-' }}</td>
+                    <td class="muted">
+                      {{ p.precio_oferta_clp ? fmt(p.precio_oferta_clp) : '-' }}
+                      <span v-if="p.oferta_hasta" class="d-block">hasta {{ formatDate(p.oferta_hasta) }}</span>
+                    </td>
                     <td>
                       <div class="stock-editor">
                         <span class="stock-pill" :class="stockClass(p.stock)">{{ stockLabel(p.stock) }}</span>
@@ -330,11 +260,11 @@
           <template v-if="activeSection === 'pedidos'">
             <div class="section-actions">
               <div>
-                <h2 class="section-h2">Pedidos</h2>
-                <p class="section-copy">Monitorea el flujo operativo y cambia estados.</p>
+                <h2 class="section-h2">Ventas</h2>
+                <p class="section-copy">Revisa pagos, comprobantes y el avance de cada pedido.</p>
               </div>
               <div class="actions-row">
-                <input v-model.trim="pedidoSearch" class="toolbar-input" type="text" placeholder="Buscar codigo, cliente o email">
+                <input v-model.trim="pedidoSearch" class="toolbar-input" type="text" placeholder="Buscar por cÃ³digo, nombre o correo">
                 <select v-model="pedidoEstadoFilter" class="toolbar-select">
                   <option value="all">Todos los estados</option>
                   <option value="pending_payment">Esperando transferencia</option>
@@ -344,7 +274,18 @@
                   <option value="delivered">Entregado</option>
                   <option value="cancelled">Cancelado</option>
                 </select>
+                <input v-model="ventasExportMonth" class="toolbar-input toolbar-month" type="month">
+                <button class="btn-ghost" type="button" :disabled="exportingVentas" @click="exportarVentasMensuales">
+                  {{ exportingVentas ? 'Preparando Excel...' : 'Exportar Excel' }}
+                </button>
               </div>
+            </div>
+
+            <div class="summary-strip">
+              <div class="summary-pill">Pagos por revisar: {{ stats.pagos_por_validar || 0 }}</div>
+              <div class="summary-pill">Esperando transferencia: {{ stats.pendientes_pago || 0 }}</div>
+              <div class="summary-pill">Mes del reporte: {{ ventasExportMonth }}</div>
+              <div class="summary-pill">Haz clic en un pedido para ver su detalle</div>
             </div>
 
             <div class="ad-card table-card">
@@ -356,12 +297,13 @@
                     <th>Fecha</th>
                     <th>Total</th>
                     <th>Estado</th>
-                    <th>Cambiar estado</th>
+                    <th>Comprobante</th>
+                    <th>Actualizar estado</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-if="filteredPedidos.length === 0">
-                    <td colspan="6" class="empty-state table-empty">No hay pedidos para ese filtro.</td>
+                    <td colspan="7" class="empty-state table-empty">No hay pedidos para ese filtro.</td>
                   </tr>
                   <tr
                     v-for="p in filteredPedidos"
@@ -374,6 +316,19 @@
                     <td class="muted">{{ formatDate(p.creado_en) }}</td>
                     <td class="td-price">{{ fmt(p.total_clp) }}</td>
                     <td><span class="status-pill" :class="`s-${p.estado}`">{{ estadoLabel(p.estado) }}</span></td>
+                    <td>
+                      <a
+                        v-if="p.comprobante_url"
+                        class="btn-link"
+                        :href="p.comprobante_url"
+                        target="_blank"
+                        rel="noreferrer"
+                        @click.stop
+                      >
+                        Ver comprobante
+                      </a>
+                      <span v-else class="muted">Sin comprobante</span>
+                    </td>
                     <td>
                       <select class="estado-select" :value="p.estado" @click.stop @change="cambiarEstado(p.id, $event.target.value)">
                         <option value="pending_payment">Esperando transferencia</option>
@@ -390,11 +345,182 @@
             </div>
           </template>
 
+          <template v-if="activeSection === 'descuentos'">
+            <div class="section-actions">
+              <div>
+                <h2 class="section-h2">Promociones</h2>
+                <p class="section-copy">Crea codigos por apertura, fechas especiales o campañas puntuales y controla su vigencia.</p>
+              </div>
+              <div class="actions-row">
+                <input v-model.trim="descuentoSearch" class="toolbar-input" type="text" placeholder="Buscar codigo o nombre">
+                <button class="btn-primary" @click="openDiscountModal()">Nuevo codigo</button>
+              </div>
+            </div>
+
+            <div class="summary-strip">
+              <div class="summary-pill">Codigos activos: {{ descuentos.filter(d => d.active !== false).length }}</div>
+              <div class="summary-pill">Con cupo limitado: {{ descuentos.filter(d => d.max_uses !== null && d.max_uses !== undefined).length }}</div>
+              <div class="summary-pill">Uso total acumulado: {{ descuentos.reduce((sum, d) => sum + Number(d.used_count || 0), 0) }}</div>
+            </div>
+
+            <div class="ad-card table-card">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Codigo</th>
+                    <th>Nombre</th>
+                    <th>Descuento</th>
+                    <th>Usos</th>
+                    <th>Vigencia</th>
+                    <th>Minimo</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="filteredDescuentos.length === 0">
+                    <td colspan="8" class="empty-state table-empty">No hay codigos para ese filtro.</td>
+                  </tr>
+                  <tr v-for="descuento in filteredDescuentos" :key="descuento.id">
+                    <td class="td-code">{{ descuento.code }}</td>
+                    <td>
+                      <div class="td-name">{{ descuento.name }}</div>
+                      <span class="muted d-block">{{ descuento.description || 'Sin nota interna' }}</span>
+                    </td>
+                    <td class="td-price">{{ descuento.discount_percent }}%</td>
+                    <td class="muted">
+                      {{ descuento.used_count || 0 }}
+                      <span class="d-block">{{ descuento.max_uses ? `de ${descuento.max_uses}` : 'sin tope' }}</span>
+                    </td>
+                    <td class="muted">
+                      {{ descuento.starts_at ? formatDate(descuento.starts_at) : 'inmediata' }}
+                      <span class="d-block">{{ descuento.ends_at ? `hasta ${formatDate(descuento.ends_at)}` : 'sin fecha final' }}</span>
+                    </td>
+                    <td class="muted">{{ descuento.min_subtotal_clp ? fmt(descuento.min_subtotal_clp) : 'Sin minimo' }}</td>
+                    <td>
+                      <span class="status-pill" :class="descuento.active !== false ? 's-paid' : 's-cancelled'">
+                        {{ descuento.active !== false ? 'Activo' : 'Inactivo' }}
+                      </span>
+                    </td>
+                    <td class="td-actions">
+                      <button class="btn-edit" @click="openDiscountModal(descuento)">Editar</button>
+                      <button class="btn-delete" @click="desactivarDescuento(descuento)">Desactivar</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+
+          <template v-if="(activeSection === 'dashboard' || activeSection === 'pedidos') && selectedOrder">
+            <div class="ad-card detail-card">
+              <div class="detail-header">
+                <div>
+                  <div class="ad-card-title">Detalle del pedido {{ selectedOrder.codigo }}</div>
+                  <div class="detail-subtitle">{{ selectedOrder.cliente_nombre }} - {{ selectedOrder.cliente_email }}</div>
+                </div>
+                <span class="status-pill" :class="`s-${selectedOrder.estado}`">{{ estadoLabel(selectedOrder.estado) }}</span>
+              </div>
+
+              <div class="detail-grid">
+                <div>
+                  <div class="detail-label">Fecha</div>
+                  <div>{{ formatDateTime(selectedOrder.creado_en) }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Ciudad envio</div>
+                  <div>{{ selectedOrder.ciudad_envio || selectedOrder.cliente_ciudad_actual || 'Sin ciudad' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Total</div>
+                  <div class="td-price">{{ fmt(selectedOrder.total_clp) }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Items</div>
+                  <div>{{ selectedOrder.items?.length || 0 }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Subtotal</div>
+                  <div>{{ fmt(selectedOrder.subtotal_clp || selectedOrder.total_clp) }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Descuento</div>
+                  <div>{{ selectedOrder.descuento_clp ? `-${fmt(selectedOrder.descuento_clp)}` : 'Sin descuento' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Envio</div>
+                  <div>{{ fmt(selectedOrder.envio_clp || 0) }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Pago</div>
+                  <div>{{ selectedOrder.metodo_pago || 'Sin definir' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Metodo envio</div>
+                  <div>{{ selectedOrder.metodo_envio || 'Sin definir' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Codigo promo</div>
+                  <div>{{ selectedOrder.descuento_codigo || 'No aplica' }}</div>
+                </div>
+              </div>
+
+              <div class="detail-grid">
+                <div>
+                  <div class="detail-label">Cliente</div>
+                  <div>{{ selectedOrder.cliente_nombre || selectedOrder.cliente_nombre_actual || 'Sin nombre' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">RUT</div>
+                  <div>{{ selectedOrder.cliente_rut || selectedOrder.cliente_rut_actual || 'Sin RUT' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Telefono</div>
+                  <div>{{ selectedOrder.cliente_telefono || selectedOrder.cliente_telefono_actual || 'Sin telefono' }}</div>
+                </div>
+                <div>
+                  <div class="detail-label">Region</div>
+                  <div>{{ selectedOrder.region_envio || selectedOrder.cliente_region_actual || 'Sin region' }}</div>
+                </div>
+              </div>
+
+              <div class="order-notes">
+                <div class="detail-label">Despacho</div>
+                <p>{{ selectedOrder.direccion_envio || 'Sin direccion' }}</p>
+                <p>{{ selectedOrder.region_envio || selectedOrder.cliente_region_actual || 'Sin region' }} - {{ selectedOrder.ciudad_envio || selectedOrder.cliente_ciudad_actual || 'Sin ciudad' }}</p>
+                <p v-if="selectedOrder.referencia_envio">{{ selectedOrder.referencia_envio }}</p>
+                <p v-if="selectedOrder.distancia_envio_km">Distancia: {{ selectedOrder.distancia_envio_km }} km</p>
+                <a
+                  v-if="selectedOrder.comprobante_url"
+                  class="btn-link btn-link-inline"
+                  :href="selectedOrder.comprobante_url"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Abrir comprobante
+                </a>
+              </div>
+
+              <div class="order-items">
+                <div class="detail-label">Productos</div>
+                <div v-for="item in selectedOrder.items || []" :key="`${selectedOrder.id}-${item.producto_nombre}`" class="order-item-row">
+                  <span>{{ item.producto_marca }} - {{ item.producto_nombre }}</span>
+                  <span>{{ item.cantidad }} x {{ fmt(item.precio_unitario_clp) }}</span>
+                </div>
+              </div>
+
+              <div v-if="selectedOrder.notas" class="order-notes">
+                <div class="detail-label">Notas</div>
+                <p>{{ selectedOrder.notas }}</p>
+              </div>
+            </div>
+          </template>
+
           <template v-if="activeSection === 'clientes'">
             <div class="section-actions">
               <div>
-                <h2 class="section-h2">Clientes</h2>
-                <p class="section-copy">Revisa el historial y segmenta por tipo de piel.</p>
+                <h2 class="section-h2">Clientas</h2>
+                <p class="section-copy">Edita datos, revisa compras y desactiva cuentas si hace falta.</p>
               </div>
               <div class="actions-row">
                 <input v-model.trim="clienteSearch" class="toolbar-input" type="text" placeholder="Buscar cliente, email o ciudad">
@@ -464,8 +590,8 @@
           <template v-if="activeSection === 'mensajes'">
             <div class="section-actions">
               <div>
-                <h2 class="section-h2">Mensajes</h2>
-                <p class="section-copy">Prioriza respuestas y limpia pendientes.</p>
+                <h2 class="section-h2">Bandeja de ayuda</h2>
+                <p class="section-copy">Ordena consultas y marca lo ya resuelto.</p>
               </div>
               <div class="actions-row">
                 <input v-model.trim="mensajeSearch" class="toolbar-input" type="text" placeholder="Buscar nombre, email o contenido">
@@ -516,8 +642,8 @@
           <template v-if="activeSection === 'newsletter'">
             <div class="section-actions">
               <div>
-                <h2 class="section-h2">Newsletter</h2>
-                <p class="section-copy">Gestiona suscriptoras y envia campanas de email desde Bloomskin.</p>
+                <h2 class="section-h2">CampaÃ±as por correo</h2>
+                <p class="section-copy">Escribe un envÃ­o simple para tu base activa y revÃ­salo antes de enviarlo.</p>
               </div>
               <div class="actions-row">
                 <input v-model.trim="suscriptorSearch" class="toolbar-input" type="text" placeholder="Buscar suscriptora por email">
@@ -532,7 +658,7 @@
 
             <div class="dash-grid newsletter-grid">
               <div class="ad-card">
-                <div class="ad-card-title">Enviar campana</div>
+                <div class="ad-card-title">Preparar campaÃ±a</div>
 
                 <div class="form-group">
                   <label>Asunto</label>
@@ -540,13 +666,13 @@
                 </div>
 
                 <div class="form-group">
-                  <label>Titular</label>
+                  <label>TÃ­tulo principal</label>
                   <input v-model="newsletterForm.headline" type="text" placeholder="Skincare tips y hallazgos de la semana">
                 </div>
 
                 <div class="form-group">
-                  <label>Preview text</label>
-                  <input v-model="newsletterForm.previewText" type="text" placeholder="Lo que se ve debajo del asunto en algunos correos">
+                  <label>Texto de vista previa</label>
+                  <input v-model="newsletterForm.previewText" type="text" placeholder="La lÃ­nea corta que acompaÃ±a el asunto">
                 </div>
 
                 <div class="form-group">
@@ -557,23 +683,22 @@
                 <div class="form-row">
                   <div class="form-group">
                     <label>Boton CTA</label>
-                    <input v-model="newsletterForm.ctaLabel" type="text" placeholder="Ver catalogo">
+                    <input v-model="newsletterForm.ctaLabel" type="text" placeholder="Ver catÃ¡logo">
                   </div>
                   <div class="form-group">
-                    <label>Link CTA</label>
+                    <label>Enlace del botÃ³n</label>
                     <input v-model="newsletterForm.ctaUrl" type="text" placeholder="https://bloomskin.cl/catalogo">
                   </div>
                 </div>
 
                 <div class="form-hint">
-                  Configura SMTP en el backend para enviar de verdad.
-                  Variables: <strong>SMTP_HOST</strong>, <strong>SMTP_PORT</strong>, <strong>SMTP_USER</strong>, <strong>SMTP_PASS</strong>, <strong>SMTP_FROM</strong>.
+                  Si el correo no sale, revisa la configuraciÃ³n del servidor antes de hacer un envÃ­o masivo.
                 </div>
 
                 <div class="modal-actions">
                   <button class="btn-ghost" type="button" @click="resetNewsletterForm">Limpiar</button>
                   <button class="btn-primary" type="button" :disabled="sendingNewsletter" @click="enviarNewsletter">
-                    {{ sendingNewsletter ? 'Enviando...' : 'Enviar newsletter' }}
+                    {{ sendingNewsletter ? 'Enviando...' : 'Enviar campaÃ±a' }}
                   </button>
                 </div>
               </div>
@@ -612,12 +737,12 @@
           <template v-if="activeSection === 'home'">
             <div class="section-actions">
               <div>
-                <h2 class="section-h2">Home</h2>
-                <p class="section-copy">Configura contenido del home, footer y datos de transferencia sin tocar codigo.</p>
+                <h2 class="section-h2">Contenido del sitio</h2>
+                <p class="section-copy">Edita textos, botones, contacto y datos bancarios desde un solo lugar.</p>
               </div>
               <div class="actions-row">
                 <button class="btn-primary" type="button" :disabled="savingSiteSettings" @click="guardarSiteSettings">
-                  {{ savingSiteSettings ? 'Guardando...' : 'Guardar contenido del sitio' }}
+                  {{ savingSiteSettings ? 'Guardando...' : 'Guardar cambios' }}
                 </button>
               </div>
             </div>
@@ -952,7 +1077,7 @@
               </article>
 
               <article class="ad-card home-tile-card">
-                <div class="ad-card-title">SEO y analytics</div>
+                <div class="ad-card-title">Google y vista en enlaces</div>
                 <div class="form-group">
                   <label>Nombre del sitio</label>
                   <input v-model="siteSettings.seo.site_name" type="text">
@@ -967,16 +1092,16 @@
                 </div>
                 <div class="form-row">
                   <div class="form-group">
-                    <label>OG image</label>
-                    <input v-model="siteSettings.seo.og_image" type="text">
-                  </div>
-                  <div class="form-group">
-                    <label>Favicon</label>
-                    <input v-model="siteSettings.seo.favicon" type="text">
-                  </div>
+                  <label>Imagen al compartir</label>
+                  <input v-model="siteSettings.seo.og_image" type="text">
                 </div>
                 <div class="form-group">
-                  <label>Google Analytics ID</label>
+                  <label>Icono del sitio</label>
+                  <input v-model="siteSettings.seo.favicon" type="text">
+                </div>
+              </div>
+              <div class="form-group">
+                  <label>MediciÃ³n de Google</label>
                   <input v-model="siteSettings.seo.ga_measurement_id" type="text" placeholder="G-XXXXXXXXXX">
                 </div>
               </article>
@@ -1002,6 +1127,26 @@
                     <label>CTA correo</label>
                     <input v-model="siteSettings.contact.email_cta_label" type="text">
                   </div>
+                </div>
+              </article>
+
+              <article class="ad-card home-tile-card">
+                <div class="ad-card-title">Quienes somos</div>
+                <div class="form-group">
+                  <label>Titulo seccion</label>
+                  <input v-model="siteSettings.about.heading" type="text">
+                </div>
+                <div class="form-group">
+                  <label>Intro corta</label>
+                  <textarea v-model="siteSettings.about.intro" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                  <label>Historia</label>
+                  <textarea v-model="siteSettings.about.body" rows="6"></textarea>
+                </div>
+                <div class="form-group">
+                  <label>Frase de cierre</label>
+                  <textarea v-model="siteSettings.about.signature" rows="3"></textarea>
                 </div>
               </article>
 
@@ -1064,7 +1209,7 @@
     <Transition name="modal">
       <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
         <div class="modal">
-          <h3 class="modal-title">{{ editingProducto ? 'Editar producto' : 'Agregar producto' }}</h3>
+          <h3 class="modal-title">{{ editingProducto ? 'Editar producto' : 'Nuevo producto' }}</h3>
 
           <div class="form-row">
             <div class="form-group">
@@ -1072,7 +1217,7 @@
               <input v-model="form.marca" type="text" placeholder="ej. COSRX">
             </div>
             <div class="form-group">
-              <label>Badge</label>
+              <label>Distintivo</label>
               <select v-model="form.badge">
                 <option value="">Ninguno</option>
                       <option value="hot">Mas vendido</option>
@@ -1088,25 +1233,14 @@
           </div>
 
           <div class="form-group">
-            <label>Descripcion</label>
-            <textarea v-model="form.descripcion" rows="3" placeholder="Descripcion breve para referencia interna"></textarea>
+              <label>DescripciÃ³n</label>
+              <textarea v-model="form.descripcion" rows="3" placeholder="DescripciÃ³n breve para ubicarlo rÃ¡pido"></textarea>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label>Precio USD <span class="label-hint">(se calcula CLP automatico)</span></label>
-              <input v-model.number="form.precio_usd" type="number" step="0.01" placeholder="18.50" @input="calcularPrecioAuto">
-            </div>
-            <div class="form-group">
-              <label>Precio CLP calculado</label>
-              <input :value="precioCalculado ? fmt(precioCalculado) : '-'" type="text" readonly class="input-readonly">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Precio tachado CLP <span class="label-hint">(opcional)</span></label>
-              <input v-model.number="form.precio_oferta_clp" type="number" placeholder="24990">
+              <label>Precio de venta en CLP</label>
+              <input v-model.number="form.precio_clp" type="number" min="0" step="1" placeholder="18990">
             </div>
             <div class="form-group">
               <label>Stock</label>
@@ -1116,7 +1250,18 @@
 
           <div class="form-row">
             <div class="form-group">
-                    <label>Categoria</label>
+              <label>Precio anterior <span class="label-hint">(opcional, para mostrar oferta)</span></label>
+              <input v-model.number="form.precio_oferta_clp" type="number" min="0" step="1" placeholder="24990">
+            </div>
+            <div class="form-group">
+              <label>Oferta hasta <span class="label-hint">(opcional)</span></label>
+              <input v-model="form.oferta_hasta" type="date">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+                    <label>CategorÃ­a</label>
               <select v-model="form.categoria">
                 <option>Limpiadores</option>
                 <option>Tonicos</option>
@@ -1131,7 +1276,7 @@
               </select>
             </div>
             <div class="form-group">
-              <label>Visual (clase CSS)</label>
+              <label>Estilo de tarjeta</label>
               <select v-model="form.img_clase">
                 <option v-for="n in 8" :key="n" :value="`p-img-${n}`">p-img-{{ n }}</option>
               </select>
@@ -1139,16 +1284,19 @@
           </div>
 
           <div class="form-group">
-            <label>Imagen URL <span class="label-hint">(opcional, usada en la tienda si existe)</span></label>
-            <input v-model="form.imagen_url" type="text" placeholder="/catalogo/catalogo-001.png">
+            <label>Foto del producto <span class="label-hint">(puedes pegar una URL externa o usar una subida)</span></label>
+            <input v-model.trim="form.imagen_url" type="text" placeholder="https://... o /uploads/productos/imagen.png">
           </div>
 
           <div class="form-group">
-            <label>Adjuntar imagen <span class="label-hint">(sube un archivo y se completa la URL)</span></label>
+            <label>Subir imagen <span class="label-hint">(al cargarla se completa sola)</span></label>
             <div class="upload-row">
               <input ref="imageInput" type="file" accept="image/*" @change="handleImageFileChange">
               <button class="btn-ghost" type="button" :disabled="uploadingImage || !selectedImageFile" @click="subirImagenProducto">
                 {{ uploadingImage ? 'Subiendo...' : 'Subir imagen' }}
+              </button>
+              <button v-if="form.imagen_url" class="btn-ghost" type="button" @click="form.imagen_url = ''">
+                Quitar foto
               </button>
             </div>
             <div v-if="form.imagen_url" class="image-preview">
@@ -1156,15 +1304,81 @@
               <span>{{ form.imagen_url }}</span>
             </div>
           </div>
-
-          <div class="form-hint">
-                  <strong>Formula de precio:</strong> (USD + $1 envio) x 1.000 CLP x 1,19 IVA x 1,30 margen.
-          </div>
-
           <div class="modal-actions">
             <button class="btn-ghost" @click="showModal = false">Cancelar</button>
             <button class="btn-primary" :disabled="saving" @click="guardarProducto">
               {{ saving ? 'Guardando...' : 'Guardar producto' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="modal">
+      <div v-if="showDiscountModal" class="modal-overlay" @click.self="showDiscountModal = false">
+        <div class="modal">
+          <h3 class="modal-title">{{ editingDiscount ? 'Editar codigo' : 'Nuevo codigo' }}</h3>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Codigo</label>
+              <input v-model="discountForm.code" type="text" placeholder="APERTURA15">
+            </div>
+            <div class="form-group">
+              <label>Nombre interno</label>
+              <input v-model="discountForm.name" type="text" placeholder="Apertura web">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Nota interna</label>
+            <textarea v-model="discountForm.description" rows="3" placeholder="Ej. primeras 15 compras con 15%"></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Porcentaje de descuento</label>
+              <input v-model.number="discountForm.discount_percent" type="number" min="1" max="100">
+            </div>
+            <div class="form-group">
+              <label>Usos maximos <span class="label-hint">(opcional)</span></label>
+              <input v-model.number="discountForm.max_uses" type="number" min="1" placeholder="15">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Inicio <span class="label-hint">(opcional)</span></label>
+              <input v-model="discountForm.starts_at" type="date">
+            </div>
+            <div class="form-group">
+              <label>Termino <span class="label-hint">(opcional)</span></label>
+              <input v-model="discountForm.ends_at" type="date">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Subtotal minimo <span class="label-hint">(opcional)</span></label>
+              <input v-model.number="discountForm.min_subtotal_clp" type="number" min="0" placeholder="29990">
+            </div>
+            <div class="form-group">
+              <label>Estado</label>
+              <select v-model="discountForm.active">
+                <option :value="true">Activo</option>
+                <option :value="false">Inactivo</option>
+              </select>
+            </div>
+          </div>
+
+          <div v-if="editingDiscount" class="form-hint">
+            Usado {{ editingDiscount.used_count || 0 }} veces{{ editingDiscount.max_uses ? ` de ${editingDiscount.max_uses}` : '' }}.
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn-ghost" @click="showDiscountModal = false">Cancelar</button>
+            <button class="btn-primary" :disabled="savingDiscount" @click="guardarDescuento">
+              {{ savingDiscount ? 'Guardando...' : 'Guardar codigo' }}
             </button>
           </div>
         </div>
@@ -1256,8 +1470,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { clientesApi, mensajesApi, pedidosApi, productosApi, settingsApi } from '../api/index.js'
-import CatalogJsonManager from '../components/admin/CatalogJsonManager.vue'
+import { clientesApi, descuentosApi, mensajesApi, pedidosApi, productosApi, settingsApi } from '../api/index.js'
 import { useAuthStore } from '../stores/auth.js'
 import { CHILE_REGIONS, buildApiCustomerPayload, buildProfileForm, formatPhoneInput, formatRutInput } from '../utils/customerFields.js'
 import { validateCustomerProfile } from '../utils/validation.js'
@@ -1267,26 +1480,29 @@ const router = useRouter()
 
 const activeSection = ref('dashboard')
 const navItems = [
-  { section: 'dashboard', icon: 'D', label: 'Dashboard' },
-  { section: 'productos', icon: 'P', label: 'Productos' },
-  { section: 'pedidos', icon: 'O', label: 'Pedidos' },
-  { section: 'clientes', icon: 'C', label: 'Clientes' },
-  { section: 'mensajes', icon: 'M', label: 'Mensajes' },
+  { section: 'dashboard', icon: 'R', label: 'Resumen' },
+  { section: 'productos', icon: 'C', label: 'CatÃ¡logo' },
+  { section: 'pedidos', icon: 'V', label: 'Ventas' },
+  { section: 'descuentos', icon: '%', label: 'Promos' },
+  { section: 'clientes', icon: 'L', label: 'Clientas' },
+  { section: 'mensajes', icon: 'B', label: 'Bandeja' },
 ]
 const titleMap = {
-  dashboard: 'Dashboard',
-  productos: 'Productos',
-  pedidos: 'Pedidos',
-  clientes: 'Clientes',
-  mensajes: 'Mensajes',
+  dashboard: 'Resumen',
+  productos: 'CatÃ¡logo',
+  pedidos: 'Ventas',
+  descuentos: 'Promociones y descuentos',
+  clientes: 'Clientas',
+  mensajes: 'Bandeja de ayuda',
 }
-navItems.push({ section: 'newsletter', icon: 'N', label: 'Newsletter' })
-titleMap.newsletter = 'Newsletter'
-navItems.push({ section: 'home', icon: 'H', label: 'Home' })
-titleMap.home = 'Home'
+navItems.push({ section: 'newsletter', icon: 'E', label: 'CampaÃ±as' })
+titleMap.newsletter = 'CampaÃ±as por correo'
+navItems.push({ section: 'home', icon: 'S', label: 'Contenido' })
+titleMap.home = 'Contenido del sitio'
 
 const productos = ref([])
 const pedidos = ref([])
+const descuentos = ref([])
 const clientes = ref([])
 const mensajes = ref([])
 const suscriptores = ref([])
@@ -1385,6 +1601,12 @@ const siteSettings = ref({
     whatsapp_cta_label: 'Hablar por WhatsApp',
     email_cta_label: 'Escribir por correo',
   },
+  about: {
+    heading: 'Quienes somos',
+    intro: 'Bloomskin nace para acercar el skincare coreano a Chile con una seleccion curada, amable de comprar y pensada para la vida real.',
+    body: 'Nos importan las formulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catalogo, acompaniamos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
+    signature: 'Curaduria real, ayuda cercana y una forma mas humana de comprar K-Beauty.',
+  },
   legal: {
     shipping_policy: {
       title: 'Tiempos y condiciones de envio',
@@ -1418,7 +1640,6 @@ const showClienteModal = ref(false)
 const savingCliente = ref(false)
 const uploadingImage = ref(false)
 const savingStockId = ref(null)
-const precioCalculado = ref(null)
 const form = ref({})
 const editingCliente = ref(null)
 const clienteForm = ref(buildProfileForm())
@@ -1428,9 +1649,15 @@ const imageInput = ref(null)
 const stockDrafts = ref({})
 
 const productoSearch = ref('')
+const productoCategoriaFilter = ref('all')
+const productoMarcaFilter = ref('all')
 const productoStockFilter = ref('all')
+const productoImagenFilter = ref('all')
 const pedidoSearch = ref('')
 const pedidoEstadoFilter = ref('all')
+const descuentoSearch = ref('')
+const ventasExportMonth = ref(currentMonthValue())
+const exportingVentas = ref(false)
 const clienteSearch = ref('')
 const clienteEstadoFilter = ref('active')
 const mensajeSearch = ref('')
@@ -1439,6 +1666,10 @@ const selectedOrderId = ref(null)
 const suscriptorSearch = ref('')
 const sendingNewsletter = ref(false)
 const savingSiteSettings = ref(false)
+const showDiscountModal = ref(false)
+const savingDiscount = ref(false)
+const editingDiscount = ref(null)
+const discountForm = ref({})
 const uploadingHomeIndex = ref(null)
 const newsletterForm = ref({
   subject: '',
@@ -1446,13 +1677,16 @@ const newsletterForm = ref({
   previewText: '',
   body: '',
   ctaLabel: 'Ver catalogo',
-  ctaUrl: 'http://localhost:5173/catalogo',
+  ctaUrl: 'https://www.bloomskin.cl/catalogo',
 })
 
 const currentTitle = computed(() => titleMap[activeSection.value])
 const productosActivos = computed(() => productos.value.length)
+const productosSinImagen = computed(() => productos.value.filter(p => !p.imagen_url).length)
 const sinStock = computed(() => productos.value.filter(p => p.stock === 0).length)
 const productosStockBajo = computed(() => productos.value.filter(p => p.stock <= 5).sort((a, b) => a.stock - b.stock))
+const productoCategorias = computed(() => [...new Set(productos.value.map(p => p.categoria).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es')))
+const productoMarcas = computed(() => [...new Set(productos.value.map(p => p.marca).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es')))
 const noLeidos = computed(() => mensajes.value.filter(m => !m.leido).length)
 const mensajesPendientes = computed(() => mensajes.value.filter(m => !m.respondido).length)
 const clientesConNotas = computed(() => clientes.value.filter(c => c.notas).length)
@@ -1462,12 +1696,14 @@ const clientasInactivas = computed(() => clientes.value.filter(c => c.activo ===
 const hasAnyData = computed(() => productos.value.length || pedidos.value.length || clientes.value.length || mensajes.value.length || suscriptores.value.length)
 const recentClientes = computed(() =>
   [...clientes.value]
+    .filter(cliente => cliente.activo !== false)
     .sort((a, b) => new Date(b.creado_en || 0) - new Date(a.creado_en || 0))
     .slice(0, 6)
 )
 const clientasNuevasMes = computed(() => {
   const now = new Date()
   return clientes.value.filter(cliente => {
+    if (cliente.activo === false) return false
     if (!cliente.creado_en) return false
     const created = new Date(cliente.creado_en)
     return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
@@ -1489,11 +1725,18 @@ const filteredProductos = computed(() => {
       .filter(Boolean)
       .some(value => String(value).toLowerCase().includes(q))
 
+    const matchesCategory = productoCategoriaFilter.value === 'all' || producto.categoria === productoCategoriaFilter.value
+    const matchesBrand = productoMarcaFilter.value === 'all' || producto.marca === productoMarcaFilter.value
+
     const matchesStock = productoStockFilter.value === 'all'
       || (productoStockFilter.value === 'low' && producto.stock <= 5)
       || (productoStockFilter.value === 'out' && producto.stock === 0)
 
-    return matchesSearch && matchesStock
+    const matchesImage = productoImagenFilter.value === 'all'
+      || (productoImagenFilter.value === 'with' && Boolean(producto.imagen_url))
+      || (productoImagenFilter.value === 'without' && !producto.imagen_url)
+
+    return matchesSearch && matchesCategory && matchesBrand && matchesStock && matchesImage
   })
 })
 
@@ -1521,6 +1764,16 @@ const filteredClientes = computed(() => {
       .some(value => String(value).toLowerCase().includes(q))
 
     return matchesState && matchesSearch
+  })
+})
+
+const filteredDescuentos = computed(() => {
+  const q = descuentoSearch.value.trim().toLowerCase()
+  return descuentos.value.filter(descuento => {
+    if (!q) return true
+    return [descuento.code, descuento.name, descuento.description]
+      .filter(Boolean)
+      .some(value => String(value).toLowerCase().includes(q))
   })
 })
 
@@ -1553,20 +1806,26 @@ const topCiudad = computed(() => {
   return winner ? winner[0] : 'Sin datos'
 })
 
+function currentMonthValue() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
 function resetForm() {
   form.value = {
     marca: '',
     nombre: '',
     descripcion: '',
     categoria: 'Serums',
-    precio_usd: '',
+    precio_usd: 0,
+    precio_clp: '',
     precio_oferta_clp: '',
+    oferta_hasta: '',
     stock: 0,
     badge: '',
     img_clase: 'p-img-1',
     imagen_url: '',
   }
-  precioCalculado.value = null
   selectedImageFile.value = null
   if (imageInput.value) imageInput.value.value = ''
 }
@@ -1597,8 +1856,11 @@ function handleLogout() {
 function openProductoModal(producto = null) {
   editingProducto.value = producto
   if (producto) {
-    form.value = { ...producto }
-    precioCalculado.value = producto.precio_clp
+    form.value = {
+      ...producto,
+      precio_usd: producto.precio_usd || 0,
+      oferta_hasta: producto.oferta_hasta ? String(producto.oferta_hasta).slice(0, 10) : '',
+    }
     selectedImageFile.value = null
     if (imageInput.value) imageInput.value.value = ''
   } else {
@@ -1616,6 +1878,23 @@ function openClienteModal(cliente) {
   }
   clienteFormError.value = ''
   showClienteModal.value = true
+}
+
+function openDiscountModal(discount = null) {
+  editingDiscount.value = discount
+  if (discount) {
+    discountForm.value = {
+      ...discount,
+      max_uses: discount.max_uses ?? '',
+      min_subtotal_clp: discount.min_subtotal_clp ?? '',
+      starts_at: discount.starts_at ? String(discount.starts_at).slice(0, 10) : '',
+      ends_at: discount.ends_at ? String(discount.ends_at).slice(0, 10) : '',
+      active: discount.active !== false,
+    }
+  } else {
+    resetDiscountForm()
+  }
+  showDiscountModal.value = true
 }
 
 function handleImageFileChange(event) {
@@ -1647,29 +1926,21 @@ function openOrderDetails(id) {
   activeSection.value = activeSection.value === 'dashboard' ? 'dashboard' : 'pedidos'
 }
 
-async function calcularPrecioAuto() {
-  const usd = parseFloat(form.value.precio_usd)
-  if (!Number.isFinite(usd) || usd <= 0) {
-    precioCalculado.value = null
-    return
-  }
-  try {
-    const { data } = await productosApi.calcularPrecio(usd)
-    precioCalculado.value = data.precio_clp
-  } catch {
-    precioCalculado.value = Math.ceil((usd + 1) * 1000 * 1.19 * 1.3)
-  }
-}
-
 async function guardarProducto() {
-  if (!form.value.marca || !form.value.nombre || !form.value.precio_usd) {
-    showToast('Marca, nombre y precio USD son obligatorios.', 'error')
+  if (!form.value.marca || !form.value.nombre || !form.value.precio_clp) {
+    showToast('Marca, nombre y precio en CLP son obligatorios.', 'error')
     return
   }
 
   saving.value = true
   try {
-    const payload = { ...form.value, precio_clp: precioCalculado.value }
+    const payload = {
+      ...form.value,
+      precio_usd: 0,
+      precio_clp: Number(form.value.precio_clp || 0),
+      precio_oferta_clp: form.value.precio_oferta_clp ? Number(form.value.precio_oferta_clp) : null,
+      oferta_hasta: form.value.oferta_hasta || null,
+    }
     if (editingProducto.value) {
       await productosApi.actualizar(editingProducto.value.id, payload)
       showToast('Producto actualizado.')
@@ -1677,7 +1948,7 @@ async function guardarProducto() {
       await productosApi.crear(payload)
       showToast('Producto creado.')
     }
-    await cargarProductos()
+    await Promise.all([cargarProductos(), cargarStats()])
     showModal.value = false
   } catch (err) {
     showToast(err.response?.data?.error || 'No se pudo guardar el producto.', 'error')
@@ -1690,7 +1961,7 @@ async function eliminarProducto(id) {
   if (!window.confirm('Eliminar este producto? Se ocultara de la tienda.')) return
   try {
     await productosApi.eliminar(id)
-    await cargarProductos()
+    await Promise.all([cargarProductos(), cargarStats()])
     showToast('Producto eliminado.')
   } catch (err) {
     showToast(err.response?.data?.error || 'No se pudo eliminar el producto.', 'error')
@@ -1700,7 +1971,7 @@ async function eliminarProducto(id) {
 async function cambiarEstado(id, estado) {
   try {
     await pedidosApi.cambiarEstado(id, estado)
-    await cargarPedidos()
+    await Promise.all([cargarPedidos(), cargarStats(), cargarProductos()])
     selectedOrderId.value = id
     showToast('Estado actualizado.')
   } catch (err) {
@@ -1780,6 +2051,93 @@ async function guardarCliente() {
   }
 }
 
+async function guardarDescuento() {
+  if (!discountForm.value.code || !discountForm.value.name || !discountForm.value.discount_percent) {
+    showToast('Codigo, nombre y porcentaje son obligatorios.', 'error')
+    return
+  }
+
+  savingDiscount.value = true
+  try {
+    const payload = {
+      ...discountForm.value,
+      discount_percent: Number(discountForm.value.discount_percent || 0),
+      max_uses: discountForm.value.max_uses === '' ? null : Number(discountForm.value.max_uses),
+      min_subtotal_clp: discountForm.value.min_subtotal_clp === '' ? null : Number(discountForm.value.min_subtotal_clp),
+      starts_at: discountForm.value.starts_at || null,
+      ends_at: discountForm.value.ends_at || null,
+      active: discountForm.value.active !== false,
+    }
+
+    if (editingDiscount.value) {
+      await descuentosApi.actualizar(editingDiscount.value.id, payload)
+      showToast('Codigo actualizado correctamente.')
+    } else {
+      await descuentosApi.crear(payload)
+      showToast('Codigo creado correctamente.')
+    }
+
+    await cargarDescuentos()
+    showDiscountModal.value = false
+  } catch (err) {
+    showToast(err.response?.data?.error || 'No se pudo guardar el codigo.', 'error')
+  } finally {
+    savingDiscount.value = false
+  }
+}
+
+async function desactivarDescuento(descuento) {
+  if (!descuento?.id) return
+  if (!window.confirm(`Desactivar el codigo ${descuento.code}?`)) return
+
+  try {
+    await descuentosApi.eliminar(descuento.id)
+    await cargarDescuentos()
+    showToast('Codigo desactivado correctamente.')
+  } catch (err) {
+    showToast(err.response?.data?.error || 'No se pudo desactivar el codigo.', 'error')
+  }
+}
+
+function resetDiscountForm() {
+  discountForm.value = {
+    code: '',
+    name: '',
+    description: '',
+    discount_percent: 10,
+    max_uses: '',
+    min_subtotal_clp: '',
+    starts_at: '',
+    ends_at: '',
+    active: true,
+  }
+}
+
+async function exportarVentasMensuales() {
+  if (!ventasExportMonth.value) {
+    showToast('Selecciona un mes para exportar el reporte.', 'error')
+    return
+  }
+
+  exportingVentas.value = true
+  try {
+    const { data } = await pedidosApi.exportarMensual(ventasExportMonth.value)
+    const url = window.URL.createObjectURL(new Blob([data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `bloomskin-ventas-${ventasExportMonth.value}.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+    showToast('Excel descargado correctamente.')
+  } catch (err) {
+    showToast(err.response?.data?.error || 'No se pudo exportar el reporte mensual.', 'error')
+  } finally {
+    exportingVentas.value = false
+  }
+}
+
 async function desactivarCliente(cliente) {
   if (!cliente?.id) return
   if (!window.confirm(`Desactivar a ${cliente.nombre}? La clienta no podra volver a entrar y tendra que registrarse otra vez.`)) return
@@ -1800,7 +2158,7 @@ function resetNewsletterForm() {
     previewText: '',
     body: '',
     ctaLabel: 'Ver catalogo',
-    ctaUrl: 'http://localhost:5173/catalogo',
+    ctaUrl: 'https://www.bloomskin.cl/catalogo',
   }
 }
 
@@ -1867,6 +2225,11 @@ async function cargarPedidos() {
   if (!selectedOrderId.value && data.length > 0) selectedOrderId.value = data[0].id
 }
 
+async function cargarDescuentos() {
+  const { data } = await descuentosApi.listar()
+  descuentos.value = data
+}
+
 async function cargarStats() {
   const { data } = await pedidosApi.stats()
   stats.value = data
@@ -1887,7 +2250,7 @@ async function refreshAll() {
   refreshing.value = true
   error.value = ''
   try {
-    await Promise.all([cargarProductos(), cargarPedidos(), cargarStats(), cargarClientesYMensajes(), cargarHomeSettings()])
+    await Promise.all([cargarProductos(), cargarPedidos(), cargarDescuentos(), cargarStats(), cargarClientesYMensajes(), cargarHomeSettings()])
     lastSync.value = new Date()
   } catch (err) {
     error.value = err.response?.data?.error || 'No se pudieron cargar los datos.'
@@ -2002,7 +2365,7 @@ function stockLabel(stock) {
 
 .dash-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-bottom: 20px; }
 .newsletter-grid { align-items: start; }
-.home-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.home-settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-top: 18px; }
 .settings-subblock { border-top: 1px solid rgba(255,255,255,.06); margin-top: 16px; padding-top: 16px; }
 .home-tile-card { display: flex; flex-direction: column; gap: 14px; }
 .home-image-preview img { max-height: 180px; object-fit: contain; background: #fff; }
@@ -2120,6 +2483,26 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 .btn-primary { padding: 9px 18px; background: var(--rose); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; transition: background .2s; }
 .btn-primary:hover:not(:disabled) { background: var(--rose-dark); }
 .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+.btn-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(196,100,122,.24);
+  background: rgba(196,100,122,.1);
+  color: var(--blush);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.btn-link:hover {
+  background: rgba(196,100,122,.18);
+}
+.btn-link-inline {
+  margin-top: 10px;
+}
 .btn-ghost { padding: 9px 18px; background: transparent; color: var(--ad-muted); border: 1px solid var(--ad-border); border-radius: 8px; font-size: 12px; transition: all .2s; }
 .btn-ghost:hover { color: var(--ad-text); }
 .btn-edit { background: rgba(196,100,122,.15); color: var(--blush); border: none; font-size: 11px; padding: 6px 12px; border-radius: 6px; transition: background .2s; }
@@ -2284,3 +2667,4 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
   }
 }
 </style>
+

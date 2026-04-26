@@ -4,6 +4,7 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { getPool } = require('./config/db');
+const { ensureDiscountSchema } = require('./lib/discounts');
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET no esta configurado. Revisa backend/.env antes de iniciar el servidor.');
@@ -57,6 +58,7 @@ app.use('/api/clientes', require('./routes/clientes'));
 app.use('/api/mensajes', require('./routes/mensajes'));
 app.use('/api/news', require('./routes/news'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/descuentos', require('./routes/descuentos'));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));
 
@@ -80,7 +82,8 @@ app.use((err, _req, res, _next) => {
 
 const PORT = process.env.PORT || 3000;
 getPool()
-  .then(() => {
+  .then(async pool => {
+    await ensureDiscountSchema(pool);
     app.listen(PORT, () => {
       console.log(`Bloomskin API corriendo en http://localhost:${PORT}`);
       if (hasFrontendBuild) {

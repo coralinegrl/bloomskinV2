@@ -2,48 +2,82 @@
   <div class="contact-page">
     <AnnouncementBar />
 
-    <header class="contact-header">
-      <div class="contact-header-inner">
-        <RouterLink to="/" class="header-brand">
-          <img src="/brand/bloomskin-logo.png" alt="Bloomskin" class="header-logo" />
-          <span>
-            <strong>bloomskin</strong>
-            <small>K-Beauty - Chile</small>
-          </span>
-        </RouterLink>
-
-        <nav class="contact-nav">
-          <RouterLink to="/">Inicio</RouterLink>
-          <RouterLink to="/catalogo">Catálogo</RouterLink>
-          <RouterLink to="/envios">Envíos</RouterLink>
-        </nav>
-      </div>
-    </header>
+    <AppHeader
+      v-model:search-term="headerSearch"
+      :account-label="customerAuth.isAuthenticated ? (customerAuth.user?.nombre || 'Mi cuenta') : 'Entrar'"
+      :is-authenticated="customerAuth.isAuthenticated"
+      :cart-count="cart.count"
+      @search-submit="submitHeaderSearch"
+      @account-click="handleAccountClick"
+      @favorites-click="handleFavoritesClick"
+      @cart-click="cart.openDrawer('cart')"
+    />
 
     <main class="contact-main">
       <section class="contact-hero">
-        <div class="contact-tag">Contacto</div>
+        <div class="contact-tag">Contacto Bloomskin</div>
         <h1>{{ contact.heading }}</h1>
         <p>{{ contact.intro }}</p>
       </section>
 
       <section class="contact-grid">
         <article class="contact-card accent-card">
-          <h2>Canales directos</h2>
-          <p>Resuelve dudas de productos, despacho o seguimiento usando el canal que te acomode más.</p>
+          <div class="card-kicker">Escribenos</div>
+          <h2>Te ayudamos a elegir mejor</h2>
+          <p>
+            Si tienes dudas sobre una rutina, un pedido, despachos o disponibilidad, dejanos tu mensaje.
+            Respondemos con foco comercial y ayuda real, no con respuestas roboticas.
+          </p>
 
-          <div class="contact-actions">
-            <a class="primary-btn" :href="footer.whatsapp_url" target="_blank" rel="noreferrer">
-              {{ contact.whatsapp_cta_label }}
-            </a>
-            <a class="ghost-btn" :href="`mailto:${footer.email}`">
-              {{ contact.email_cta_label }}
-            </a>
-          </div>
+          <form class="contact-form" @submit.prevent="sendMessage">
+            <div class="form-row">
+              <label>
+                <span>Nombre</span>
+                <input v-model.trim="form.nombre" type="text" placeholder="Tu nombre" :disabled="sending" />
+              </label>
+              <label>
+                <span>Email</span>
+                <input v-model.trim="form.email" type="email" placeholder="tu@email.com" :disabled="sending" />
+              </label>
+            </div>
+
+            <label>
+              <span>Motivo</span>
+              <select v-model="form.tipo" :disabled="sending">
+                <option value="consult">Consulta de productos</option>
+                <option value="order">Pedido o seguimiento</option>
+                <option value="complaint">Postventa o incidencia</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Mensaje</span>
+              <textarea
+                v-model.trim="form.contenido"
+                rows="6"
+                placeholder="Cuéntanos qué necesitas y te orientamos."
+                :disabled="sending"
+              ></textarea>
+            </label>
+
+            <div class="contact-actions">
+              <button class="primary-btn" type="submit" :disabled="sending">
+                {{ sending ? 'Enviando...' : 'Enviar mensaje' }}
+              </button>
+              <a class="ghost-btn" :href="footer.whatsapp_url" target="_blank" rel="noreferrer">
+                {{ contact.whatsapp_cta_label }}
+              </a>
+            </div>
+          </form>
         </article>
 
         <article class="contact-card">
-          <h2>Datos de Bloomskin</h2>
+          <div class="card-kicker">Canales directos</div>
+          <h2>Bloomskin por donde te acomode</h2>
+          <p>
+            Si prefieres una respuesta mas rapida, tambien puedes escribirnos directo por correo o WhatsApp.
+          </p>
+
           <dl class="contact-list">
             <div>
               <dt>Email</dt>
@@ -58,6 +92,13 @@
               <dd><a :href="footer.whatsapp_url" target="_blank" rel="noreferrer">{{ footer.whatsapp_label }}</a></dd>
             </div>
           </dl>
+
+          <div class="contact-note">
+            <strong>Tip Bloomskin</strong>
+            <p>
+              Si nos escribes por un pedido, incluye tu numero de orden para ayudarte mucho mas rapido.
+            </p>
+          </div>
         </article>
       </section>
     </main>
@@ -68,10 +109,22 @@
 
 <script setup>
 import { onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
-import { settingsApi } from '../api/index.js'
+import { useRouter } from 'vue-router'
+import { mensajesApi, settingsApi } from '../api/index.js'
+import AppHeader from '../components/store/AppHeader.vue'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import AnnouncementBar from '../components/ui/AnnouncementBar.vue'
+import { useCartStore } from '../stores/cart.js'
+import { useCustomerAuthStore } from '../stores/customerAuth.js'
+import { useUiStore } from '../stores/ui.js'
+
+const router = useRouter()
+const ui = useUiStore()
+const cart = useCartStore()
+const customerAuth = useCustomerAuthStore()
+
+const headerSearch = ref('')
+const sending = ref(false)
 
 const footer = ref({
   instagram_url: 'https://www.instagram.com/bloomskin__cl',
@@ -88,15 +141,82 @@ const contact = ref({
   email_cta_label: 'Escribir por correo',
 })
 
+const form = ref(buildForm())
+
+function buildForm() {
+  return {
+    nombre: customerAuth.user?.nombre || '',
+    email: customerAuth.user?.email || '',
+    tipo: 'consult',
+    contenido: '',
+  }
+}
+
+function submitHeaderSearch() {
+  router.push({
+    name: 'catalog',
+    query: headerSearch.value.trim() ? { q: headerSearch.value.trim() } : {},
+  })
+}
+
+function handleAccountClick() {
+  if (customerAuth.isAuthenticated) {
+    router.push({ name: 'customer-account' })
+    return
+  }
+
+  ui.openAuthModal('login')
+}
+
+function handleFavoritesClick() {
+  if (customerAuth.isAuthenticated) {
+    router.push({ name: 'customer-account', hash: '#favoritos' })
+    return
+  }
+
+  ui.openAuthModal('login')
+}
+
 async function loadSite() {
   try {
     const { data } = await settingsApi.site()
     if (data?.footer) footer.value = { ...footer.value, ...data.footer }
     if (data?.contact) contact.value = { ...contact.value, ...data.contact }
   } catch (error) {
-    console.error('No se pudo cargar la página de contacto', error)
+    console.error('No se pudo cargar la pagina de contacto', error)
   }
 }
+
+async function sendMessage() {
+  if (!form.value.nombre || !form.value.email || !form.value.contenido) {
+    ui.info('Completa nombre, email y mensaje para poder enviarlo.')
+    return
+  }
+
+  sending.value = true
+
+  try {
+    await mensajesApi.enviar({
+      ...form.value,
+      cliente_id: customerAuth.user?.id || null,
+    })
+    ui.success('Recibimos tu mensaje. Te responderemos por el canal que nos dejaste.')
+    form.value = {
+      ...buildForm(),
+      tipo: form.value.tipo,
+    }
+  } catch (error) {
+    console.error(error)
+    ui.error(error.response?.data?.error || 'No pudimos enviar tu mensaje.')
+  } finally {
+    sending.value = false
+  }
+}
+
+watch(() => customerAuth.user, () => {
+  form.value.nombre = customerAuth.user?.nombre || form.value.nombre
+  form.value.email = customerAuth.user?.email || form.value.email
+}, { deep: true })
 
 watch(contact, value => {
   document.title = `${value.heading} | Bloomskin`
@@ -111,91 +231,27 @@ onMounted(loadSite)
   background: linear-gradient(180deg, #fffdfd, #fff5f8 20%, #fefcfd 100%);
 }
 
-.contact-header {
-  background: rgba(255, 255, 255, 0.94);
-  border-bottom: 1px solid rgba(191, 84, 122, 0.12);
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  backdrop-filter: blur(12px);
-}
-
-.contact-header-inner,
 .contact-main {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 0 28px;
-}
-
-.contact-header-inner {
-  min-height: 78px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.header-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header-brand strong {
-  display: block;
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 30px;
-  color: var(--heart-deep);
-  line-height: .9;
-}
-
-.header-brand small {
-  display: block;
-  margin-top: 4px;
-  font-size: 9px;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.header-logo {
-  width: 44px;
-  height: 44px;
-  object-fit: contain;
-}
-
-.contact-nav {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-}
-
-.contact-nav a {
-  font-size: 12px;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--dark-mid);
-}
-
-.contact-main {
-  padding-top: 52px;
-  padding-bottom: 24px;
+  padding: 44px 28px 0;
 }
 
 .contact-hero {
   text-align: center;
-  max-width: 760px;
+  max-width: 780px;
   margin: 0 auto 28px;
 }
 
-.contact-tag {
+.contact-tag,
+.card-kicker {
   display: inline-flex;
   padding: 6px 14px;
   border-radius: 999px;
   background: rgba(196, 100, 122, 0.12);
   color: var(--rose);
   font-size: 10px;
-  letter-spacing: .22em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 
@@ -216,7 +272,7 @@ onMounted(loadSite)
 
 .contact-grid {
   display: grid;
-  grid-template-columns: 1.2fr .8fr;
+  grid-template-columns: 1.2fr 0.8fr;
   gap: 18px;
 }
 
@@ -233,6 +289,7 @@ onMounted(loadSite)
 }
 
 .contact-card h2 {
+  margin-top: 14px;
   font-family: 'Cormorant Garamond', serif;
   font-size: 34px;
   color: var(--dark);
@@ -244,8 +301,56 @@ onMounted(loadSite)
   line-height: 1.8;
 }
 
-.contact-actions {
+.contact-form {
   margin-top: 24px;
+  display: grid;
+  gap: 14px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.contact-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.contact-form span {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rose-dark);
+}
+
+.contact-form input,
+.contact-form select,
+.contact-form textarea {
+  width: 100%;
+  border: 1px solid rgba(191, 84, 122, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 14px 16px;
+  color: var(--dark);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+.contact-form textarea {
+  resize: vertical;
+}
+
+.contact-form input:focus,
+.contact-form select:focus,
+.contact-form textarea:focus {
+  border-color: var(--rose);
+}
+
+.contact-actions {
+  margin-top: 6px;
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
@@ -256,17 +361,22 @@ onMounted(loadSite)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 46px;
-  padding: 0 18px;
+  min-height: 48px;
+  padding: 0 20px;
   border-radius: 999px;
   font-size: 12px;
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .primary-btn {
   background: var(--rose-dark);
   color: #fff;
+  border: none;
+}
+
+.primary-btn:disabled {
+  opacity: 0.65;
 }
 
 .ghost-btn {
@@ -276,14 +386,14 @@ onMounted(loadSite)
 }
 
 .contact-list {
-  margin-top: 18px;
+  margin-top: 22px;
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .contact-list dt {
   font-size: 11px;
-  letter-spacing: .14em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--rose);
 }
@@ -294,21 +404,36 @@ onMounted(loadSite)
   color: var(--dark-mid);
 }
 
-@media (max-width: 820px) {
-  .contact-grid {
+.contact-note {
+  margin-top: 28px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  background: rgba(196, 100, 122, 0.08);
+  border: 1px solid rgba(191, 84, 122, 0.12);
+}
+
+.contact-note strong {
+  display: block;
+  color: var(--rose-dark);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.contact-note p {
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .contact-grid,
+  .form-row {
     grid-template-columns: 1fr;
   }
+}
 
-  .contact-header-inner {
-    flex-direction: column;
-    justify-content: center;
-    padding-top: 14px;
-    padding-bottom: 14px;
-  }
-
+@media (max-width: 720px) {
   .contact-main {
-    padding-left: 20px;
-    padding-right: 20px;
+    padding: 28px 20px 0;
   }
 
   .contact-hero h1 {
@@ -317,6 +442,15 @@ onMounted(loadSite)
 
   .contact-card {
     padding: 24px 20px;
+  }
+
+  .contact-actions {
+    flex-direction: column;
+  }
+
+  .primary-btn,
+  .ghost-btn {
+    width: 100%;
   }
 }
 </style>

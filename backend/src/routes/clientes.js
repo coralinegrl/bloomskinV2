@@ -10,7 +10,7 @@ async function fetchWishlistByClientId(clienteId) {
     .query(`
       SELECT
         pr.id, pr.marca, pr.nombre, pr.descripcion, pr.categoria,
-        pr.precio_usd, pr.precio_clp, pr.precio_oferta_clp, pr.stock,
+        pr.precio_usd, pr.precio_clp, pr.precio_oferta_clp, pr.oferta_hasta, pr.stock,
         pr.badge, pr.estrellas, pr.resenas, pr.img_clase, pr.imagen_url,
         cw.creado_en AS wishlisted_en
       FROM cliente_wishlist cw

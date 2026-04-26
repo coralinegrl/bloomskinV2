@@ -29,6 +29,7 @@ CREATE TABLE productos (
   precio_usd        DECIMAL(10,2)  NOT NULL,
   precio_clp        INT            NOT NULL,
   precio_oferta_clp INT            NULL,
+  oferta_hasta      DATE           NULL,
   stock             INT            NOT NULL DEFAULT 0,
   badge             NVARCHAR(20)   NULL,
   estrellas         NVARCHAR(10)   NOT NULL DEFAULT N'★★★★★',
@@ -60,6 +61,11 @@ CREATE TABLE clientes (
 CREATE TABLE pedidos (
   id              INT IDENTITY(1,1) PRIMARY KEY,
   cliente_id      INT           NOT NULL REFERENCES clientes(id),
+  subtotal_clp    INT           NULL,
+  subtotal_pagado_clp INT       NULL,
+  descuento_codigo NVARCHAR(50) NULL,
+  descuento_porcentaje INT      NULL,
+  descuento_clp   INT           NOT NULL DEFAULT 0,
   total_clp       INT           NOT NULL,
   cliente_nombre  NVARCHAR(150),
   cliente_email   NVARCHAR(150),
@@ -71,6 +77,23 @@ CREATE TABLE pedidos (
   notas           NVARCHAR(MAX),
   creado_en       DATETIME2     NOT NULL DEFAULT GETDATE(),
   actualizado_en  DATETIME2     NOT NULL DEFAULT GETDATE()
+);
+
+-- Codigos promocionales
+CREATE TABLE discount_codes (
+  id                INT IDENTITY(1,1) PRIMARY KEY,
+  code              NVARCHAR(50)  NOT NULL UNIQUE,
+  name              NVARCHAR(120) NOT NULL,
+  description       NVARCHAR(500) NULL,
+  discount_percent  INT           NOT NULL,
+  max_uses          INT           NULL,
+  used_count        INT           NOT NULL DEFAULT 0,
+  starts_at         DATETIME2     NULL,
+  ends_at           DATETIME2     NULL,
+  min_subtotal_clp  INT           NULL,
+  active            BIT           NOT NULL DEFAULT 1,
+  created_en        DATETIME2     NOT NULL DEFAULT GETDATE(),
+  updated_en        DATETIME2     NOT NULL DEFAULT GETDATE()
 );
 
 -- Líneas de pedido
@@ -116,6 +139,7 @@ CREATE TABLE suscriptores (
 CREATE INDEX IX_productos_activo ON productos(activo);
 CREATE INDEX IX_pedidos_estado   ON pedidos(estado);
 CREATE INDEX IX_pedidos_cliente  ON pedidos(cliente_id);
+CREATE INDEX IX_discount_codes_active ON discount_codes(active, starts_at, ends_at);
 CREATE INDEX IX_mensajes_leido   ON mensajes(leido);
 CREATE INDEX IX_cliente_wishlist_cliente ON cliente_wishlist(cliente_id);
 

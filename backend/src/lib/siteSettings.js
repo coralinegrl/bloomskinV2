@@ -165,6 +165,12 @@ const defaultSettings = {
     whatsapp_cta_label: 'Hablar por WhatsApp',
     email_cta_label: 'Escribir por correo',
   },
+  about: {
+    heading: 'Quienes somos',
+    intro: 'Bloomskin nace para acercar el skincare coreano a Chile con una seleccion curada, amable de comprar y pensada para la vida real.',
+    body: 'Nos importan las formulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catalogo, acompaniamos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
+    signature: 'Curaduria real, ayuda cercana y una forma mas humana de comprar K-Beauty.',
+  },
   legal: {
     shipping_policy: {
       title: 'Tiempos y condiciones de envio',
@@ -324,6 +330,15 @@ function sanitizeContactSettings(contact = {}) {
   };
 }
 
+function sanitizeAboutSettings(about = {}) {
+  return {
+    heading: sanitizeString(about.heading, defaultSettings.about.heading),
+    intro: sanitizeString(about.intro, defaultSettings.about.intro),
+    body: sanitizeString(about.body, defaultSettings.about.body),
+    signature: sanitizeString(about.signature, defaultSettings.about.signature),
+  };
+}
+
 function sanitizeLegalPage(page = {}, fallback) {
   return {
     title: sanitizeString(page.title, fallback.title),
@@ -347,6 +362,7 @@ function sanitizeSiteSettings(site = {}) {
     payment: sanitizePaymentSettings(site.payment),
     seo: sanitizeSeoSettings(site.seo),
     contact: sanitizeContactSettings(site.contact),
+    about: sanitizeAboutSettings(site.about),
     legal: sanitizeLegalSettings(site.legal),
   };
 }
@@ -363,6 +379,7 @@ function readSettings() {
     payment: { ...defaultSettings.payment, ...(parsed.payment || {}) },
     seo: { ...defaultSettings.seo, ...(parsed.seo || {}) },
     contact: { ...defaultSettings.contact, ...(parsed.contact || {}) },
+    about: { ...defaultSettings.about, ...(parsed.about || {}) },
     legal: { ...defaultSettings.legal, ...(parsed.legal || {}) },
   });
 }

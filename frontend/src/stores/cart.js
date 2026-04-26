@@ -9,7 +9,10 @@ export const useCartStore = defineStore('cart', () => {
   const count = computed(() => items.value.reduce((s, i) => s + i.cantidad, 0))
   const total = computed(() => items.value.reduce((s, i) => s + i.precio_clp * i.cantidad, 0))
   const subtotalBase = computed(() => items.value.reduce((sum, item) => {
-    const basePrice = item.precio_oferta_clp || item.precio_clp
+    const offerActive = Boolean(item.precio_oferta_clp) && (
+      !item.oferta_hasta || new Date(`${String(item.oferta_hasta).slice(0, 10)}T23:59:59`).getTime() >= Date.now()
+    )
+    const basePrice = offerActive ? item.precio_oferta_clp : item.precio_clp
     return sum + basePrice * item.cantidad
   }, 0))
   const savings = computed(() => Math.max(0, subtotalBase.value - total.value))

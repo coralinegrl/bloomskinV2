@@ -82,6 +82,7 @@ export const productosApi = {
 export const pedidosApi = {
   listar: () => adminApi.get('/pedidos'),
   stats: () => adminApi.get('/pedidos/stats'),
+  exportarMensual: month => adminApi.get(`/pedidos/export/monthly?month=${encodeURIComponent(month)}`, { responseType: 'blob' }),
   mine: () => clientApi.get('/pedidos/mine'),
   paymentConfig: () => publicApi.get('/pedidos/payment-config'),
   quoteShipping: payload => publicApi.post('/pedidos/shipping-quote', payload),
@@ -99,6 +100,14 @@ export const pedidosApi = {
     })
   },
   cambiarEstado: (id, estado) => adminApi.patch(`/pedidos/${id}/estado`, { estado }),
+}
+
+export const descuentosApi = {
+  listar: () => adminApi.get('/descuentos'),
+  validar: payload => publicApi.post('/descuentos/validate', payload),
+  crear: data => adminApi.post('/descuentos', data),
+  actualizar: (id, data) => adminApi.put(`/descuentos/${id}`, data),
+  eliminar: id => adminApi.delete(`/descuentos/${id}`),
 }
 
 export const clientesApi = {

@@ -71,6 +71,7 @@ function applySeo() {
     'returns-policy': `Cambios y devoluciones | ${seo.site_name || 'Bloomskin'}`,
     'shipping-conditions': `Condiciones de envio | ${seo.site_name || 'Bloomskin'}`,
     contact: `Contacto | ${seo.site_name || 'Bloomskin'}`,
+    about: `Quienes somos | ${seo.site_name || 'Bloomskin'}`,
     admin: `Admin | ${seo.site_name || 'Bloomskin'}`,
     login: `Admin login | ${seo.site_name || 'Bloomskin'}`,
   }

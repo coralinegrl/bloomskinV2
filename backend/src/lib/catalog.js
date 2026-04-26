@@ -18,6 +18,7 @@ function sanitizeProduct(product, index = 0) {
     precio_usd: Number(product.precio_usd || 0),
     precio_clp: Number(product.precio_clp || 0),
     precio_oferta_clp: product.precio_oferta_clp ? Number(product.precio_oferta_clp) : null,
+    oferta_hasta: product.oferta_hasta || null,
     stock: Number(product.stock || 0),
     badge: product.badge || null,
     estrellas: normalizeStars(product.estrellas),

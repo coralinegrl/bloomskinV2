@@ -2,27 +2,20 @@
   <div class="content-page">
     <AnnouncementBar />
 
-    <header class="content-header">
-      <div class="content-header-inner">
-        <RouterLink to="/" class="header-brand">
-          <img src="/brand/bloomskin-logo.png" alt="Bloomskin" class="header-logo" />
-          <span>
-            <strong>bloomskin</strong>
-            <small>K-Beauty - Chile</small>
-          </span>
-        </RouterLink>
-
-        <nav class="content-nav">
-          <RouterLink to="/">Inicio</RouterLink>
-          <RouterLink to="/catalogo">Catálogo</RouterLink>
-          <RouterLink to="/contacto">Contacto</RouterLink>
-        </nav>
-      </div>
-    </header>
+    <AppHeader
+      v-model:search-term="headerSearch"
+      :account-label="customerAuth.isAuthenticated ? (customerAuth.user?.nombre || 'Mi cuenta') : 'Entrar'"
+      :is-authenticated="customerAuth.isAuthenticated"
+      :cart-count="cart.count"
+      @search-submit="submitHeaderSearch"
+      @account-click="handleAccountClick"
+      @favorites-click="handleFavoritesClick"
+      @cart-click="cart.openDrawer('cart')"
+    />
 
     <main class="content-main">
       <section class="content-hero">
-        <div class="content-tag">Información Bloomskin</div>
+        <div class="content-tag">Informacion Bloomskin</div>
         <h1>{{ page.title }}</h1>
         <p>{{ page.intro }}</p>
       </section>
@@ -30,7 +23,7 @@
       <section class="content-card">
         <p>{{ page.body }}</p>
         <div class="content-actions">
-          <RouterLink class="ghost-btn" to="/catalogo">Volver al catálogo</RouterLink>
+          <RouterLink class="ghost-btn" to="/catalogo">Volver al catalogo</RouterLink>
           <RouterLink class="primary-btn" to="/contacto">Hablar con Bloomskin</RouterLink>
         </div>
       </section>
@@ -42,29 +35,38 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { settingsApi } from '../api/index.js'
+import AppHeader from '../components/store/AppHeader.vue'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import AnnouncementBar from '../components/ui/AnnouncementBar.vue'
+import { useCartStore } from '../stores/cart.js'
+import { useCustomerAuthStore } from '../stores/customerAuth.js'
+import { useUiStore } from '../stores/ui.js'
 
 const route = useRoute()
+const router = useRouter()
+const ui = useUiStore()
+const cart = useCartStore()
+const customerAuth = useCustomerAuthStore()
 
+const headerSearch = ref('')
 const site = ref({
   legal: {
     shipping_policy: {
-      title: 'Tiempos y condiciones de envío',
-      intro: 'Despachamos desde Antofagasta y coordinamos cada pedido según destino y disponibilidad.',
-      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envío es gratis cuando corresponda según configuración vigente. Los tiempos pueden variar en días de alta demanda.',
+      title: 'Tiempos y condiciones de envio',
+      intro: 'Despachamos desde Antofagasta y coordinamos cada pedido segun destino y disponibilidad.',
+      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envio es gratis cuando corresponda segun configuracion vigente. Los tiempos pueden variar en dias de alta demanda.',
     },
     returns_policy: {
       title: 'Cambios y devoluciones',
-      intro: 'Si tu pedido llega con algún problema, escríbenos para revisarlo caso a caso.',
-      body: 'Aceptamos revisiones por productos dañados, errores de preparación o incidencias de transporte. Para evaluar un caso necesitaremos número de pedido, fotos y contacto dentro del plazo informado por Bloomskin.',
+      intro: 'Si tu pedido llega con algun problema, escribenos para revisarlo caso a caso.',
+      body: 'Aceptamos revisiones por productos danados, errores de preparacion o incidencias de transporte. Para evaluar un caso necesitaremos numero de pedido, fotos y contacto dentro del plazo informado por Bloomskin.',
     },
     shipping_conditions: {
       title: 'Condiciones de despacho',
-      intro: 'Estas condiciones resumen cómo operan nuestros envíos dentro de Chile.',
-      body: 'La clienta debe ingresar datos correctos y completos para evitar retrasos. Si el courier no logra entregar por dirección incompleta o ausencia reiterada, el pedido puede requerir coordinación adicional.',
+      intro: 'Estas condiciones resumen como operan nuestros envios dentro de Chile.',
+      body: 'La clienta debe ingresar datos correctos y completos para evitar retrasos. Si el courier no logra entregar por direccion incompleta o ausencia reiterada, el pedido puede requerir coordinacion adicional.',
     },
   },
 })
@@ -73,6 +75,31 @@ const page = computed(() => {
   const key = route.meta.contentKey || 'shipping_policy'
   return site.value.legal?.[key] || site.value.legal.shipping_policy
 })
+
+function submitHeaderSearch() {
+  router.push({
+    name: 'catalog',
+    query: headerSearch.value.trim() ? { q: headerSearch.value.trim() } : {},
+  })
+}
+
+function handleAccountClick() {
+  if (customerAuth.isAuthenticated) {
+    router.push({ name: 'customer-account' })
+    return
+  }
+
+  ui.openAuthModal('login')
+}
+
+function handleFavoritesClick() {
+  if (customerAuth.isAuthenticated) {
+    router.push({ name: 'customer-account', hash: '#favoritos' })
+    return
+  }
+
+  ui.openAuthModal('login')
+}
 
 async function loadSite() {
   try {
@@ -96,75 +123,10 @@ onMounted(loadSite)
   background: linear-gradient(180deg, #fffdfd, #fff5f8 22%, #fefcfd 100%);
 }
 
-.content-header {
-  background: rgba(255, 255, 255, 0.94);
-  border-bottom: 1px solid rgba(191, 84, 122, 0.12);
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  backdrop-filter: blur(12px);
-}
-
-.content-header-inner,
 .content-main {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 0 28px;
-}
-
-.content-header-inner {
-  min-height: 78px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.header-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header-brand strong {
-  display: block;
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 30px;
-  color: var(--heart-deep);
-  line-height: .9;
-}
-
-.header-brand small {
-  display: block;
-  margin-top: 4px;
-  font-size: 9px;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.header-logo {
-  width: 44px;
-  height: 44px;
-  object-fit: contain;
-}
-
-.content-nav {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-}
-
-.content-nav a {
-  font-size: 12px;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--dark-mid);
-}
-
-.content-main {
-  padding-top: 52px;
-  padding-bottom: 24px;
+  padding: 44px 28px 0;
 }
 
 .content-hero {
@@ -180,7 +142,7 @@ onMounted(loadSite)
   background: rgba(196, 100, 122, 0.12);
   color: var(--rose);
   font-size: 10px;
-  letter-spacing: .22em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 
@@ -225,7 +187,7 @@ onMounted(loadSite)
   padding: 0 18px;
   border-radius: 999px;
   font-size: 12px;
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -241,16 +203,8 @@ onMounted(loadSite)
 }
 
 @media (max-width: 720px) {
-  .content-header-inner {
-    flex-direction: column;
-    justify-content: center;
-    padding-top: 14px;
-    padding-bottom: 14px;
-  }
-
   .content-main {
-    padding-left: 20px;
-    padding-right: 20px;
+    padding: 28px 20px 0;
   }
 
   .content-hero h1 {
@@ -259,6 +213,15 @@ onMounted(loadSite)
 
   .content-card {
     padding: 24px 20px;
+  }
+
+  .content-actions {
+    flex-direction: column;
+  }
+
+  .primary-btn,
+  .ghost-btn {
+    width: 100%;
   }
 }
 </style>

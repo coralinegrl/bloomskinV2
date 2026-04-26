@@ -3,7 +3,8 @@
     <AnnouncementBar />
     <AppHeader
       v-model:search-term="searchQuery"
-      :account-label="customerAuth.isAuthenticated ? 'Mi cuenta' : 'Entrar'"
+      :account-label="customerAuth.isAuthenticated ? (customerAuth.user?.nombre || 'Mi cuenta') : 'Entrar'"
+      :is-authenticated="customerAuth.isAuthenticated"
       :cart-count="cart.count"
       @search-submit="syncRouteQuery"
       @account-click="handleAccountClick"
@@ -79,12 +80,12 @@
       </div>
     </section>
 
-    <StoreFooter @category-select="setCategory" />
+    <StoreFooter />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { productosApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
@@ -162,6 +163,17 @@ const filteredProducts = computed(() => {
 })
 
 onMounted(async () => {
+  window.addEventListener('focus', refreshCatalogProducts)
+  document.addEventListener('visibilitychange', refreshCatalogProducts)
+  await loadCatalog()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', refreshCatalogProducts)
+  document.removeEventListener('visibilitychange', refreshCatalogProducts)
+})
+
+async function loadCatalog() {
   try {
     await customerAuth.refreshProfile()
     const { data } = await productosApi.listar()
@@ -173,7 +185,17 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+async function refreshCatalogProducts() {
+  if (document.visibilityState && document.visibilityState !== 'visible') return
+  try {
+    const { data } = await productosApi.listar()
+    productos.value = data.map(product => ({ ...product, categoria: normalizeCategory(product.categoria) }))
+  } catch (error) {
+    console.error('No pudimos refrescar el catálogo.', error)
+  }
+}
 
 watch(() => route.query, applyRouteFilters)
 watch([activeTab, searchQuery], () => {

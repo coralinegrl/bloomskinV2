@@ -29,18 +29,18 @@
 
         <div class="footer-col">
           <h4>Tienda</h4>
-          <RouterLink to="/catalogo">Catálogo</RouterLink>
           <RouterLink to="/">Inicio</RouterLink>
-          <button type="button" class="footer-btn" @click="$emit('category-select', 'Limpiadores')">Limpiadores</button>
-          <button type="button" class="footer-btn" @click="$emit('category-select', 'Serums')">Serums</button>
+          <RouterLink to="/catalogo">Catalogo</RouterLink>
+          <RouterLink to="/contacto">Contactanos</RouterLink>
+          <RouterLink to="/quienes-somos">Quienes somos</RouterLink>
         </div>
 
         <div class="footer-col">
-          <h4>Información</h4>
-          <RouterLink to="/envios">Envíos</RouterLink>
+          <h4>Informacion</h4>
+          <RouterLink to="/envios">Envios</RouterLink>
           <RouterLink to="/cambios-y-devoluciones">Cambios y devoluciones</RouterLink>
-          <RouterLink to="/condiciones-de-envio">Condiciones de envío</RouterLink>
-          <RouterLink to="/contacto">Contacto</RouterLink>
+          <RouterLink to="/condiciones-de-envio">Condiciones de envio</RouterLink>
+          <RouterLink to="/contacto">Ayuda y contacto</RouterLink>
         </div>
 
         <div class="footer-col">
@@ -63,8 +63,6 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { settingsApi } from '../../api/index.js'
-
-defineEmits(['category-select'])
 
 const footer = ref({
   brand_sub: 'K-Beauty - Chile',
@@ -132,14 +130,14 @@ onMounted(async () => {
 .footer-brand-name {
   font-family: 'Cormorant Garamond', serif;
   font-size: 28px;
-  line-height: .9;
+  line-height: 0.9;
   color: var(--rose-dark);
 }
 
 .footer-brand-sub {
   margin-top: 4px;
   font-size: 10px;
-  letter-spacing: .22em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -184,18 +182,14 @@ onMounted(async () => {
 .footer-col h4 {
   margin-bottom: 4px;
   font-size: 11px;
-  letter-spacing: .14em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--rose);
 }
 
-.footer-col a,
-.footer-btn {
+.footer-col a {
   font-size: 13px;
   color: var(--dark-mid);
-  background: none;
-  border: none;
-  text-align: left;
 }
 
 .footer-bottom {

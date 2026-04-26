@@ -3,7 +3,8 @@
     <AnnouncementBar />
     <AppHeader
       v-model:search-term="headerSearch"
-      :account-label="customerAuth.isAuthenticated ? 'Mi cuenta' : 'Entrar'"
+      :account-label="customerAuth.isAuthenticated ? (customerAuth.user?.nombre || 'Mi cuenta') : 'Entrar'"
+      :is-authenticated="customerAuth.isAuthenticated"
       :cart-count="cart.count"
       @search-submit="submitHeaderSearch"
       @account-click="handleAccountClick"
@@ -204,12 +205,12 @@
       </div>
     </section>
 
-    <StoreFooter @category-select="selectCategory" />
+    <StoreFooter />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { mensajesApi, newsApi, productosApi, resolveAssetUrl, settingsApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
@@ -343,6 +344,17 @@ const newsletterButtonLabel = computed(() => {
 })
 
 onMounted(async () => {
+  window.addEventListener('focus', handleVisibilityRefresh)
+  document.addEventListener('visibilitychange', handleVisibilityRefresh)
+  await loadStoreData()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', handleVisibilityRefresh)
+  document.removeEventListener('visibilitychange', handleVisibilityRefresh)
+})
+
+async function loadStoreData() {
   try {
     const [, { data }, { data: settingsData }] = await Promise.all([
       customerAuth.refreshProfile(),
@@ -367,7 +379,20 @@ onMounted(async () => {
     console.error('Error cargando home', error)
     ui.error('No pudimos cargar la portada. Intenta nuevamente.')
   }
-})
+}
+
+async function handleVisibilityRefresh() {
+  if (document.visibilityState && document.visibilityState !== 'visible') return
+  try {
+    const { data } = await productosApi.listar()
+    productos.value = data.map(product => ({
+      ...product,
+      categoria: normalizeCategory(product.categoria),
+    }))
+  } catch (error) {
+    console.error('No se pudo refrescar la portada', error)
+  }
+}
 
 function normalizeCategory(category) {
   if (!category) return 'Sin categoría'

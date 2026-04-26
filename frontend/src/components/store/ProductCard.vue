@@ -19,7 +19,7 @@
       <span v-if="producto.badge" class="product-badge" :class="`badge-${producto.badge}`">
         {{ badgeLabel }}
       </span>
-      <button class="wishlist-btn" @click.stop="toggleWishlist">{{ wishlisted ? '♥' : '♡' }}</button>
+      <button class="wishlist-btn" :aria-label="wishlisted ? 'Quitar de favoritos' : 'Agregar a favoritos'" @click.stop="toggleWishlist">{{ wishlisted ? '♥' : '♡' }}</button>
     </div>
 
     <div class="product-body">
@@ -31,7 +31,7 @@
       </div>
       <div class="product-price">
         <span class="price-current">{{ fmt(producto.precio_clp) }}</span>
-        <span v-if="producto.precio_oferta_clp" class="price-old">{{ fmt(producto.precio_oferta_clp) }}</span>
+        <span v-if="offerActive" class="price-old">{{ fmt(producto.precio_oferta_clp) }}</span>
       </div>
       <div v-if="producto.stock === 0" class="stock-out">Sin stock</div>
       <div v-else-if="producto.stock <= 5" class="stock-low">Solo {{ producto.stock }} disponibles</div>
@@ -61,6 +61,12 @@ const imageBroken = ref(false)
 
 const hasRealImage = computed(() => Boolean(props.producto.imagen_url) && !imageBroken.value)
 const wishlisted = computed(() => wishlist.isWishlisted(props.producto.id))
+const offerActive = computed(() => {
+  if (!props.producto.precio_oferta_clp) return false
+  if (!props.producto.oferta_hasta) return true
+  const end = new Date(`${String(props.producto.oferta_hasta).slice(0, 10)}T23:59:59`)
+  return Number.isFinite(end.getTime()) && end.getTime() >= Date.now()
+})
 
 const shortBrand = computed(() => {
   const brand = props.producto.marca || 'Bloomskin'
@@ -190,11 +196,14 @@ function goToProduct() {
 
 .wishlist-btn {
   position: absolute; top: 12px; right: 12px;
-  width: 32px; height: 32px; background: rgba(255,255,255,.85);
-  border: none; border-radius: 50%; font-size: 14px;
-  opacity: 0; transition: opacity .2s; z-index: 2;
+  width: 40px; height: 40px; background: rgba(255,255,255,.94);
+  border: 1px solid rgba(191,84,122,.14); border-radius: 50%; font-size: 19px;
+  color: var(--rose-dark); box-shadow: 0 10px 18px rgba(139,63,85,.12);
+  opacity: .94; transition: opacity .2s, transform .2s, box-shadow .2s; z-index: 3;
 }
-.product-card:hover .wishlist-btn { opacity: 1; }
+.product-card:hover .wishlist-btn { opacity: 1; transform: translateY(-1px); }
+.wishlist-btn:active { transform: scale(.97); }
+.wishlist-btn:hover { box-shadow: 0 12px 22px rgba(139,63,85,.16); }
 .product-body { padding: 14px 16px 18px; }
 .product-brand { font-size: 10px; letter-spacing: .15em; text-transform: uppercase; color: var(--rose); font-weight: 500; margin-bottom: 5px; }
 .product-name  { font-size: 13px; color: var(--dark); line-height: 1.4; margin-bottom: 8px; }
@@ -214,4 +223,24 @@ function goToProduct() {
 }
 .add-to-cart:hover:not(:disabled) { background: var(--rose-dark); color: white; border-color: var(--rose-dark); }
 .add-to-cart:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (pointer: fine) {
+  .wishlist-btn {
+    opacity: 0;
+  }
+
+  .product-card:hover .wishlist-btn,
+  .wishlist-btn:focus-visible {
+    opacity: 1;
+  }
+}
+
+@media (pointer: coarse), (max-width: 720px) {
+  .wishlist-btn {
+    opacity: 1;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+}
 </style>

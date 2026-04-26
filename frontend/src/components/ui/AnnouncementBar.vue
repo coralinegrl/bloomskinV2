@@ -13,6 +13,7 @@
 <script setup>
 const items = [
   'Envío gratis sobre $49.990',
+  'Envíos a todo Chile continental',
   'Skincare coreano 100% original',
   'Despacho local en Antofagasta',
   'Ayuda por WhatsApp para elegir tu rutina',

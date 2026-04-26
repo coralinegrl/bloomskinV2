@@ -40,7 +40,7 @@
 
             <div class="detail-price-row">
               <strong>{{ fmt(producto.precio_clp) }}</strong>
-              <span v-if="producto.precio_oferta_clp" class="detail-price-old">{{ fmt(producto.precio_oferta_clp) }}</span>
+              <span v-if="offerActive" class="detail-price-old">{{ fmt(producto.precio_oferta_clp) }}</span>
             </div>
 
             <p class="detail-description">
@@ -90,7 +90,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import ProductCard from '../components/store/ProductCard.vue'
@@ -110,6 +110,12 @@ const qty = ref(1)
 const imageBroken = ref(false)
 
 const hasRealImage = computed(() => Boolean(producto.value?.imagen_url) && !imageBroken.value)
+const offerActive = computed(() => {
+  if (!producto.value?.precio_oferta_clp) return false
+  if (!producto.value?.oferta_hasta) return true
+  const end = new Date(`${String(producto.value.oferta_hasta).slice(0, 10)}T23:59:59`)
+  return Number.isFinite(end.getTime()) && end.getTime() >= Date.now()
+})
 
 const relatedProducts = computed(() => {
   if (!producto.value) return []
@@ -119,6 +125,17 @@ const relatedProducts = computed(() => {
 })
 
 onMounted(async () => {
+  window.addEventListener('focus', refreshProductData)
+  document.addEventListener('visibilitychange', refreshProductData)
+  await loadProductData()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', refreshProductData)
+  document.removeEventListener('visibilitychange', refreshProductData)
+})
+
+async function loadProductData() {
   try {
     const [{ data: detail }, { data: listing }] = await Promise.all([
       productosApi.obtener(route.params.id),
@@ -132,7 +149,21 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+async function refreshProductData() {
+  if (document.visibilityState && document.visibilityState !== 'visible') return
+  try {
+    const [{ data: detail }, { data: listing }] = await Promise.all([
+      productosApi.obtener(route.params.id),
+      productosApi.listar(),
+    ])
+    producto.value = detail
+    allProducts.value = listing
+  } catch (error) {
+    console.error('No pudimos refrescar este producto.', error)
+  }
+}
 
 function addToCart() {
   if (!producto.value) return

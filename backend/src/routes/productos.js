@@ -40,12 +40,19 @@ function calcPrecio(usd) {
   return Math.ceil((parseFloat(usd) + 1) * 1000 * 1.19 * 1.3);
 }
 
+function normalizeOfferDate(value) {
+  if (!value) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, 10);
+}
+
 router.get('/', async (req, res) => {
   try {
     const pool = await getPool();
     const result = await pool.request().query(`
       SELECT id, marca, nombre, descripcion, categoria, precio_clp, precio_oferta_clp,
-             stock, badge, estrellas, resenas, img_clase, imagen_url
+             oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url
       FROM productos
       WHERE activo = 1
       ORDER BY creado_en DESC
@@ -136,17 +143,19 @@ router.post('/catalogo-json/import', requireAdminAuth, async (req, res) => {
 });
 
 router.post('/', requireAdminAuth, async (req, res) => {
-  const { marca, nombre, precio_usd } = req.body;
+  const { marca, nombre, precio_clp } = req.body;
 
-  if (!marca || !nombre || !precio_usd) {
-    return res.status(400).json({ error: 'Marca, nombre y precio_usd son obligatorios' });
+  if (!marca || !nombre || !precio_clp) {
+    return res.status(400).json({ error: 'Marca, nombre y precio_clp son obligatorios' });
   }
 
   try {
     const pool = await getPool();
     const product = sanitizeProduct({
       ...req.body,
-      precio_clp: req.body.precio_clp || calcPrecio(precio_usd),
+      precio_usd: req.body.precio_usd || 0,
+      precio_clp: req.body.precio_clp,
+      oferta_hasta: normalizeOfferDate(req.body.oferta_hasta),
     });
 
     const result = await insertProduct(pool.request(), product);
@@ -158,14 +167,13 @@ router.post('/', requireAdminAuth, async (req, res) => {
 });
 
 router.put('/:id', requireAdminAuth, async (req, res) => {
-  const { precio_usd } = req.body;
-  const precio_clp = precio_usd ? calcPrecio(precio_usd) : req.body.precio_clp;
-
   try {
     const pool = await getPool();
     const product = sanitizeProduct({
       ...req.body,
-      precio_clp,
+      precio_usd: req.body.precio_usd || 0,
+      precio_clp: req.body.precio_clp,
+      oferta_hasta: normalizeOfferDate(req.body.oferta_hasta),
     });
 
     const result = await pool.request()
@@ -177,6 +185,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       .input('precio_usd', sql.Decimal(10, 2), product.precio_usd)
       .input('precio_clp', sql.Int, product.precio_clp)
       .input('precio_oferta_clp', sql.Int, product.precio_oferta_clp)
+      .input('oferta_hasta', sql.Date, product.oferta_hasta)
       .input('stock', sql.Int, product.stock)
       .input('badge', sql.NVarChar, product.badge)
       .input('estrellas', sql.NVarChar, product.estrellas)
@@ -193,6 +202,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
           precio_usd=@precio_usd,
           precio_clp=@precio_clp,
           precio_oferta_clp=@precio_oferta_clp,
+          oferta_hasta=@oferta_hasta,
           stock=@stock,
           badge=@badge,
           estrellas=@estrellas,
@@ -296,6 +306,7 @@ async function insertProduct(request, product, index = 0) {
     .input('precio_usd', sql.Decimal(10, 2), product.precio_usd)
     .input('precio_clp', sql.Int, product.precio_clp)
     .input('precio_oferta_clp', sql.Int, product.precio_oferta_clp)
+    .input('oferta_hasta', sql.Date, product.oferta_hasta)
     .input('stock', sql.Int, product.stock)
     .input('badge', sql.NVarChar, product.badge)
     .input('estrellas', sql.NVarChar, product.estrellas || '*****')
@@ -304,10 +315,10 @@ async function insertProduct(request, product, index = 0) {
     .input('imagen_url', sql.NVarChar, product.imagen_url || null)
     .query(`
       INSERT INTO productos
-      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, stock, badge, estrellas, resenas, img_clase, imagen_url)
+      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url)
       OUTPUT INSERTED.*
       VALUES
-      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url)
+      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url)
     `);
 }
 
