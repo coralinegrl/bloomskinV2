@@ -5,7 +5,7 @@
         <button class="auth-close" type="button" @click="closeModal">x</button>
 
         <div class="auth-head">
-          <span class="auth-kicker">Bloomskin account</span>
+          <span class="auth-kicker">Cuenta Bloomskin</span>
           <h2>{{ modalTitle }}</h2>
           <p>{{ modalCopy }}</p>
         </div>
@@ -163,7 +163,7 @@
             <label class="field-block">
               <span>Región</span>
               <select v-model="registerForm.region" :disabled="customerAuth.loading">
-                <option value="">Selecciona una region</option>
+                <option value="">Selecciona una región</option>
                 <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
               </select>
               <small v-if="registerErrors.region" class="field-error">{{ registerErrors.region }}</small>
@@ -277,22 +277,22 @@ function collectRegisterErrors(payload) {
   registerErrors.email = !payload.email
     ? 'Email es requerido.'
     : !isValidEmail(payload.email)
-      ? 'Ingresa un email valido.'
+      ? 'Ingresa un email válido.'
       : ''
   registerErrors.password = validatePassword(payload.password)
   registerErrors.rut = !payload.rut
     ? 'RUT es requerido.'
     : !isValidChileanRut(payload.rut)
-      ? 'Ingresa un RUT chileno valido.'
+      ? 'Ingresa un RUT chileno válido.'
       : ''
   registerErrors.telefono = !payload.telefono
-    ? 'Telefono es requerido.'
+    ? 'Teléfono es requerido.'
     : !isValidChileanPhone(payload.telefono)
       ? 'Usa +569XXXXXXXX o 9XXXXXXXX.'
       : ''
-  registerErrors.direccion = validateRequiredText(payload.direccion, 'Direccion', 6)
+  registerErrors.direccion = validateRequiredText(payload.direccion, 'Dirección', 6)
   registerErrors.ciudad = validateRequiredText(payload.ciudad, 'Ciudad', 2)
-  registerErrors.region = validateRequiredText(payload.region, 'Region', 2)
+  registerErrors.region = validateRequiredText(payload.region, 'Región', 2)
 }
 
 async function submitLogin() {
@@ -303,7 +303,7 @@ async function submitLogin() {
     return
   }
   if (!isValidEmail(email)) {
-    loginError.value = 'Ingresa un email valido.'
+    loginError.value = 'Ingresa un email válido.'
     return
   }
   if (!loginForm.password) {
@@ -321,7 +321,7 @@ async function submitForgotPassword() {
   resetErrorsState()
   const email = normalizeEmail(forgotForm.email)
   if (!email || !isValidEmail(email)) {
-    loginError.value = 'Ingresa un email valido.'
+    loginError.value = 'Ingresa un email válido.'
     return
   }
 
@@ -334,7 +334,7 @@ async function submitResetPassword() {
   resetErrorsState()
   const email = normalizeEmail(resetForm.email)
   if (!email || !isValidEmail(email)) {
-    loginError.value = 'Ingresa un email valido.'
+    loginError.value = 'Ingresa un email válido.'
     return
   }
   resetErrors.password = validatePassword(resetForm.password)

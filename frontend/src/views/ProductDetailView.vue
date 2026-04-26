@@ -47,6 +47,22 @@
               {{ producto.descripcion || 'Producto del catálogo Bloomskin disponible para compra online.' }}
             </p>
 
+            <div v-if="hasToneOptions" class="tone-block">
+              <span class="tone-label">Tono</span>
+              <div class="tone-grid">
+                <button
+                  v-for="tone in producto.tonos"
+                  :key="tone"
+                  class="tone-chip"
+                  :class="{ active: selectedTone === tone }"
+                  type="button"
+                  @click="selectedTone = tone"
+                >
+                  {{ tone }}
+                </button>
+              </div>
+            </div>
+
             <div class="detail-meta">
               <div><span>Categoría</span><strong>{{ producto.categoria }}</strong></div>
               <div><span>Disponibilidad</span><strong>{{ producto.stock > 0 ? `${producto.stock} en stock` : 'Sin stock' }}</strong></div>
@@ -58,7 +74,7 @@
                 <span>{{ qty }}</span>
                 <button :disabled="qty >= producto.stock" @click="qty = Math.min(producto.stock, qty + 1)">+</button>
               </div>
-              <button class="add-btn" :disabled="producto.stock === 0" @click="addToCart">
+              <button class="add-btn" :disabled="producto.stock === 0 || (hasToneOptions && !selectedTone)" @click="addToCart">
                 {{ producto.stock === 0 ? 'Sin stock' : 'Agregar al carrito' }}
               </button>
             </div>
@@ -108,8 +124,10 @@ const producto = ref(null)
 const allProducts = ref([])
 const qty = ref(1)
 const imageBroken = ref(false)
+const selectedTone = ref('')
 
 const hasRealImage = computed(() => Boolean(producto.value?.imagen_url) && !imageBroken.value)
+const hasToneOptions = computed(() => Boolean(producto.value?.usa_tonos && producto.value?.tonos?.length))
 const offerActive = computed(() => {
   if (!producto.value?.precio_oferta_clp) return false
   if (!producto.value?.oferta_hasta) return true
@@ -143,6 +161,7 @@ async function loadProductData() {
     ])
     producto.value = detail
     allProducts.value = listing
+    selectedTone.value = detail?.usa_tonos && detail?.tonos?.length ? detail.tonos[0] : ''
   } catch (error) {
     console.error(error)
     ui.error('No pudimos cargar este producto.')
@@ -160,6 +179,11 @@ async function refreshProductData() {
     ])
     producto.value = detail
     allProducts.value = listing
+    if (detail?.usa_tonos && detail?.tonos?.length) {
+      if (!detail.tonos.includes(selectedTone.value)) selectedTone.value = detail.tonos[0]
+    } else {
+      selectedTone.value = ''
+    }
   } catch (error) {
     console.error('No pudimos refrescar este producto.', error)
   }
@@ -167,7 +191,14 @@ async function refreshProductData() {
 
 function addToCart() {
   if (!producto.value) return
-  const existing = cart.items.find(item => item.id === producto.value.id)
+  if (hasToneOptions.value && !selectedTone.value) {
+    ui.info('Elige un tono antes de agregar este producto.')
+    return
+  }
+  const existing = cart.items.find(item =>
+    item.id === producto.value.id
+    && String(item.tono_seleccionado || '') === String(selectedTone.value || '')
+  )
   const currentInCart = existing?.cantidad || 0
   if (currentInCart + qty.value > Number(producto.value.stock || 0)) {
     ui.info('No puedes agregar más unidades que el stock disponible.')
@@ -175,9 +206,12 @@ function addToCart() {
     return
   }
   for (let i = 0; i < qty.value; i += 1) {
-    cart.agregar(producto.value)
+    cart.agregar({
+      ...producto.value,
+      tono_seleccionado: hasToneOptions.value ? selectedTone.value : null,
+    })
   }
-  ui.success(`${producto.value.nombre} se agregó al carrito.`)
+  ui.success(`${producto.value.nombre}${selectedTone.value ? ` · ${selectedTone.value}` : ''} se agregó al carrito.`)
 }
 
 function fmt(n) {
@@ -324,6 +358,37 @@ function fmt(n) {
   margin: 18px 0 24px;
   color: var(--dark-mid);
   line-height: 1.7;
+}
+.tone-block {
+  margin-bottom: 22px;
+}
+.tone-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--rose);
+  font-weight: 600;
+}
+.tone-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.tone-chip {
+  border: 1px solid rgba(191,84,122,.18);
+  background: #fff;
+  color: var(--rose-dark);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1;
+}
+.tone-chip.active {
+  background: var(--rose-dark);
+  border-color: var(--rose-dark);
+  color: #fff;
 }
 .detail-meta {
   display: grid;

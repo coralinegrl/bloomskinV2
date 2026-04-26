@@ -14,16 +14,16 @@ function isValidEmail(value) {
 function validatePassword(value) {
   const password = String(value || '');
   if (password.length < 8) {
-    return 'La contrasena debe tener al menos 8 caracteres.';
+    return 'La contraseña debe tener al menos 8 caracteres.';
   }
   if (!/[A-Z]/.test(password)) {
-    return 'La contrasena debe incluir al menos una mayuscula.';
+    return 'La contraseña debe incluir al menos una mayúscula.';
   }
   if (!/[a-z]/.test(password)) {
-    return 'La contrasena debe incluir al menos una minuscula.';
+    return 'La contraseña debe incluir al menos una minúscula.';
   }
   if (!/\d/.test(password)) {
-    return 'La contrasena debe incluir al menos un numero.';
+    return 'La contraseña debe incluir al menos un número.';
   }
   return null;
 }
@@ -75,6 +75,7 @@ function validateRequiredText(value, label, min = 2) {
 
 function validateCustomerPayload(payload, options = {}) {
   const requirePassword = options.requirePassword !== false;
+  const requireAddress = options.requireAddress !== false;
   const errors = [];
 
   const nombre = cleanString(payload.nombre);
@@ -92,7 +93,7 @@ function validateCustomerPayload(payload, options = {}) {
   if (!email) {
     errors.push('Email es requerido.');
   } else if (!isValidEmail(email)) {
-    errors.push('Ingresa un email valido.');
+    errors.push('Ingresa un email válido.');
   }
 
   if (requirePassword) {
@@ -103,23 +104,25 @@ function validateCustomerPayload(payload, options = {}) {
   if (!rut) {
     errors.push('RUT es requerido.');
   } else if (!isValidChileanRut(rut)) {
-    errors.push('Ingresa un RUT chileno valido.');
+    errors.push('Ingresa un RUT chileno válido.');
   }
 
   if (!telefono) {
-    errors.push('Telefono es requerido.');
+    errors.push('Teléfono es requerido.');
   } else if (!isValidChileanPhone(telefono)) {
-    errors.push('Ingresa un telefono chileno valido. Usa formato +569XXXXXXXX o 9XXXXXXXX.');
+    errors.push('Ingresa un teléfono chileno válido. Usa formato +569XXXXXXXX o 9XXXXXXXX.');
   }
 
-  const direccionError = validateRequiredText(direccion, 'Direccion', 6);
-  if (direccionError) errors.push(direccionError);
+  if (requireAddress) {
+    const direccionError = validateRequiredText(direccion, 'Dirección', 6);
+    if (direccionError) errors.push(direccionError);
 
-  const ciudadError = validateRequiredText(ciudad, 'Ciudad', 2);
-  if (ciudadError) errors.push(ciudadError);
+    const ciudadError = validateRequiredText(ciudad, 'Ciudad', 2);
+    if (ciudadError) errors.push(ciudadError);
 
-  const regionError = validateRequiredText(region, 'Region', 2);
-  if (regionError) errors.push(regionError);
+    const regionError = validateRequiredText(region, 'Región', 2);
+    if (regionError) errors.push(regionError);
+  }
 
   return {
     errors,

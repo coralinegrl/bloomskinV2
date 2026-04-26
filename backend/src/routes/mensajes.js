@@ -1,10 +1,10 @@
 const router = require('express').Router();
 const { getPool, sql } = require('../config/db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAdminAuth } = require('../middleware/auth');
 const nodemailer = require('nodemailer');
 
 // GET /api/mensajes — privado
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAdminAuth, async (req, res) => {
   try {
     const pool = await getPool();
     const result = await pool.request().query(`
@@ -42,7 +42,7 @@ router.post('/', async (req, res) => {
 });
 
 // PATCH /api/mensajes/:id/leido — privado
-router.patch('/:id/leido', requireAuth, async (req, res) => {
+router.patch('/:id/leido', requireAdminAuth, async (req, res) => {
   try {
     const pool = await getPool();
     await pool.request()
@@ -55,7 +55,7 @@ router.patch('/:id/leido', requireAuth, async (req, res) => {
 });
 
 // PATCH /api/mensajes/:id/respondido — privado
-router.patch('/:id/respondido', requireAuth, async (req, res) => {
+router.patch('/:id/respondido', requireAdminAuth, async (req, res) => {
   try {
     const pool = await getPool();
     await pool.request()
@@ -87,7 +87,7 @@ router.post('/suscribir', async (req, res) => {
   }
 });
 
-router.get('/suscriptores', requireAuth, async (_req, res) => {
+router.get('/suscriptores', requireAdminAuth, async (_req, res) => {
   try {
     const pool = await getPool();
     const result = await pool.request().query(`
@@ -101,7 +101,7 @@ router.get('/suscriptores', requireAuth, async (_req, res) => {
   }
 });
 
-router.post('/newsletter/enviar', requireAuth, async (req, res) => {
+router.post('/newsletter/enviar', requireAdminAuth, async (req, res) => {
   const subject = String(req.body?.subject || '').trim();
   const headline = String(req.body?.headline || '').trim();
   const body = String(req.body?.body || '').trim();
@@ -344,7 +344,7 @@ function renderNewsletterTemplate({ headline, body, ctaLabel, ctaUrl, previewTex
                           Antofagasta, Chile<br />
                           <a href="https://www.instagram.com/bloomskin__cl" style="color:#f4d2de;text-decoration:none;">Instagram</a>
                           &nbsp;|&nbsp;
-                          <a href="https://wa.me/569948418523" style="color:#f4d2de;text-decoration:none;">WhatsApp</a>
+                          <a href="https://wa.me/56994841853" style="color:#f4d2de;text-decoration:none;">WhatsApp</a>
                         </td>
                       </tr>
                     </table>

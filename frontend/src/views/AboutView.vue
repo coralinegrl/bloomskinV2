@@ -22,7 +22,7 @@
 
       <section class="about-layout">
         <article class="about-card story-card">
-          <h2>La idea detras de Bloomskin</h2>
+          <h2>La idea detrás de Bloomskin</h2>
           <p>{{ about.body }}</p>
           <blockquote>{{ about.signature }}</blockquote>
         </article>
@@ -31,15 +31,15 @@
           <h2>Lo que cuidamos</h2>
           <ul class="value-list">
             <li>
-              <strong>Curaduria real</strong>
-              <span>Elegimos productos con criterio para que comprar sea mas simple y confiable.</span>
+              <strong>Curaduría real</strong>
+              <span>Elegimos productos con criterio para que comprar sea más simple y confiable.</span>
             </li>
             <li>
               <strong>Originales de Corea</strong>
-              <span>Priorizamos autenticidad, marcas con buena reputacion y una experiencia de compra clara.</span>
+              <span>Priorizamos autenticidad, marcas con buena reputación y una experiencia de compra clara.</span>
             </li>
             <li>
-              <strong>Acompaniamiento cercano</strong>
+              <strong>Acompañamiento cercano</strong>
               <span>Te orientamos por WhatsApp, postventa y contenido para que la rutina haga sentido en tu vida real.</span>
             </li>
           </ul>
@@ -70,10 +70,10 @@ const customerAuth = useCustomerAuthStore()
 
 const headerSearch = ref('')
 const about = ref({
-  heading: 'Quienes somos',
-  intro: 'Bloomskin nace para acercar el skincare coreano a Chile con una seleccion curada, amable de comprar y pensada para la vida real.',
-  body: 'Nos importan las formulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catalogo, acompaniamos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
-  signature: 'Curaduria real, ayuda cercana y una forma mas humana de comprar K-Beauty.',
+  heading: 'Quiénes somos',
+  intro: 'Bloomskin nace para acercar el skincare coreano a Chile con una selección curada, amable de comprar y pensada para la vida real.',
+  body: 'Nos importan las fórmulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catálogo, acompañamos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
+  signature: 'Curaduría real, ayuda cercana y una forma más humana de comprar K-Beauty.',
 })
 
 function submitHeaderSearch() {
@@ -106,7 +106,7 @@ async function loadSite() {
     const { data } = await settingsApi.site()
     if (data?.about) about.value = { ...about.value, ...data.about }
   } catch (error) {
-    console.error('No se pudo cargar la pagina quienes somos', error)
+    console.error('No se pudo cargar la página Quiénes somos', error)
   }
 }
 

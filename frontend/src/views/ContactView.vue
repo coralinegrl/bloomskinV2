@@ -75,7 +75,7 @@
           <div class="card-kicker">Canales directos</div>
           <h2>Bloomskin por donde te acomode</h2>
           <p>
-            Si prefieres una respuesta mas rapida, tambien puedes escribirnos directo por correo o WhatsApp.
+            Si prefieres una respuesta más rápida, también puedes escribirnos directo por correo o WhatsApp.
           </p>
 
           <dl class="contact-list">
@@ -96,7 +96,7 @@
           <div class="contact-note">
             <strong>Tip Bloomskin</strong>
             <p>
-              Si nos escribes por un pedido, incluye tu numero de orden para ayudarte mucho mas rapido.
+              Si nos escribes por un pedido, incluye tu número de orden para ayudarte mucho más rápido.
             </p>
           </div>
         </article>
@@ -128,7 +128,7 @@ const sending = ref(false)
 
 const footer = ref({
   instagram_url: 'https://www.instagram.com/bloomskin__cl',
-  whatsapp_url: 'https://wa.me/569948418523',
+  whatsapp_url: 'https://wa.me/56994841853',
   email: 'bloomskincl1@gmail.com',
   instagram_handle: '@bloomskin__cl',
   whatsapp_label: '+56 9 9484 1853',

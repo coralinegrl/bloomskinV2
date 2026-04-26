@@ -54,6 +54,12 @@ const routes = [
     meta: { contentKey: 'shipping_conditions' },
   },
   {
+    path: '/terminos-y-condiciones',
+    name: 'terms-conditions',
+    component: () => import('../views/SiteContentView.vue'),
+    meta: { contentKey: 'terms_conditions' },
+  },
+  {
     path: '/contacto',
     name: 'contact',
     component: () => import('../views/ContactView.vue'),
@@ -67,6 +73,11 @@ const routes = [
     path: '/recuperar-contrasena',
     name: 'password-reset',
     component: () => import('../views/PasswordResetView.vue'),
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: () => import('../views/NotFoundView.vue'),
   },
 ]
 

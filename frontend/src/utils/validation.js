@@ -12,10 +12,10 @@ export function isValidEmail(value) {
 
 export function validatePassword(value) {
   const password = String(value || '')
-  if (password.length < 8) return 'La contrasena debe tener al menos 8 caracteres.'
-  if (!/[A-Z]/.test(password)) return 'La contrasena debe incluir al menos una mayuscula.'
-  if (!/[a-z]/.test(password)) return 'La contrasena debe incluir al menos una minuscula.'
-  if (!/\d/.test(password)) return 'La contrasena debe incluir al menos un numero.'
+  if (password.length < 8) return 'La contraseña debe tener al menos 8 caracteres.'
+  if (!/[A-Z]/.test(password)) return 'La contraseña debe incluir al menos una mayúscula.'
+  if (!/[a-z]/.test(password)) return 'La contraseña debe incluir al menos una minúscula.'
+  if (!/\d/.test(password)) return 'La contraseña debe incluir al menos un número.'
   return ''
 }
 
@@ -64,6 +64,7 @@ export function validateRequiredText(value, label, min = 2) {
 export function validateCustomerProfile(payload, options = {}) {
   const errors = []
   const requirePassword = options.requirePassword === true
+  const requireAddress = options.requireAddress !== false
 
   const nombreError = validateRequiredText(payload.nombre, 'Nombre', 3)
   if (nombreError) errors.push(nombreError)
@@ -71,7 +72,7 @@ export function validateCustomerProfile(payload, options = {}) {
   if (!payload.email) {
     errors.push('Email es requerido.')
   } else if (!isValidEmail(payload.email)) {
-    errors.push('Ingresa un email valido.')
+    errors.push('Ingresa un email válido.')
   }
 
   if (requirePassword) {
@@ -82,23 +83,25 @@ export function validateCustomerProfile(payload, options = {}) {
   if (!payload.rut) {
     errors.push('RUT es requerido.')
   } else if (!isValidChileanRut(payload.rut)) {
-    errors.push('Ingresa un RUT chileno valido.')
+    errors.push('Ingresa un RUT chileno válido.')
   }
 
   if (!payload.telefono) {
-    errors.push('Telefono es requerido.')
+    errors.push('Teléfono es requerido.')
   } else if (!isValidChileanPhone(payload.telefono)) {
-    errors.push('Ingresa un telefono chileno valido. Usa +569XXXXXXXX o 9XXXXXXXX.')
+    errors.push('Ingresa un teléfono chileno válido. Usa +569XXXXXXXX o 9XXXXXXXX.')
   }
 
-  const direccionError = validateRequiredText(payload.direccion, 'Direccion', 6)
-  if (direccionError) errors.push(direccionError)
+  if (requireAddress) {
+    const direccionError = validateRequiredText(payload.direccion, 'Dirección', 6)
+    if (direccionError) errors.push(direccionError)
 
-  const ciudadError = validateRequiredText(payload.ciudad, 'Ciudad', 2)
-  if (ciudadError) errors.push(ciudadError)
+    const ciudadError = validateRequiredText(payload.ciudad, 'Ciudad', 2)
+    if (ciudadError) errors.push(ciudadError)
 
-  const regionError = validateRequiredText(payload.region, 'Region', 2)
-  if (regionError) errors.push(regionError)
+    const regionError = validateRequiredText(payload.region, 'Región', 2)
+    if (regionError) errors.push(regionError)
+  }
 
   return {
     errors,
@@ -118,9 +121,9 @@ export function validateCustomerProfile(payload, options = {}) {
 
 export function validateShippingAddress(payload) {
   const errors = []
-  const regionError = validateRequiredText(payload.region, 'Region', 2)
+  const regionError = validateRequiredText(payload.region, 'Región', 2)
   const ciudadError = validateRequiredText(payload.ciudad, 'Ciudad', 2)
-  const direccionError = validateRequiredText(payload.direccion, 'Direccion', 6)
+  const direccionError = validateRequiredText(payload.direccion, 'Dirección', 6)
   if (regionError) errors.push(regionError)
   if (ciudadError) errors.push(ciudadError)
   if (direccionError) errors.push(direccionError)

@@ -47,17 +47,64 @@ function normalizeOfferDate(value) {
   return trimmed.slice(0, 10);
 }
 
+function normalizeToneOptions(value) {
+  const tones = Array.isArray(value)
+    ? value
+    : String(value || '')
+      .split(/\r?\n|,/)
+      .map(entry => String(entry || '').trim());
+
+  return [...new Set(tones.filter(Boolean))].slice(0, 40);
+}
+
+function serializeToneOptions(product) {
+  const tones = normalizeToneOptions(product?.tonos);
+  return {
+    usa_tonos: Boolean(product?.usa_tonos && tones.length),
+    tonos: tones,
+    tonos_json: JSON.stringify(tones),
+  };
+}
+
+function hydrateProduct(product) {
+  const tones = normalizeToneOptions(product?.tonos_json ? JSON.parse(product.tonos_json) : product?.tonos);
+  return {
+    ...product,
+    usa_tonos: Boolean(product?.usa_tonos && tones.length),
+    tonos: tones,
+  };
+}
+
+async function ensureProductSchema(pool) {
+  await pool.request().batch(`
+    IF COL_LENGTH('productos', 'usa_tonos') IS NULL
+    BEGIN
+      ALTER TABLE productos
+      ADD usa_tonos BIT NOT NULL
+        CONSTRAINT DF_productos_usa_tonos DEFAULT 0;
+    END;
+
+    IF COL_LENGTH('productos', 'tonos_json') IS NULL
+    BEGIN
+      ALTER TABLE productos
+      ADD tonos_json NVARCHAR(MAX) NULL;
+    END;
+  `);
+}
+
 router.get('/', async (req, res) => {
   try {
     const pool = await getPool();
+    await ensureProductSchema(pool);
     const result = await pool.request().query(`
       SELECT id, marca, nombre, descripcion, categoria, precio_clp, precio_oferta_clp,
-             oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url
+             oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url,
+             usa_tonos, tonos_json
       FROM productos
       WHERE activo = 1
       ORDER BY creado_en DESC
     `);
-    res.json(result.recordset);
+    res.json(result.recordset.map(hydrateProduct));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener productos' });
@@ -67,8 +114,9 @@ router.get('/', async (req, res) => {
 router.get('/admin', requireAdminAuth, async (req, res) => {
   try {
     const pool = await getPool();
+    await ensureProductSchema(pool);
     const result = await pool.request().query('SELECT * FROM productos ORDER BY creado_en DESC');
-    res.json(result.recordset);
+    res.json(result.recordset.map(hydrateProduct));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener productos' });
@@ -151,6 +199,7 @@ router.post('/', requireAdminAuth, async (req, res) => {
 
   try {
     const pool = await getPool();
+    await ensureProductSchema(pool);
     const product = sanitizeProduct({
       ...req.body,
       precio_usd: req.body.precio_usd || 0,
@@ -159,7 +208,7 @@ router.post('/', requireAdminAuth, async (req, res) => {
     });
 
     const result = await insertProduct(pool.request(), product);
-    res.status(201).json(result.recordset[0]);
+    res.status(201).json(hydrateProduct(result.recordset[0]));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al crear producto' });
@@ -169,12 +218,14 @@ router.post('/', requireAdminAuth, async (req, res) => {
 router.put('/:id', requireAdminAuth, async (req, res) => {
   try {
     const pool = await getPool();
+    await ensureProductSchema(pool);
     const product = sanitizeProduct({
       ...req.body,
       precio_usd: req.body.precio_usd || 0,
       precio_clp: req.body.precio_clp,
       oferta_hasta: normalizeOfferDate(req.body.oferta_hasta),
     });
+    const toneConfig = serializeToneOptions(product);
 
     const result = await pool.request()
       .input('id', sql.Int, req.params.id)
@@ -192,6 +243,8 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       .input('resenas', sql.Int, product.resenas)
       .input('img_clase', sql.NVarChar, product.img_clase)
       .input('imagen_url', sql.NVarChar, product.imagen_url)
+      .input('usa_tonos', sql.Bit, toneConfig.usa_tonos)
+      .input('tonos_json', sql.NVarChar(sql.MAX), toneConfig.tonos_json)
       .input('activo', sql.Bit, req.body.activo !== undefined ? req.body.activo : 1)
       .query(`
         UPDATE productos SET
@@ -209,6 +262,8 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
           resenas=@resenas,
           img_clase=@img_clase,
           imagen_url=@imagen_url,
+          usa_tonos=@usa_tonos,
+          tonos_json=@tonos_json,
           activo=@activo,
           actualizado_en=GETDATE()
         OUTPUT INSERTED.*
@@ -219,7 +274,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    res.json(result.recordset[0]);
+    res.json(hydrateProduct(result.recordset[0]));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al actualizar producto' });
@@ -282,6 +337,7 @@ router.get('/utils/calcular-precio', requireAdminAuth, (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const pool = await getPool();
+    await ensureProductSchema(pool);
     const result = await pool.request()
       .input('id', sql.Int, req.params.id)
       .query('SELECT * FROM productos WHERE id = @id AND activo = 1');
@@ -290,7 +346,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    res.json(result.recordset[0]);
+    res.json(hydrateProduct(result.recordset[0]));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener producto' });
@@ -298,6 +354,7 @@ router.get('/:id', async (req, res) => {
 });
 
 async function insertProduct(request, product, index = 0) {
+  const toneConfig = serializeToneOptions(product);
   return request
     .input('marca', sql.NVarChar, product.marca)
     .input('nombre', sql.NVarChar, product.nombre)
@@ -313,12 +370,14 @@ async function insertProduct(request, product, index = 0) {
     .input('resenas', sql.Int, product.resenas || 0)
     .input('img_clase', sql.NVarChar, product.img_clase || `p-img-${(index % 8) + 1}`)
     .input('imagen_url', sql.NVarChar, product.imagen_url || null)
+    .input('usa_tonos', sql.Bit, toneConfig.usa_tonos)
+    .input('tonos_json', sql.NVarChar(sql.MAX), toneConfig.tonos_json)
     .query(`
       INSERT INTO productos
-      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url)
+      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url, usa_tonos, tonos_json)
       OUTPUT INSERTED.*
       VALUES
-      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url)
+      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url, @usa_tonos, @tonos_json)
     `);
 }
 

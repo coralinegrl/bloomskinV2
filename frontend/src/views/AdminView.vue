@@ -21,7 +21,7 @@
 
       <div class="sidebar-footer">
         <RouterLink to="/" class="exit-btn">Volver a la tienda</RouterLink>
-        <button class="logout-btn" @click="handleLogout">Cerrar sesion</button>
+        <button class="logout-btn" @click="handleLogout">Cerrar sesión</button>
       </div>
     </aside>
 
@@ -218,7 +218,8 @@
                     </td>
                     <td>
                       <div class="td-name">{{ p.nombre }}</div>
-                      <span class="muted d-block">{{ p.categoria || 'Sin categoria' }}</span>
+                      <span class="muted d-block">{{ p.categoria || 'Sin categoría' }}</span>
+                      <span v-if="p.usa_tonos && p.tonos?.length" class="muted d-block">{{ p.tonos.length }} tonos configurados</span>
                     </td>
                     <td>{{ p.marca }}</td>
                     <td class="td-price">{{ fmt(p.precio_clp) }}</td>
@@ -296,7 +297,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Codigo</th>
+                    <th>Código</th>
                     <th>Origen</th>
                     <th>Cliente</th>
                     <th>Fecha</th>
@@ -355,16 +356,16 @@
             <div class="section-actions">
               <div>
                 <h2 class="section-h2">Promociones</h2>
-                <p class="section-copy">Crea codigos por apertura, fechas especiales o campañas puntuales y controla su vigencia.</p>
+                <p class="section-copy">Crea códigos por apertura, fechas especiales o campañas puntuales y controla su vigencia.</p>
               </div>
               <div class="actions-row">
-                <input v-model.trim="descuentoSearch" class="toolbar-input" type="text" placeholder="Buscar codigo o nombre">
-                <button class="btn-primary" @click="openDiscountModal()">Nuevo codigo</button>
+                <input v-model.trim="descuentoSearch" class="toolbar-input" type="text" placeholder="Buscar código o nombre">
+                <button class="btn-primary" @click="openDiscountModal()">Nuevo código</button>
               </div>
             </div>
 
             <div class="summary-strip">
-              <div class="summary-pill">Codigos activos: {{ descuentos.filter(d => d.active !== false).length }}</div>
+               <div class="summary-pill">Códigos activos: {{ descuentos.filter(d => d.active !== false).length }}</div>
               <div class="summary-pill">Con cupo limitado: {{ descuentos.filter(d => d.max_uses !== null && d.max_uses !== undefined).length }}</div>
               <div class="summary-pill">Uso total acumulado: {{ descuentos.reduce((sum, d) => sum + Number(d.used_count || 0), 0) }}</div>
             </div>
@@ -373,19 +374,19 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Codigo</th>
+                    <th>Código</th>
                     <th>Nombre</th>
                     <th>Descuento</th>
                     <th>Usos</th>
                     <th>Vigencia</th>
-                    <th>Minimo</th>
+                    <th>Mínimo</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-if="filteredDescuentos.length === 0">
-                    <td colspan="8" class="empty-state table-empty">No hay codigos para ese filtro.</td>
+                    <td colspan="8" class="empty-state table-empty">No hay códigos para ese filtro.</td>
                   </tr>
                   <tr v-for="descuento in filteredDescuentos" :key="descuento.id">
                     <td class="td-code">{{ descuento.code }}</td>
@@ -402,7 +403,7 @@
                       {{ descuento.starts_at ? formatDate(descuento.starts_at) : 'inmediata' }}
                       <span class="d-block">{{ descuento.ends_at ? `hasta ${formatDate(descuento.ends_at)}` : 'sin fecha final' }}</span>
                     </td>
-                    <td class="muted">{{ descuento.min_subtotal_clp ? fmt(descuento.min_subtotal_clp) : 'Sin minimo' }}</td>
+                    <td class="muted">{{ descuento.min_subtotal_clp ? fmt(descuento.min_subtotal_clp) : 'Sin mínimo' }}</td>
                     <td>
                       <span class="status-pill" :class="descuento.active !== false ? 's-paid' : 's-cancelled'">
                         {{ descuento.active !== false ? 'Activo' : 'Inactivo' }}
@@ -434,7 +435,7 @@
                   <div>{{ formatDateTime(selectedOrder.creado_en) }}</div>
                 </div>
                 <div>
-                  <div class="detail-label">Ciudad envio</div>
+                  <div class="detail-label">Ciudad de envío</div>
                   <div>{{ selectedOrder.ciudad_envio || selectedOrder.cliente_ciudad_actual || 'Sin ciudad' }}</div>
                 </div>
                 <div>
@@ -454,7 +455,7 @@
                   <div>{{ selectedOrder.descuento_clp ? `-${fmt(selectedOrder.descuento_clp)}` : 'Sin descuento' }}</div>
                 </div>
                 <div>
-                  <div class="detail-label">Envio</div>
+                  <div class="detail-label">Envío</div>
                   <div>{{ fmt(selectedOrder.envio_clp || 0) }}</div>
                 </div>
                 <div>
@@ -466,11 +467,11 @@
                   <div>{{ selectedOrder.origen === 'manual' ? 'Venta externa' : 'Tienda web' }}</div>
                 </div>
                 <div>
-                  <div class="detail-label">Metodo envio</div>
-                  <div>{{ selectedOrder.metodo_envio || 'Sin definir' }}</div>
+                  <div class="detail-label">Método de envío</div>
+                  <div>{{ shippingMethodLabel(selectedOrder.metodo_envio) }}</div>
                 </div>
                 <div>
-                  <div class="detail-label">Codigo promo</div>
+                  <div class="detail-label">Código promo</div>
                   <div>{{ selectedOrder.descuento_codigo || 'No aplica' }}</div>
                 </div>
               </div>
@@ -485,19 +486,19 @@
                   <div>{{ selectedOrder.cliente_rut || selectedOrder.cliente_rut_actual || 'Sin RUT' }}</div>
                 </div>
                 <div>
-                  <div class="detail-label">Telefono</div>
-                  <div>{{ selectedOrder.cliente_telefono || selectedOrder.cliente_telefono_actual || 'Sin telefono' }}</div>
+                  <div class="detail-label">Teléfono</div>
+                  <div>{{ selectedOrder.cliente_telefono || selectedOrder.cliente_telefono_actual || 'Sin teléfono' }}</div>
                 </div>
                 <div>
-                  <div class="detail-label">Region</div>
-                  <div>{{ selectedOrder.region_envio || selectedOrder.cliente_region_actual || 'Sin region' }}</div>
+                  <div class="detail-label">Región</div>
+                  <div>{{ selectedOrder.region_envio || selectedOrder.cliente_region_actual || 'Sin región' }}</div>
                 </div>
               </div>
 
               <div class="order-notes">
                 <div class="detail-label">Despacho</div>
-                <p>{{ selectedOrder.direccion_envio || 'Sin direccion' }}</p>
-                <p>{{ selectedOrder.region_envio || selectedOrder.cliente_region_actual || 'Sin region' }} - {{ selectedOrder.ciudad_envio || selectedOrder.cliente_ciudad_actual || 'Sin ciudad' }}</p>
+                <p>{{ selectedOrder.direccion_envio || 'Sin dirección' }}</p>
+                <p>{{ selectedOrder.region_envio || selectedOrder.cliente_region_actual || 'Sin región' }} - {{ selectedOrder.ciudad_envio || selectedOrder.cliente_ciudad_actual || 'Sin ciudad' }}</p>
                 <p v-if="selectedOrder.referencia_envio">{{ selectedOrder.referencia_envio }}</p>
                 <p v-if="selectedOrder.distancia_envio_km">Distancia: {{ selectedOrder.distancia_envio_km }} km</p>
                 <a
@@ -513,8 +514,11 @@
 
               <div class="order-items">
                 <div class="detail-label">Productos</div>
-                <div v-for="item in selectedOrder.items || []" :key="`${selectedOrder.id}-${item.producto_nombre}`" class="order-item-row">
-                  <span>{{ item.producto_marca }} - {{ item.producto_nombre }}</span>
+                <div v-for="item in selectedOrder.items || []" :key="`${selectedOrder.id}-${item.producto_nombre}-${item.tono_seleccionado || 'base'}`" class="order-item-row">
+                  <span>
+                    {{ item.producto_marca }} - {{ item.producto_nombre }}
+                    <template v-if="item.tono_seleccionado"> · Tono: {{ item.tono_seleccionado }}</template>
+                  </span>
                   <span>{{ item.cantidad }} x {{ fmt(item.precio_unitario_clp) }}</span>
                 </div>
               </div>
@@ -556,10 +560,10 @@
                     <th>Nombre</th>
                     <th>Email</th>
                     <th>RUT</th>
-                    <th>Telefono</th>
-                    <th>Direccion</th>
+                    <th>Teléfono</th>
+                    <th>Dirección</th>
                     <th>Ciudad</th>
-                    <th>Region</th>
+                    <th>Región</th>
                     <th>Estado</th>
                     <th>Pedidos</th>
                     <th>Total comprado</th>
@@ -692,7 +696,7 @@
 
                 <div class="form-row">
                   <div class="form-group">
-                    <label>Boton CTA</label>
+                  <label>Botón CTA</label>
                     <input v-model="newsletterForm.ctaLabel" type="text" placeholder="Ver catálogo">
                   </div>
                   <div class="form-group">
@@ -765,7 +769,7 @@
                   <input v-model="siteSettings.home.hero.tag" type="text">
                 </div>
                 <div class="form-group">
-                  <label>Titulo</label>
+                  <label>Título</label>
                   <input v-model="siteSettings.home.hero.title" type="text">
                 </div>
                 <div class="form-group">
@@ -773,7 +777,7 @@
                   <input v-model="siteSettings.home.hero.emphasis" type="text">
                 </div>
                 <div class="form-group">
-                  <label>Descripcion</label>
+                  <label>Descripción</label>
                   <textarea v-model="siteSettings.home.hero.description" rows="4"></textarea>
                 </div>
                 <div class="form-row">
@@ -802,7 +806,7 @@
                       <input v-model="promo.icon" type="text" placeholder="truck, gift, whatsapp o flag-kr">
                     </div>
                     <div class="form-group">
-                      <label>Titulo</label>
+                      <label>Título</label>
                       <input v-model="promo.title" type="text">
                     </div>
                   </div>
@@ -823,14 +827,14 @@
                 <div class="ad-card-title">Tarjeta {{ index + 1 }}</div>
 
                 <div class="form-group">
-                  <label>Categoria</label>
+                  <label>Categoría</label>
                   <select v-model="tile.category">
                     <option>Serums</option>
                     <option>Hidratantes</option>
                     <option>Limpiadores</option>
-                    <option>Proteccion Solar</option>
+                    <option>Protección Solar</option>
                     <option>Maquillaje</option>
-                    <option>Tonicos</option>
+                    <option>Tónicos</option>
                     <option>Esencias</option>
                     <option>Ampollas</option>
                     <option>Contorno de Ojos</option>
@@ -839,8 +843,8 @@
                 </div>
 
                 <div class="form-group">
-                  <label>Titulo visible</label>
-                  <input v-model="tile.label" type="text" placeholder="Ej. Proteccion Solar">
+                  <label>Título visible</label>
+                  <input v-model="tile.label" type="text" placeholder="Ej. Protección Solar">
                 </div>
 
                 <div class="form-group">
@@ -870,7 +874,7 @@
                     <input v-model="siteSettings.home.bestSellers.tag" type="text">
                   </div>
                   <div class="form-group">
-                    <label>Titulo</label>
+                    <label>Título</label>
                     <input v-model="siteSettings.home.bestSellers.title" type="text">
                   </div>
                   <div class="form-group">
@@ -890,7 +894,7 @@
                     <input v-model="siteSettings.home.newIn.tag" type="text">
                   </div>
                   <div class="form-group">
-                    <label>Titulo</label>
+                    <label>Título</label>
                     <input v-model="siteSettings.home.newIn.title" type="text">
                   </div>
                   <div class="form-group">
@@ -911,7 +915,7 @@
                   <input v-model="siteSettings.home.editorial.tag" type="text">
                 </div>
                 <div class="form-group">
-                  <label>Titulo editorial</label>
+                  <label>Título editorial</label>
                   <input v-model="siteSettings.home.editorial.title" type="text">
                 </div>
                 <div class="form-group">
@@ -929,7 +933,7 @@
                     <input v-model="card.kicker" type="text">
                   </div>
                   <div class="form-group">
-                    <label>Titulo</label>
+                    <label>Título</label>
                     <input v-model="card.title" type="text">
                   </div>
                   <div class="form-group">
@@ -942,19 +946,19 @@
                       <input v-model="card.link_label" type="text">
                     </div>
                     <div class="form-group">
-                      <label>Categoria</label>
+                      <label>Categoría</label>
                       <input v-model="card.category" type="text">
                     </div>
                   </div>
                 </div>
                 <div class="settings-subblock">
-                  <div class="detail-label">CTA catalogo</div>
+                  <div class="detail-label">CTA catálogo</div>
                   <div class="form-group">
                     <label>Etiqueta</label>
                     <input v-model="siteSettings.home.catalogCta.tag" type="text">
                   </div>
                   <div class="form-group">
-                    <label>Titulo</label>
+                    <label>Título</label>
                     <input v-model="siteSettings.home.catalogCta.title" type="text">
                   </div>
                   <div class="form-group">
@@ -962,7 +966,7 @@
                     <textarea v-model="siteSettings.home.catalogCta.copy" rows="3"></textarea>
                   </div>
                   <div class="form-group">
-                    <label>Boton</label>
+                    <label>Botón</label>
                     <input v-model="siteSettings.home.catalogCta.button_label" type="text">
                   </div>
                 </div>
@@ -979,7 +983,7 @@
                     <input v-model="siteSettings.home.newsletter.tag" type="text">
                   </div>
                   <div class="form-group">
-                    <label>Titulo</label>
+                    <label>Título</label>
                     <input v-model="siteSettings.home.newsletter.title" type="text">
                   </div>
                   <div class="form-group">
@@ -996,7 +1000,7 @@
                       <input v-model="siteSettings.home.newsletter.placeholder" type="text">
                     </div>
                     <div class="form-group">
-                      <label>Boton</label>
+                      <label>Botón</label>
                       <input v-model="siteSettings.home.newsletter.button_label" type="text">
                     </div>
                   </div>
@@ -1004,7 +1008,7 @@
                 <div class="settings-subblock">
                   <div class="detail-label">Footer</div>
                   <div class="form-group">
-                    <label>Subtitulo marca</label>
+                    <label>Subtítulo marca</label>
                     <input v-model="siteSettings.footer.brand_sub" type="text">
                   </div>
                   <div class="form-group">
@@ -1062,7 +1066,7 @@
                 </div>
                 <div class="form-row">
                   <div class="form-group">
-                    <label>Numero de cuenta</label>
+                    <label>Número de cuenta</label>
                     <input v-model="siteSettings.payment.account_number" type="text">
                   </div>
                   <div class="form-group">
@@ -1093,11 +1097,11 @@
                   <input v-model="siteSettings.seo.site_name" type="text">
                 </div>
                 <div class="form-group">
-                  <label>Titulo por defecto</label>
+                  <label>Título por defecto</label>
                   <input v-model="siteSettings.seo.default_title" type="text">
                 </div>
                 <div class="form-group">
-                  <label>Descripcion por defecto</label>
+                  <label>Descripción por defecto</label>
                   <textarea v-model="siteSettings.seo.default_description" rows="4"></textarea>
                 </div>
                 <div class="form-row">
@@ -1121,7 +1125,7 @@
               <article class="ad-card home-tile-card">
                 <div class="ad-card-title">Contacto y WhatsApp</div>
                 <div class="form-group">
-                  <label>Titulo contacto</label>
+                  <label>Título contacto</label>
                   <input v-model="siteSettings.contact.heading" type="text">
                 </div>
                 <div class="form-group">
@@ -1141,9 +1145,9 @@
               </article>
 
               <article class="ad-card home-tile-card">
-                <div class="ad-card-title">Quienes somos</div>
+                <div class="ad-card-title">Quiénes somos</div>
                 <div class="form-group">
-                  <label>Titulo seccion</label>
+                  <label>Título sección</label>
                   <input v-model="siteSettings.about.heading" type="text">
                 </div>
                 <div class="form-group">
@@ -1161,11 +1165,11 @@
               </article>
 
               <article class="ad-card home-tile-card">
-                <div class="ad-card-title">Politicas visibles</div>
+                <div class="ad-card-title">Políticas visibles</div>
                 <div class="settings-subblock">
-                  <div class="detail-label">Envios</div>
+                  <div class="detail-label">Envíos</div>
                   <div class="form-group">
-                    <label>Titulo</label>
+                    <label>Título</label>
                     <input v-model="siteSettings.legal.shipping_policy.title" type="text">
                   </div>
                   <div class="form-group">
@@ -1181,7 +1185,7 @@
                 <div class="settings-subblock">
                   <div class="detail-label">Cambios y devoluciones</div>
                   <div class="form-group">
-                    <label>Titulo</label>
+                    <label>Título</label>
                     <input v-model="siteSettings.legal.returns_policy.title" type="text">
                   </div>
                   <div class="form-group">
@@ -1195,9 +1199,9 @@
                 </div>
 
                 <div class="settings-subblock">
-                  <div class="detail-label">Condiciones de envio</div>
+                  <div class="detail-label">Condiciones de envío</div>
                   <div class="form-group">
-                    <label>Titulo</label>
+                    <label>Título</label>
                     <input v-model="siteSettings.legal.shipping_conditions.title" type="text">
                   </div>
                   <div class="form-group">
@@ -1207,6 +1211,22 @@
                   <div class="form-group">
                     <label>Cuerpo</label>
                     <textarea v-model="siteSettings.legal.shipping_conditions.body" rows="5"></textarea>
+                  </div>
+                </div>
+
+                <div class="settings-subblock">
+                  <div class="detail-label">Términos y condiciones</div>
+                  <div class="form-group">
+                    <label>Título</label>
+                    <input v-model="siteSettings.legal.terms_conditions.title" type="text">
+                  </div>
+                  <div class="form-group">
+                    <label>Intro</label>
+                    <textarea v-model="siteSettings.legal.terms_conditions.intro" rows="3"></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Cuerpo</label>
+                    <textarea v-model="siteSettings.legal.terms_conditions.body" rows="5"></textarea>
                   </div>
                 </div>
               </article>
@@ -1274,13 +1294,13 @@
                     <label>Categoría</label>
               <select v-model="form.categoria">
                 <option>Limpiadores</option>
-                <option>Tonicos</option>
+                    <option>Tónicos</option>
                 <option>Esencias</option>
                 <option>Serums</option>
                 <option>Ampollas</option>
                 <option>Contorno de Ojos</option>
                 <option>Hidratantes</option>
-                <option>Proteccion Solar</option>
+                    <option>Protección Solar</option>
                 <option>Maquillaje</option>
                 <option>Extras</option>
               </select>
@@ -1291,6 +1311,18 @@
                 <option v-for="n in 8" :key="n" :value="`p-img-${n}`">p-img-{{ n }}</option>
               </select>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-row">
+              <input v-model="form.usa_tonos" type="checkbox">
+              <span>Este producto permite elegir tono</span>
+            </label>
+          </div>
+
+          <div v-if="form.usa_tonos" class="form-group">
+            <label>Tonos disponibles <span class="label-hint">(uno por línea o separados por coma)</span></label>
+            <textarea v-model="form.tonos_texto" rows="4" placeholder="Rose nude&#10;Cherry balm&#10;Cool mauve"></textarea>
           </div>
 
           <div class="form-group">
@@ -1327,11 +1359,11 @@
     <Transition name="modal">
       <div v-if="showDiscountModal" class="modal-overlay" @click.self="showDiscountModal = false">
         <div class="modal">
-          <h3 class="modal-title">{{ editingDiscount ? 'Editar codigo' : 'Nuevo codigo' }}</h3>
+          <h3 class="modal-title">{{ editingDiscount ? 'Editar código' : 'Nuevo código' }}</h3>
 
           <div class="form-row">
             <div class="form-group">
-              <label>Codigo</label>
+              <label>Código</label>
               <input v-model="discountForm.code" type="text" placeholder="APERTURA15">
             </div>
             <div class="form-group">
@@ -1351,7 +1383,7 @@
               <input v-model.number="discountForm.discount_percent" type="number" min="1" max="100">
             </div>
             <div class="form-group">
-              <label>Usos maximos <span class="label-hint">(opcional)</span></label>
+              <label>Usos máximos <span class="label-hint">(opcional)</span></label>
               <input v-model.number="discountForm.max_uses" type="number" min="1" placeholder="15">
             </div>
           </div>
@@ -1362,14 +1394,14 @@
               <input v-model="discountForm.starts_at" type="date">
             </div>
             <div class="form-group">
-              <label>Termino <span class="label-hint">(opcional)</span></label>
+              <label>Término <span class="label-hint">(opcional)</span></label>
               <input v-model="discountForm.ends_at" type="date">
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label>Subtotal minimo <span class="label-hint">(opcional)</span></label>
+              <label>Subtotal mínimo <span class="label-hint">(opcional)</span></label>
               <input v-model.number="discountForm.min_subtotal_clp" type="number" min="0" placeholder="29990">
             </div>
             <div class="form-group">
@@ -1388,7 +1420,7 @@
           <div class="modal-actions">
             <button class="btn-ghost" @click="showDiscountModal = false">Cancelar</button>
             <button class="btn-primary" :disabled="savingDiscount" @click="guardarDescuento">
-              {{ savingDiscount ? 'Guardando...' : 'Guardar codigo' }}
+              {{ savingDiscount ? 'Guardando...' : 'Guardar código' }}
             </button>
           </div>
         </div>
@@ -1413,7 +1445,7 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label>Telefono <span class="label-hint">(opcional)</span></label>
+              <label>Teléfono <span class="label-hint">(opcional)</span></label>
               <input :value="manualSaleForm.cliente_telefono" type="text" placeholder="+56 9 1234 5678" @input="manualSaleForm.cliente_telefono = formatPhoneInput($event.target.value)">
             </div>
             <div class="form-group">
@@ -1439,7 +1471,7 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label>Metodo de pago</label>
+              <label>Método de pago</label>
               <select v-model="manualSaleForm.metodo_pago">
                 <option value="cash">Efectivo</option>
                 <option value="card">Tarjeta</option>
@@ -1513,7 +1545,7 @@
               <input :value="clienteForm.rut" type="text" @input="clienteForm.rut = formatRutInput($event.target.value)">
             </div>
             <div class="form-group">
-              <label>Telefono</label>
+              <label>Teléfono</label>
               <input :value="clienteForm.telefono" type="text" @input="clienteForm.telefono = formatPhoneInput($event.target.value)">
             </div>
           </div>
@@ -1524,7 +1556,7 @@
               <input v-model="clienteForm.street" type="text">
             </div>
             <div class="form-group">
-              <label>Numero</label>
+              <label>Número</label>
               <input v-model="clienteForm.number" type="text">
             </div>
           </div>
@@ -1540,9 +1572,9 @@
               <input v-model="clienteForm.city" type="text">
             </div>
             <div class="form-group">
-              <label>Region</label>
+              <label>Región</label>
               <select v-model="clienteForm.region">
-                <option value="">Selecciona una region</option>
+                <option value="">Selecciona una región</option>
                 <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
               </select>
             </div>
@@ -1616,58 +1648,58 @@ const stats = ref({})
 const siteSettings = ref({
   home: {
     hero: {
-      tag: 'Seleccion Bloomskin',
-      title: 'Una home mas curada, con',
+      tag: 'Selección Bloomskin',
+      title: 'Una home más curada, con',
       emphasis: 'lo mejor primero',
-      description: 'La portada muestra seleccion editorial, best sellers y rutas rapidas para descubrir productos. El catalogo completo vive aparte, con filtros de compra mas serios.',
-      primary_cta_label: 'Ver mas vendidos',
-      secondary_cta_label: 'Ir al catalogo',
+      description: 'La portada muestra selección editorial, best sellers y rutas rápidas para descubrir productos. El catálogo completo vive aparte, con filtros de compra más serios.',
+      primary_cta_label: 'Ver más vendidos',
+      secondary_cta_label: 'Ir al catálogo',
     },
     categoryTiles: [
       { category: 'Serums', label: 'Serums', image_url: '' },
       { category: 'Hidratantes', label: 'Hidratantes', image_url: '' },
       { category: 'Limpiadores', label: 'Limpiadores', image_url: '' },
-      { category: 'Proteccion Solar', label: 'Proteccion Solar', image_url: '' },
+      { category: 'Proteccion Solar', label: 'Protección Solar', image_url: '' },
     ],
     promoItems: [
-      { icon: 'truck', title: 'Envio gratis', copy: 'Sobre $49.990 en compras seleccionadas' },
-      { icon: 'flag-kr', title: 'Originales de Corea', copy: 'Seleccion autentica de K-Beauty' },
-      { icon: 'gift', title: 'Hallazgos y favoritos', copy: 'Curaduria pensada para cada rutina' },
-      { icon: 'whatsapp', title: 'Asesoria por WhatsApp', copy: 'Te ayudamos a elegir segun tu piel' },
+      { icon: 'truck', title: 'Envío gratis', copy: 'Sobre $49.990 en compras seleccionadas' },
+      { icon: 'flag-kr', title: 'Originales de Corea', copy: 'Selección auténtica de K-Beauty' },
+      { icon: 'gift', title: 'Hallazgos y favoritos', copy: 'Curaduría pensada para cada rutina' },
+      { icon: 'whatsapp', title: 'Asesoría por WhatsApp', copy: 'Te ayudamos a elegir según tu piel' },
     ],
     bestSellers: {
       tag: 'Best Sellers',
-      title: 'Los mas vendidos',
-      copy: 'Un bloque rapido con lo mas fuerte del catalogo y mejor senal comercial.',
-      link_label: 'Ver catalogo',
+      title: 'Los más vendidos',
+      copy: 'Un bloque rápido con lo más fuerte del catálogo y mejor señal comercial.',
+      link_label: 'Ver catálogo',
     },
     editorial: {
       tag: 'Descubre por necesidad',
       title: 'Explora la tienda como una rutina',
-      copy: 'En vez de mostrar todo de una, te guiamos por bloques mas claros y rapidos de navegar.',
+      copy: 'En vez de mostrar todo de una, te guiamos por bloques más claros y rápidos de navegar.',
       cards: [
-        { kicker: 'Rutina base', title: 'Empieza por una limpieza suave', copy: 'Limpiadores y basicos para armar una rutina simple de dia o noche.', link_label: 'Explorar limpiadores ->', category: 'Limpiadores', tone: 'rose' },
-        { kicker: 'Uso diario', title: 'Proteccion solar que si vas a usar todos los dias', copy: 'Solares comodos, ligeros y faciles de combinar con maquillaje.', link_label: 'Ver solares ->', category: 'Proteccion Solar', tone: 'sage' },
-        { kicker: 'Tratamiento', title: 'Serums para brillo, textura y manchas', copy: 'Una seleccion rapida para quienes quieren resultados sin revisar setenta fichas seguidas.', link_label: 'Ir a serums ->', category: 'Serums', tone: 'cream' },
+        { kicker: 'Rutina base', title: 'Empieza por una limpieza suave', copy: 'Limpiadores y básicos para armar una rutina simple de día o noche.', link_label: 'Explorar limpiadores ->', category: 'Limpiadores', tone: 'rose' },
+        { kicker: 'Uso diario', title: 'Protección solar que sí vas a usar todos los días', copy: 'Solares cómodos, ligeros y fáciles de combinar con maquillaje.', link_label: 'Ver solares ->', category: 'Proteccion Solar', tone: 'sage' },
+        { kicker: 'Tratamiento', title: 'Sérums para brillo, textura y manchas', copy: 'Una selección rápida para quienes quieren resultados sin revisar setenta fichas seguidas.', link_label: 'Ir a sérums ->', category: 'Serums', tone: 'cream' },
       ],
     },
     newIn: {
       tag: 'New In',
       title: 'Novedades y hallazgos',
-      copy: 'Un bloque mas liviano para descubrir productos nuevos y cosas en tendencia.',
+      copy: 'Un bloque más liviano para descubrir productos nuevos y cosas en tendencia.',
       link_label: 'Ver todo',
     },
     catalogCta: {
-      tag: 'Catalogo completo',
-      title: 'Descubre todo el catalogo Bloomskin',
-      copy: 'Entra a una vista dedicada con categorias, marcas, precios, stock, promociones y orden.',
-      button_label: 'Abrir catalogo',
+      tag: 'Catálogo completo',
+      title: 'Descubre todo el catálogo Bloomskin',
+      copy: 'Entra a una vista dedicada con categorías, marcas, precios, stock, promociones y orden.',
+      button_label: 'Abrir catálogo',
     },
     newsletter: {
-      tag: 'Unete a la comunidad',
+      tag: 'Únete a la comunidad',
       title: 'Skincare tips y',
       emphasis: 'ofertas exclusivas',
-      copy: 'Suscribete y recibe novedades y lanzamientos de Bloomskin',
+      copy: 'Suscríbete y recibe novedades y lanzamientos de Bloomskin',
       placeholder: 'tu@email.com',
       button_label: 'Suscribirme',
     },
@@ -1676,7 +1708,7 @@ const siteSettings = ref({
     brand_sub: 'K-Beauty - Chile',
     copy: 'Skincare coreano curado para Chile, con productos originales, ayuda real y compra simple.',
     instagram_url: 'https://www.instagram.com/bloomskin__cl',
-    whatsapp_url: 'https://wa.me/569948418523',
+    whatsapp_url: 'https://wa.me/56994841853',
     email: 'bloomskincl1@gmail.com',
     instagram_handle: '@bloomskin__cl',
     whatsapp_label: '+56 9 9484 1853',
@@ -1696,7 +1728,7 @@ const siteSettings = ref({
     site_name: 'Bloomskin',
     title_suffix: 'Bloomskin - K-Beauty Chile',
     default_title: 'Bloomskin - K-Beauty coreano en Chile',
-    default_description: 'Skincare coreano original en Chile. Compra serums, limpiadores, hidratantes y proteccion solar con envio a todo Chile.',
+    default_description: 'Skincare coreano original en Chile. Compra sérums, limpiadores, hidratantes y protección solar con envío a todo Chile.',
     og_image: '/brand/bloomskin-logo.png',
     favicon: '/brand/bloomskin-logo.png',
     ga_measurement_id: '',
@@ -1708,29 +1740,65 @@ const siteSettings = ref({
     email_cta_label: 'Escribir por correo',
   },
   about: {
-    heading: 'Quienes somos',
-    intro: 'Bloomskin nace para acercar el skincare coreano a Chile con una seleccion curada, amable de comprar y pensada para la vida real.',
-    body: 'Nos importan las formulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catalogo, acompaniamos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
-    signature: 'Curaduria real, ayuda cercana y una forma mas humana de comprar K-Beauty.',
+    heading: 'Quiénes somos',
+    intro: 'Bloomskin nace para acercar el skincare coreano a Chile con una selección curada, amable de comprar y pensada para la vida real.',
+    body: 'Nos importan las fórmulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catálogo, acompañamos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
+    signature: 'Curaduría real, ayuda cercana y una forma más humana de comprar K-Beauty.',
   },
   legal: {
     shipping_policy: {
-      title: 'Tiempos y condiciones de envio',
-      intro: 'Despachamos desde Antofagasta y coordinamos cada pedido segun destino y disponibilidad.',
-      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envio es gratis cuando corresponda segun configuracion vigente. Los tiempos pueden variar en dias de alta demanda.',
+      title: 'Tiempos y condiciones de envío',
+      intro: 'Despachamos desde Antofagasta y coordinamos cada pedido según destino y disponibilidad.',
+      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envío es gratis cuando corresponda según la configuración vigente. Los tiempos pueden variar en días de alta demanda.',
     },
     returns_policy: {
       title: 'Cambios y devoluciones',
-      intro: 'Si tu pedido llega con algun problema, escribenos para revisarlo caso a caso.',
-      body: 'Aceptamos revisiones por productos danados, errores de preparacion o incidencias de transporte. Para evaluar un caso necesitaremos numero de pedido, fotos y contacto dentro del plazo informado por Bloomskin.',
+      intro: 'No realizamos cambios ni devoluciones por preferencia personal, aroma, textura o expectativas de uso.',
+      body: 'En Bloomskin solo revisamos casos en que el producto llegue quebrado, abierto, derramado, con falla evidente de fábrica o en mal estado al momento de la entrega. Si ocurre, escríbenos apenas lo recibas con tu número de pedido, fotos claras del empaque y del producto, y una breve descripción. Evaluaremos cada caso y, si corresponde, ofreceremos reposición, nota de crédito o solución equivalente según stock y disponibilidad.',
     },
     shipping_conditions: {
       title: 'Condiciones de despacho',
-      intro: 'Estas condiciones resumen como operan nuestros envios dentro de Chile.',
-      body: 'La clienta debe ingresar datos correctos y completos para evitar retrasos. Si el courier no logra entregar por direccion incompleta o ausencia reiterada, el pedido puede requerir coordinacion adicional.',
+      intro: 'Estas condiciones resumen cómo operan nuestros envíos dentro de Chile.',
+      body: 'La clienta debe ingresar datos correctos y completos para evitar retrasos. Si eliges envío, la dirección debe estar bien escrita y con referencias útiles. Si eliges retiro coordinado, no necesitas completar dirección de despacho para ese pedido. Si el courier no logra entregar por dirección incompleta o ausencia reiterada, el pedido puede requerir coordinación adicional.',
+    },
+    terms_conditions: {
+      title: 'Términos y condiciones',
+      intro: 'Bloomskin opera como una tienda online de skincare coreano con stock limitado, curaduría propia y atención personalizada desde Chile.',
+      body: 'Al comprar en Bloomskin, aceptas que la disponibilidad de productos, promociones, tiempos de preparación y formas de entrega pueden variar según stock, campañas activas y volumen operativo. Los pedidos por transferencia quedan sujetos a confirmación una vez recibido el comprobante dentro del plazo indicado en checkout. Nos reservamos el derecho de anular pedidos con datos incompletos, pagos no acreditados, errores manifiestos de precio o falta de stock sobreviniente, informándolo oportunamente a la clienta y ofreciendo la solución correspondiente. Todo el contenido, imágenes y textos del sitio son referenciales y buscan orientar mejor tu compra, sin reemplazar la lectura de ingredientes, indicaciones y precauciones propias de cada producto.',
     },
   },
 })
+const defaultSiteSettings = clonePlain(siteSettings.value)
+
+function clonePlain(value) {
+  return JSON.parse(JSON.stringify(value))
+}
+
+function mergeWithDefaults(defaults, source) {
+  if (Array.isArray(defaults)) {
+    return Array.isArray(source) ? source : clonePlain(defaults)
+  }
+
+  if (!defaults || typeof defaults !== 'object') {
+    return source ?? defaults
+  }
+
+  const merged = {}
+  const sourceObject = source && typeof source === 'object' ? source : {}
+  for (const key of Object.keys(defaults)) {
+    merged[key] = mergeWithDefaults(defaults[key], sourceObject[key])
+  }
+
+  for (const key of Object.keys(sourceObject)) {
+    if (!(key in merged)) merged[key] = sourceObject[key]
+  }
+
+  return merged
+}
+
+function normalizeSiteSettings(settings) {
+  return mergeWithDefaults(defaultSiteSettings, settings || {})
+}
 
 const loading = ref(true)
 const refreshing = ref(false)
@@ -1795,7 +1863,7 @@ const newsletterForm = ref({
   headline: '',
   previewText: '',
   body: '',
-  ctaLabel: 'Ver catalogo',
+  ctaLabel: 'Ver catálogo',
   ctaUrl: 'https://www.bloomskin.cl/catalogo',
 })
 
@@ -1964,6 +2032,8 @@ function resetForm() {
     badge: '',
     img_clase: 'p-img-1',
     imagen_url: '',
+    usa_tonos: false,
+    tonos_texto: '',
   }
   selectedImageFile.value = null
   if (imageInput.value) imageInput.value.value = ''
@@ -1999,6 +2069,8 @@ function openProductoModal(producto = null) {
       ...producto,
       precio_usd: producto.precio_usd || 0,
       oferta_hasta: producto.oferta_hasta ? String(producto.oferta_hasta).slice(0, 10) : '',
+      usa_tonos: Boolean(producto.usa_tonos && producto.tonos?.length),
+      tonos_texto: Array.isArray(producto.tonos) ? producto.tonos.join('\n') : '',
     }
     selectedImageFile.value = null
     if (imageInput.value) imageInput.value.value = ''
@@ -2090,12 +2162,18 @@ async function guardarProducto() {
 
   saving.value = true
   try {
+    const tonos = String(form.value.tonos_texto || '')
+      .split(/\r?\n|,/)
+      .map(value => String(value || '').trim())
+      .filter(Boolean)
     const payload = {
       ...form.value,
       precio_usd: 0,
       precio_clp: Number(form.value.precio_clp || 0),
       precio_oferta_clp: form.value.precio_oferta_clp ? Number(form.value.precio_oferta_clp) : null,
       oferta_hasta: form.value.oferta_hasta || null,
+      usa_tonos: Boolean(form.value.usa_tonos && tonos.length),
+      tonos,
     }
     if (editingProducto.value) {
       await productosApi.actualizar(editingProducto.value.id, payload)
@@ -2239,7 +2317,7 @@ async function guardarCliente() {
 
 async function guardarDescuento() {
   if (!discountForm.value.code || !discountForm.value.name || !discountForm.value.discount_percent) {
-    showToast('Codigo, nombre y porcentaje son obligatorios.', 'error')
+    showToast('Código, nombre y porcentaje son obligatorios.', 'error')
     return
   }
 
@@ -2257,16 +2335,16 @@ async function guardarDescuento() {
 
     if (editingDiscount.value) {
       await descuentosApi.actualizar(editingDiscount.value.id, payload)
-      showToast('Codigo actualizado correctamente.')
+      showToast('Código actualizado correctamente.')
     } else {
       await descuentosApi.crear(payload)
-      showToast('Codigo creado correctamente.')
+      showToast('Código creado correctamente.')
     }
 
     await cargarDescuentos()
     showDiscountModal.value = false
   } catch (err) {
-    showToast(err.response?.data?.error || 'No se pudo guardar el codigo.', 'error')
+    showToast(err.response?.data?.error || 'No se pudo guardar el código.', 'error')
   } finally {
     savingDiscount.value = false
   }
@@ -2274,14 +2352,14 @@ async function guardarDescuento() {
 
 async function desactivarDescuento(descuento) {
   if (!descuento?.id) return
-  if (!window.confirm(`Desactivar el codigo ${descuento.code}?`)) return
+  if (!window.confirm(`Desactivar el código ${descuento.code}?`)) return
 
   try {
     await descuentosApi.eliminar(descuento.id)
     await cargarDescuentos()
-    showToast('Codigo desactivado correctamente.')
+    showToast('Código desactivado correctamente.')
   } catch (err) {
-    showToast(err.response?.data?.error || 'No se pudo desactivar el codigo.', 'error')
+    showToast(err.response?.data?.error || 'No se pudo desactivar el código.', 'error')
   }
 }
 
@@ -2343,7 +2421,7 @@ function resetNewsletterForm() {
     headline: '',
     previewText: '',
     body: '',
-    ctaLabel: 'Ver catalogo',
+    ctaLabel: 'Ver catálogo',
     ctaUrl: 'https://www.bloomskin.cl/catalogo',
   }
 }
@@ -2367,14 +2445,14 @@ async function enviarNewsletter() {
 
 async function cargarHomeSettings() {
   const { data } = await settingsApi.site()
-  siteSettings.value = data || siteSettings.value
+  siteSettings.value = normalizeSiteSettings(data)
 }
 
 async function guardarSiteSettings() {
   savingSiteSettings.value = true
   try {
     const { data } = await settingsApi.guardarSite(siteSettings.value)
-    siteSettings.value = data.site
+    siteSettings.value = normalizeSiteSettings(data.site)
     showToast('Contenido del sitio actualizado correctamente.')
   } catch (err) {
     showToast(err.response?.data?.error || 'No se pudo guardar el contenido del sitio.', 'error')
@@ -2474,6 +2552,16 @@ function estadoLabel(estado) {
     delivered: 'Entregado',
     cancelled: 'Cancelado',
   }[estado] || estado
+}
+
+function shippingMethodLabel(method) {
+  return {
+    free_shipping: 'Envío gratis',
+    blue_express: 'Blue Express',
+    local_delivery: 'Despacho Bloomskin',
+    store_pickup: 'Retiro coordinado',
+    external_sale: 'Venta externa',
+  }[method] || method || 'Sin definir'
 }
 
 function tipoLabel(tipo) {

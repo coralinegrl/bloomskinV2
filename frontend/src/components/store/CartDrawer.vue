@@ -33,7 +33,7 @@
         <template v-else>
           <div v-if="cart.view === 'cart'" class="drawer-body">
             <div class="cart-list">
-              <article v-for="item in cart.items" :key="item.id" class="cart-item">
+              <article v-for="item in cart.items" :key="item.cart_key || item.id" class="cart-item">
                 <div class="cart-item-img" :class="item.img_clase">
                   <img v-if="item.imagen_url" :src="item.imagen_url" :alt="item.nombre" class="cart-photo" />
                 </div>
@@ -41,15 +41,16 @@
                 <div class="cart-item-main">
                   <div class="cart-item-brand">{{ item.marca }}</div>
                   <div class="cart-item-name">{{ item.nombre }}</div>
+                  <div v-if="item.tono_seleccionado" class="cart-item-tone">Tono: {{ item.tono_seleccionado }}</div>
                   <div class="cart-item-price">{{ fmt(item.precio_clp) }}</div>
                 </div>
 
                 <div class="cart-item-side">
-                  <button class="remove-btn" type="button" @click="cart.quitar(item.id)">Quitar</button>
+                  <button class="remove-btn" type="button" @click="cart.quitar(item.cart_key || item.id)">Quitar</button>
                   <div class="qty-control">
-                    <button type="button" @click="cart.cambiarCantidad(item.id, item.cantidad - 1)">-</button>
+                    <button type="button" @click="cart.cambiarCantidad(item.cart_key || item.id, item.cantidad - 1)">-</button>
                     <span>{{ item.cantidad }}</span>
-                    <button type="button" :disabled="item.cantidad >= Number(item.stock || 0)" @click="cart.cambiarCantidad(item.id, item.cantidad + 1)">+</button>
+                    <button type="button" :disabled="item.cantidad >= Number(item.stock || 0)" @click="cart.cambiarCantidad(item.cart_key || item.id, item.cantidad + 1)">+</button>
                   </div>
                 </div>
               </article>
@@ -125,6 +126,32 @@
             <template v-else-if="!checkoutOk">
               <div class="checkout-panel">
                 <div class="panel-head">
+                  <strong>Cómo quieres recibir tu pedido</strong>
+                </div>
+                <div class="delivery-mode-grid">
+                  <button
+                    class="delivery-mode-card"
+                    :class="{ active: deliveryMode === 'delivery' }"
+                    type="button"
+                    @click="deliveryMode = 'delivery'"
+                  >
+                    <strong>Envío a domicilio</strong>
+                    <span>Calculamos el despacho según comuna y dirección.</span>
+                  </button>
+                  <button
+                    class="delivery-mode-card"
+                    :class="{ active: deliveryMode === 'pickup' }"
+                    type="button"
+                    @click="deliveryMode = 'pickup'"
+                  >
+                    <strong>Retiro en domicilio</strong>
+                    <span>Coordinamos contigo en Antofagasta y no cobramos envío.</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="checkout-panel" v-if="deliveryMode === 'delivery'">
+                <div class="panel-head">
                   <strong>Datos de envío</strong>
                   <button class="text-btn" type="button" :disabled="shippingLoading" @click="calculateShipping">
                     {{ shippingLoading ? 'Calculando...' : 'Recalcular envío' }}
@@ -177,6 +204,15 @@
                   <span v-if="shippingQuote.distance_km !== null"> - {{ shippingQuote.distance_km }} km</span>
                 </p>
                 <p v-if="shippingError" class="panel-error">{{ shippingError }}</p>
+              </div>
+
+              <div v-else class="checkout-panel">
+                <strong>Retiro coordinado</strong>
+                <p class="panel-copy">
+                  Si eliges retiro, coordinaremos contigo por WhatsApp o correo una vez creado el pedido.
+                  Tu dirección personal puede seguir guardada en tu cuenta para futuras compras con despacho.
+                </p>
+                <p class="panel-ok">No se cobrará envío en este pedido.</p>
               </div>
 
               <div class="checkout-panel">
@@ -245,9 +281,9 @@
 
               <div class="checkout-panel">
                 <div class="panel-head">
-                  <strong>Codigo de descuento</strong>
+                  <strong>Código de descuento</strong>
                   <button class="text-btn" type="button" :disabled="discountLoading || !discountCode.trim()" @click="applyDiscountCode">
-                    {{ discountLoading ? 'Aplicando...' : 'Aplicar codigo' }}
+                    {{ discountLoading ? 'Aplicando...' : 'Aplicar código' }}
                   </button>
                 </div>
                 <div class="discount-row">
@@ -260,7 +296,7 @@
                   {{ appliedDiscount.code }} aplicado: -{{ fmt(appliedDiscount.discount_clp) }}
                   <span v-if="appliedDiscount.remaining_uses !== null"> · quedan {{ appliedDiscount.remaining_uses }} usos</span>
                 </p>
-                <p v-else class="panel-copy">Puedes usar codigos por apertura, campañas o temporadas especiales.</p>
+                <p v-else class="panel-copy">Puedes usar códigos por apertura, campañas o temporadas especiales.</p>
                 <p v-if="discountError" class="panel-error">{{ discountError }}</p>
               </div>
 
@@ -372,7 +408,8 @@ const appliedDiscount = ref(null)
 const proofFile = ref(null)
 const proofUploadedUrl = ref('')
 const proofSuccessModalOpen = ref(false)
-const whatsappUrl = ref('https://wa.me/569948418523')
+const whatsappUrl = ref('https://wa.me/56994841853')
+const deliveryMode = ref('delivery')
 const reservationInfo = ref(null)
 const reservationLoading = ref(false)
 const reservationError = ref('')
@@ -400,7 +437,11 @@ const currentTitle = computed(() => (cart.view === 'checkout' ? 'Carrito y enví
 const displaySubtotal = computed(() => checkoutOk.value?.subtotal_clp || cart.total)
 const displayDiscount = computed(() => checkoutOk.value?.descuento_clp || appliedDiscount.value?.discount_clp || 0)
 const discountedSubtotal = computed(() => checkoutOk.value?.subtotal_pagado_clp || Math.max(0, cart.total - displayDiscount.value))
-const orderTotal = computed(() => checkoutOk.value?.total_clp || (discountedSubtotal.value + (shippingQuote.value?.fee_clp || 0)))
+const orderTotal = computed(() => {
+  if (checkoutOk.value) return checkoutOk.value.total_clp
+  if (deliveryMode.value === 'pickup') return discountedSubtotal.value
+  return discountedSubtotal.value + (shippingQuote.value?.fee_clp || 0)
+})
 const reservationSecondsLeft = computed(() => {
   if (!reservationInfo.value?.expires_en) return 0
   return Math.max(0, Math.floor((new Date(reservationInfo.value.expires_en).getTime() - nowTick.value) / 1000))
@@ -422,6 +463,7 @@ const uploadProofCountdownLabel = computed(() => {
 
 const shippingValueLabel = computed(() => {
   if (checkoutOk.value) return fmt(checkoutOk.value.envio_clp)
+  if (deliveryMode.value === 'pickup') return 'Retiro'
   if (shippingLoading.value) return 'Calculando...'
   if (!shippingQuote.value) return 'Pendiente'
   if (shippingQuote.value.fee_clp === 0) return 'Gratis'
@@ -472,7 +514,7 @@ watch(
   () => {
     shippingQuote.value = null
     shippingError.value = ''
-    if (checkoutOk.value || cart.view !== 'checkout') return
+    if (checkoutOk.value || cart.view !== 'checkout' || deliveryMode.value !== 'delivery') return
     clearTimeout(shippingDebounce)
     if (!customerAuth.isAuthenticated) return
     shippingDebounce = setTimeout(() => {
@@ -480,6 +522,19 @@ watch(
     }, 600)
   }
 )
+
+watch(deliveryMode, mode => {
+  shippingQuote.value = null
+  shippingError.value = ''
+  resetShippingErrors()
+  if (checkoutOk.value || cart.view !== 'checkout') return
+  if (mode === 'delivery') {
+    clearTimeout(shippingDebounce)
+    shippingDebounce = setTimeout(() => {
+      calculateShipping()
+    }, 150)
+  }
+})
 
 watch(
   () => [cart.total, cart.count],
@@ -496,7 +551,7 @@ watch(
 )
 
 watch(
-  () => cart.items.map(item => `${item.id}:${item.cantidad}`).join('|'),
+  () => cart.items.map(item => `${item.id}:${item.cantidad}:${item.tono_seleccionado || ''}`).join('|'),
   () => {
     if (checkoutOk.value || cart.view !== 'checkout' || !customerAuth.isAuthenticated || cart.items.length === 0) return
     clearTimeout(reservationSyncDebounce)
@@ -585,7 +640,11 @@ async function syncCheckoutReservation() {
   reservationLoading.value = true
   reservationError.value = ''
   try {
-    const { data } = await pedidosApi.reservarCheckout(cart.items.map(item => ({ producto_id: item.id, cantidad: item.cantidad })))
+    const { data } = await pedidosApi.reservarCheckout(cart.items.map(item => ({
+      producto_id: item.id,
+      cantidad: item.cantidad,
+      tono_seleccionado: item.tono_seleccionado || null,
+    })))
     reservationInfo.value = data?.reservation || null
   } catch (error) {
     reservationInfo.value = null
@@ -603,7 +662,7 @@ function openCheckoutStep() {
   }
   cart.view = 'checkout'
   void syncCheckoutReservation()
-  if (!shippingQuote.value && !shippingLoading.value) {
+  if (deliveryMode.value === 'delivery' && !shippingQuote.value && !shippingLoading.value) {
     clearTimeout(shippingDebounce)
     shippingDebounce = setTimeout(() => {
       calculateShipping()
@@ -613,7 +672,7 @@ function openCheckoutStep() {
 
 async function applyDiscountCode() {
   if (!discountCode.value.trim()) {
-    discountError.value = 'Ingresa un codigo antes de aplicarlo.'
+    discountError.value = 'Ingresa un código antes de aplicarlo.'
     appliedDiscount.value = null
     return
   }
@@ -628,10 +687,10 @@ async function applyDiscountCode() {
     if (cart.view === 'checkout') {
       await calculateShipping()
     }
-    ui.success(`Codigo ${data.code} aplicado correctamente.`)
+    ui.success(`Código ${data.code} aplicado correctamente.`)
   } catch (error) {
     appliedDiscount.value = null
-    discountError.value = error.response?.data?.error || 'No pudimos aplicar ese codigo.'
+    discountError.value = error.response?.data?.error || 'No pudimos aplicar ese código.'
   } finally {
     discountLoading.value = false
   }
@@ -648,14 +707,19 @@ function clearDiscountCode() {
 
 async function calculateShipping() {
   if (!customerAuth.isAuthenticated || checkoutOk.value) return
+  if (deliveryMode.value !== 'delivery') {
+    shippingQuote.value = null
+    shippingError.value = ''
+    return
+  }
 
   resetShippingErrors()
   const shippingPayload = buildShippingPayload(shippingForm)
   const shippingValidation = validateShippingAddress(shippingPayload)
   if (shippingValidation.errors.length) {
-    shippingErrors.region = shippingValidation.errors.find(msg => msg.startsWith('Region')) || ''
+    shippingErrors.region = shippingValidation.errors.find(msg => msg.startsWith('Región')) || ''
     shippingErrors.city = shippingValidation.errors.find(msg => msg.startsWith('Ciudad')) || ''
-    shippingErrors.direccion = shippingValidation.errors.find(msg => msg.startsWith('Direccion')) || ''
+    shippingErrors.direccion = shippingValidation.errors.find(msg => msg.startsWith('Dirección')) || ''
     shippingError.value = shippingValidation.errors[0]
     return
   }
@@ -671,7 +735,7 @@ async function calculateShipping() {
     shippingQuote.value = data
   } catch (err) {
     shippingQuote.value = null
-    shippingError.value = err.response?.data?.error || 'No se pudo calcular el envio.'
+    shippingError.value = err.response?.data?.error || 'No se pudo calcular el envío.'
   } finally {
     shippingLoading.value = false
   }
@@ -692,29 +756,34 @@ async function handleCheckout() {
       ...profileForm,
       email: customerAuth.user?.email || '',
     })
-    const profileValidation = validateCustomerProfile(profilePayload, { requirePassword: false })
+    const profileValidation = validateCustomerProfile(profilePayload, {
+      requirePassword: false,
+      requireAddress: deliveryMode.value === 'delivery',
+    })
     if (profileValidation.errors.length) {
       profileErrors.nombre = profileValidation.errors.find(msg => msg.startsWith('Nombre')) || ''
       profileErrors.rut = profileValidation.errors.find(msg => msg.startsWith('RUT')) || ''
-      profileErrors.telefono = profileValidation.errors.find(msg => msg.startsWith('Telefono')) || ''
-      profileErrors.direccion = profileValidation.errors.find(msg => msg.startsWith('Direccion')) || ''
+      profileErrors.telefono = profileValidation.errors.find(msg => msg.startsWith('Teléfono')) || ''
+      profileErrors.direccion = profileValidation.errors.find(msg => msg.startsWith('Dirección')) || ''
       profileErrors.ciudad = profileValidation.errors.find(msg => msg.startsWith('Ciudad')) || ''
-      profileErrors.region = profileValidation.errors.find(msg => msg.startsWith('Region')) || ''
+      profileErrors.region = profileValidation.errors.find(msg => msg.startsWith('Región')) || ''
       checkoutError.value = profileValidation.errors[0]
       return
     }
 
     const shippingPayload = buildShippingPayload(shippingForm)
-    const shippingValidation = validateShippingAddress(shippingPayload)
+    const shippingValidation = deliveryMode.value === 'delivery'
+      ? validateShippingAddress(shippingPayload)
+      : { errors: [], normalized: { region: '', ciudad: '', direccion: '', referencia: '' } }
     if (shippingValidation.errors.length) {
-      shippingErrors.region = shippingValidation.errors.find(msg => msg.startsWith('Region')) || ''
+      shippingErrors.region = shippingValidation.errors.find(msg => msg.startsWith('Región')) || ''
       shippingErrors.city = shippingValidation.errors.find(msg => msg.startsWith('Ciudad')) || ''
-      shippingErrors.direccion = shippingValidation.errors.find(msg => msg.startsWith('Direccion')) || ''
+      shippingErrors.direccion = shippingValidation.errors.find(msg => msg.startsWith('Dirección')) || ''
       checkoutError.value = shippingValidation.errors[0]
       return
     }
 
-    if (!shippingQuote.value) {
+    if (deliveryMode.value === 'delivery' && !shippingQuote.value) {
       await calculateShipping()
       if (!shippingQuote.value) {
         checkoutError.value = shippingError.value || 'No pudimos calcular el envío para este pedido.'
@@ -733,16 +802,24 @@ async function handleCheckout() {
       return
     }
 
-    const profileUpdated = await customerAuth.updateProfile(profileValidation.normalized)
+    const profileUpdated = await customerAuth.updateProfile({
+      ...profileValidation.normalized,
+      skip_address_validation: deliveryMode.value !== 'delivery',
+    })
     if (!profileUpdated) {
       checkoutError.value = customerAuth.error || 'No se pudo actualizar tu perfil antes de comprar.'
       return
     }
 
     const { data: pedido } = await pedidosApi.crearCliente({
-      items: cart.items.map(item => ({ producto_id: item.id, cantidad: item.cantidad })),
+      items: cart.items.map(item => ({
+        producto_id: item.id,
+        cantidad: item.cantidad,
+        tono_seleccionado: item.tono_seleccionado || null,
+      })),
       notas: checkoutNotas.value || null,
       metodo_pago: 'bank_transfer',
+      delivery_mode: deliveryMode.value,
       discount_code: appliedDiscount.value?.code || null,
       region_envio: shippingValidation.normalized.region,
       ciudad_envio: shippingValidation.normalized.ciudad,
@@ -966,6 +1043,12 @@ onBeforeUnmount(() => {
   margin-top: 4px;
   color: var(--dark);
   line-height: 1.35;
+}
+
+.cart-item-tone {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .cart-item-price {
@@ -1323,6 +1406,11 @@ onBeforeUnmount(() => {
   .checkout-panel {
     padding: 16px;
     border-radius: 20px;
+  }
+
+  .reservation-panel strong,
+  .success-panel strong {
+    line-height: 1.35;
   }
 
   .panel-head,

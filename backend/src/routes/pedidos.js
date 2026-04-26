@@ -119,6 +119,19 @@ function orderCodeFromId(id) {
   return 'BS-' + String(id).padStart(4, '0');
 }
 
+function normalizeToneOptions(value) {
+  try {
+    const raw = Array.isArray(value) ? value : JSON.parse(String(value || '[]'));
+    return [...new Set(raw.map(entry => cleanString(entry)).filter(Boolean))].slice(0, 40);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeToneSelection(value) {
+  return cleanString(value) || null;
+}
+
 async function ensurePedidosSchema(pool) {
   await ensureDiscountSchema(pool);
   await pool.request().batch(`
@@ -162,11 +175,18 @@ async function ensurePedidosSchema(pool) {
         id INT IDENTITY(1,1) PRIMARY KEY,
         reservation_id INT NOT NULL REFERENCES checkout_reservations(id) ON DELETE CASCADE,
         producto_id INT NOT NULL REFERENCES productos(id),
-        cantidad INT NOT NULL
+        cantidad INT NOT NULL,
+        tono_seleccionado NVARCHAR(120) NULL
       );
 
       CREATE INDEX IX_checkout_reservation_items_reservation_id ON checkout_reservation_items(reservation_id);
     END;
+
+    IF COL_LENGTH('checkout_reservation_items', 'tono_seleccionado') IS NULL
+      ALTER TABLE checkout_reservation_items ADD tono_seleccionado NVARCHAR(120) NULL;
+
+    IF COL_LENGTH('pedido_items', 'tono_seleccionado') IS NULL
+      ALTER TABLE pedido_items ADD tono_seleccionado NVARCHAR(120) NULL;
   `);
 }
 
@@ -218,6 +238,7 @@ async function getActiveReservation(transaction, clienteId) {
     .input('reservation_id', sql.Int, reservation.id)
     .query(`
       SELECT ri.producto_id, ri.cantidad, p.nombre, p.marca
+           , ri.tono_seleccionado
       FROM checkout_reservation_items ri
       JOIN productos p ON p.id = ri.producto_id
       WHERE ri.reservation_id = @reservation_id
@@ -262,13 +283,14 @@ function normalizeReservationItems(items) {
     .map(item => ({
       producto_id: Number(item?.producto_id),
       cantidad: Number(item?.cantidad),
+      tono_seleccionado: normalizeToneSelection(item?.tono_seleccionado),
     }))
     .filter(item => Number.isInteger(item.producto_id) && Number.isInteger(item.cantidad) && item.cantidad > 0);
 }
 
 function sameReservationItems(leftItems, rightItems) {
   const normalize = list => [...list]
-    .map(item => `${Number(item.producto_id)}:${Number(item.cantidad)}`)
+    .map(item => `${Number(item.producto_id)}:${Number(item.cantidad)}:${normalizeToneSelection(item.tono_seleccionado) || ''}`)
     .sort();
   const left = normalize(leftItems || []);
   const right = normalize(rightItems || []);
@@ -502,7 +524,7 @@ router.get('/', requireAdminAuth, async (_req, res) => {
       const items = await pool.request()
         .input('pedido_id', sql.Int, ped.id)
         .query(`
-          SELECT pi.cantidad, pi.precio_unitario_clp,
+          SELECT pi.cantidad, pi.precio_unitario_clp, pi.tono_seleccionado,
                  pr.nombre AS producto_nombre, pr.marca AS producto_marca
           FROM pedido_items pi
           JOIN productos pr ON pr.id = pi.producto_id
@@ -571,7 +593,7 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
       const items = await pool.request()
         .input('pedido_id', sql.Int, order.id)
         .query(`
-          SELECT pi.cantidad, pi.precio_unitario_clp,
+          SELECT pi.cantidad, pi.precio_unitario_clp, pi.tono_seleccionado,
                  pr.nombre AS producto_nombre, pr.marca AS producto_marca
           FROM pedido_items pi
           JOIN productos pr ON pr.id = pi.producto_id
@@ -660,6 +682,7 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
       { header: 'Cliente', key: 'cliente_nombre', width: 24 },
       { header: 'Marca', key: 'producto_marca', width: 20 },
       { header: 'Producto', key: 'producto_nombre', width: 36 },
+      { header: 'Tono', key: 'tono_seleccionado', width: 20 },
       { header: 'Cantidad', key: 'cantidad', width: 12 },
       { header: 'Precio unitario', key: 'precio_unitario_clp', width: 16 },
       { header: 'Total línea', key: 'line_total', width: 16 },
@@ -673,6 +696,7 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
           cliente_nombre: order.cliente_nombre,
           producto_marca: item.producto_marca,
           producto_nombre: item.producto_nombre,
+          tono_seleccionado: item.tono_seleccionado || '',
           cantidad: item.cantidad,
           precio_unitario_clp: item.precio_unitario_clp,
           line_total: Number(item.cantidad || 0) * Number(item.precio_unitario_clp || 0),
@@ -689,8 +713,8 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
         });
       }
       if (sheet === itemsSheet) {
-        sheet.getColumn('G').numFmt = '"$"#,##0';
         sheet.getColumn('H').numFmt = '"$"#,##0';
+        sheet.getColumn('I').numFmt = '"$"#,##0';
       }
       if (sheet.getColumn('B')) {
         sheet.getColumn('B').numFmt = 'dd-mm-yyyy hh:mm';
@@ -731,7 +755,7 @@ router.get('/mine', requireClientAuth, async (req, res) => {
       const items = await pool.request()
         .input('pedido_id', sql.Int, pedido.id)
         .query(`
-          SELECT pi.cantidad, pi.precio_unitario_clp,
+          SELECT pi.cantidad, pi.precio_unitario_clp, pi.tono_seleccionado,
                  pr.nombre AS producto_nombre, pr.marca AS producto_marca
           FROM pedido_items pi
           JOIN productos pr ON pr.id = pi.producto_id
@@ -808,7 +832,7 @@ router.post('/reservation', requireClientAuth, async (req, res) => {
       const productResult = await new sql.Request(transaction)
         .input('producto_id', sql.Int, item.producto_id)
         .query(`
-          SELECT id, nombre, marca, stock
+          SELECT id, nombre, marca, stock, usa_tonos, tonos_json
           FROM productos WITH (UPDLOCK, ROWLOCK)
           WHERE id = @producto_id AND activo = 1
         `);
@@ -818,6 +842,21 @@ router.post('/reservation', requireClientAuth, async (req, res) => {
         await transaction.rollback();
         transactionClosed = true;
         return res.status(400).json({ error: `Producto ${item.producto_id} no encontrado.` });
+      }
+
+      const availableTones = normalizeToneOptions(product.tonos_json);
+      if (product.usa_tonos && !item.tono_seleccionado) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: `Debes elegir un tono para ${product.nombre}.` });
+      }
+      if (item.tono_seleccionado && product.usa_tonos && !availableTones.includes(item.tono_seleccionado)) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: `El tono seleccionado para ${product.nombre} ya no está disponible.` });
+      }
+      if (!product.usa_tonos) {
+        item.tono_seleccionado = null;
       }
 
       if (Number(product.stock || 0) < item.cantidad) {
@@ -830,9 +869,10 @@ router.post('/reservation', requireClientAuth, async (req, res) => {
         .input('reservation_id', sql.Int, reservation.id)
         .input('producto_id', sql.Int, item.producto_id)
         .input('cantidad', sql.Int, item.cantidad)
+        .input('tono_seleccionado', sql.NVarChar, item.tono_seleccionado)
         .query(`
-          INSERT INTO checkout_reservation_items (reservation_id, producto_id, cantidad)
-          VALUES (@reservation_id, @producto_id, @cantidad)
+          INSERT INTO checkout_reservation_items (reservation_id, producto_id, cantidad, tono_seleccionado)
+          VALUES (@reservation_id, @producto_id, @cantidad, @tono_seleccionado)
         `);
 
       await new sql.Request(transaction)
@@ -891,9 +931,9 @@ router.post('/shipping-quote', async (req, res) => {
     const direccion = cleanString(req.body?.direccion);
     const subtotalClp = Number(req.body?.subtotal_clp || 0);
     const ciudadError = validateRequiredText(ciudad, 'Ciudad', 2);
-    const direccionError = validateRequiredText(direccion, 'Direccion', 6);
+    const direccionError = validateRequiredText(direccion, 'Dirección', 6);
     if (ciudadError || direccionError || subtotalClp < 0) {
-      return res.status(400).json({ error: ciudadError || direccionError || 'Subtotal invalido' });
+      return res.status(400).json({ error: ciudadError || direccionError || 'Subtotal inválido' });
     }
 
     const quote = await quoteShipping({
@@ -903,7 +943,7 @@ router.post('/shipping-quote', async (req, res) => {
     });
     res.json(quote);
   } catch (err) {
-    res.status(400).json({ error: err.message || 'No se pudo calcular el envio' });
+    res.status(400).json({ error: err.message || 'No se pudo calcular el envío' });
   }
 });
 
@@ -912,6 +952,7 @@ router.post('/', requireClientAuth, async (req, res) => {
     items,
     notas,
     metodo_pago,
+    delivery_mode,
     discount_code,
     ciudad_envio,
     direccion_envio,
@@ -919,6 +960,7 @@ router.post('/', requireClientAuth, async (req, res) => {
     region_envio,
   } = req.body;
   const resolvedClienteId = req.user.id;
+  const deliveryMode = cleanString(delivery_mode) === 'pickup' ? 'pickup' : 'delivery';
   const region = cleanString(region_envio);
   const ciudad = cleanString(ciudad_envio);
   const direccion = cleanString(direccion_envio);
@@ -930,11 +972,13 @@ router.post('/', requireClientAuth, async (req, res) => {
   if ((metodo_pago || 'bank_transfer') !== 'bank_transfer') {
     return res.status(400).json({ error: 'Por ahora solo aceptamos transferencia bancaria' });
   }
-  const regionError = validateRequiredText(region, 'Region', 2);
-  const ciudadError = validateRequiredText(ciudad, 'Ciudad', 2);
-  const direccionError = validateRequiredText(direccion, 'Direccion', 6);
-  if (regionError || ciudadError || direccionError) {
-    return res.status(400).json({ error: regionError || ciudadError || direccionError });
+  if (deliveryMode === 'delivery') {
+    const regionError = validateRequiredText(region, 'Región', 2);
+    const ciudadError = validateRequiredText(ciudad, 'Ciudad', 2);
+    const direccionError = validateRequiredText(direccion, 'Dirección', 6);
+    if (regionError || ciudadError || direccionError) {
+      return res.status(400).json({ error: regionError || ciudadError || direccionError });
+    }
   }
 
   let transaction;
@@ -969,11 +1013,11 @@ router.post('/', requireClientAuth, async (req, res) => {
     const customerValidationError =
       validateRequiredText(clienteNombre, 'Nombre', 3)
       || (!clienteEmail ? 'Email es requerido.' : null)
-      || (!isValidEmail(clienteEmail) ? 'Email invalido en el perfil.' : null)
+      || (!isValidEmail(clienteEmail) ? 'Email inválido en el perfil.' : null)
       || (!clienteRut ? 'RUT es requerido.' : null)
-      || (!isValidChileanRut(clienteRut) ? 'RUT invalido en el perfil.' : null)
-      || (!clienteTelefono ? 'Telefono es requerido.' : null)
-      || (!isValidChileanPhone(clienteTelefono) ? 'Telefono invalido en el perfil.' : null);
+      || (!isValidChileanRut(clienteRut) ? 'RUT inválido en el perfil.' : null)
+      || (!clienteTelefono ? 'Teléfono es requerido.' : null)
+      || (!isValidChileanPhone(clienteTelefono) ? 'Teléfono inválido en el perfil.' : null);
     const transferConfig = getTransferConfig();
 
     if (customerValidationError) {
@@ -1015,7 +1059,7 @@ router.post('/', requireClientAuth, async (req, res) => {
       const prod = await new sql.Request(transaction)
         .input('id', sql.Int, item.producto_id)
         .query(`
-          SELECT precio_clp, stock
+          SELECT nombre, precio_clp, stock, usa_tonos, tonos_json
           FROM productos
           WHERE id = @id AND activo = 1
         `);
@@ -1026,11 +1070,25 @@ router.post('/', requireClientAuth, async (req, res) => {
         return res.status(400).json({ error: `Producto ${item.producto_id} no encontrado` });
       }
 
-      const precioUnitario = prod.recordset[0].precio_clp;
+      const product = prod.recordset[0];
+      const availableTones = normalizeToneOptions(product.tonos_json);
+      if (product.usa_tonos && !item.tono_seleccionado) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: `Debes elegir un tono para ${product.nombre}.` });
+      }
+      if (item.tono_seleccionado && product.usa_tonos && !availableTones.includes(item.tono_seleccionado)) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: `El tono seleccionado para ${product.nombre} ya no está disponible.` });
+      }
+
+      const precioUnitario = product.precio_clp;
       itemsProcesados.push({
         producto_id: item.producto_id,
         cantidad: item.cantidad,
         precio_unitario_clp: precioUnitario,
+        tono_seleccionado: product.usa_tonos ? item.tono_seleccionado : null,
       });
       subtotal += precioUnitario * item.cantidad;
     }
@@ -1051,11 +1109,19 @@ router.post('/', requireClientAuth, async (req, res) => {
 
     const subtotalPagado = Math.max(0, subtotal - Number(appliedDiscount?.discount_clp || 0));
 
-    const shippingQuote = await quoteShipping({
-      ciudad,
-      direccion,
-      subtotal_clp: subtotalPagado,
-    });
+    const shippingQuote = deliveryMode === 'pickup'
+      ? {
+          method: 'store_pickup',
+          provider: 'Bloomskin',
+          fee_clp: 0,
+          distance_km: null,
+          tier_label: 'Retiro en domicilio',
+        }
+      : await quoteShipping({
+          ciudad,
+          direccion,
+          subtotal_clp: subtotalPagado,
+        });
     const envioClp = shippingQuote.fee_clp;
     const total = subtotalPagado + envioClp;
 
@@ -1074,10 +1140,10 @@ router.post('/', requireClientAuth, async (req, res) => {
       .input('total_clp', sql.Int, total)
       .input('metodo_pago', sql.NVarChar, 'bank_transfer')
       .input('metodo_envio', sql.NVarChar, shippingQuote.method)
-      .input('region_envio', sql.NVarChar, region)
-      .input('ciudad_envio', sql.NVarChar, ciudad)
-      .input('direccion_envio', sql.NVarChar, direccion)
-      .input('referencia_envio', sql.NVarChar, referencia || null)
+      .input('region_envio', sql.NVarChar, deliveryMode === 'pickup' ? null : region)
+      .input('ciudad_envio', sql.NVarChar, deliveryMode === 'pickup' ? 'Antofagasta' : ciudad)
+      .input('direccion_envio', sql.NVarChar, deliveryMode === 'pickup' ? 'Retiro coordinado en domicilio' : direccion)
+      .input('referencia_envio', sql.NVarChar, deliveryMode === 'pickup' ? null : (referencia || null))
       .input('distancia_envio_km', sql.Decimal(8, 2), shippingQuote.distance_km)
       .input('notas', sql.NVarChar, notas || null)
       .input('reserva_expira_en', sql.DateTime2, activeReservation.expires_en)
@@ -1107,9 +1173,10 @@ router.post('/', requireClientAuth, async (req, res) => {
         .input('producto_id', sql.Int, item.producto_id)
         .input('cantidad', sql.Int, item.cantidad)
         .input('precio_unitario_clp', sql.Int, item.precio_unitario_clp)
+        .input('tono_seleccionado', sql.NVarChar, item.tono_seleccionado)
         .query(`
-          INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario_clp)
-          VALUES (@pedido_id, @producto_id, @cantidad, @precio_unitario_clp)
+          INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario_clp, tono_seleccionado)
+          VALUES (@pedido_id, @producto_id, @cantidad, @precio_unitario_clp, @tono_seleccionado)
         `);
     }
 

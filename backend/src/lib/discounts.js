@@ -75,7 +75,7 @@ function validateDiscountRow(row, subtotalClp, now = new Date()) {
   if (row.min_subtotal_clp !== null && row.min_subtotal_clp !== undefined && subtotal < Number(row.min_subtotal_clp)) {
     return {
       ok: false,
-      error: `Este codigo requiere un subtotal minimo de $${Number(row.min_subtotal_clp).toLocaleString('es-CL')}.`,
+      error: `Este código requiere un subtotal mínimo de $${Number(row.min_subtotal_clp).toLocaleString('es-CL')}.`,
     };
   }
 
@@ -182,7 +182,7 @@ function sanitizeDiscountPayload(payload = {}) {
 
   const errors = [];
   if (!code) errors.push('Debes indicar un codigo.');
-  if (!name) errors.push('Debes indicar un nombre interno para la promocion.');
+  if (!name) errors.push('Debes indicar un nombre interno para la promoción.');
   if (!Number.isInteger(discountPercent) || discountPercent < 1 || discountPercent > 100) {
     errors.push('El porcentaje de descuento debe estar entre 1 y 100.');
   }
@@ -190,7 +190,7 @@ function sanitizeDiscountPayload(payload = {}) {
     errors.push('La cantidad maxima de usos debe ser un numero mayor o igual a 1.');
   }
   if (minSubtotalRaw !== null && (!Number.isInteger(minSubtotalRaw) || minSubtotalRaw < 0)) {
-    errors.push('El subtotal minimo debe ser un numero valido.');
+    errors.push('El subtotal mínimo debe ser un número válido.');
   }
   if (startsAt && endsAt && startsAt > endsAt) {
     errors.push('La fecha de inicio no puede ser posterior a la fecha de termino.');

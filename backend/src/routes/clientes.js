@@ -164,7 +164,10 @@ router.put('/me/profile', requireClientAuth, async (req, res) => {
     region: req.body?.region,
     tipo_piel: req.body?.tipo_piel,
   };
-  const { errors, sanitized } = validateCustomerPayload(payload, { requirePassword: false });
+  const { errors, sanitized } = validateCustomerPayload(payload, {
+    requirePassword: false,
+    requireAddress: req.body?.skip_address_validation !== true,
+  });
   if (errors.length) {
     return res.status(400).json({ error: errors[0], errors });
   }

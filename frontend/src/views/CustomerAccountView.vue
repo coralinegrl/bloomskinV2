@@ -1,7 +1,7 @@
 <template>
   <div class="account-page">
     <section class="account-hero">
-      <RouterLink to="/" class="back-link">← Volver a la tienda</RouterLink>
+      <RouterLink to="/" class="back-link">Volver a la tienda</RouterLink>
       <div class="hero-grid">
         <div>
           <div class="eyebrow">Mi cuenta</div>
@@ -194,8 +194,11 @@
           </div>
 
           <ul class="order-items">
-            <li v-for="item in order.items" :key="`${order.id}-${item.producto_nombre}`">
-              <span>{{ item.producto_marca }} · {{ item.producto_nombre }}</span>
+            <li v-for="item in order.items" :key="`${order.id}-${item.producto_nombre}-${item.tono_seleccionado || 'base'}`">
+              <span>
+                {{ item.producto_marca }} · {{ item.producto_nombre }}
+                <template v-if="item.tono_seleccionado"> · Tono: {{ item.tono_seleccionado }}</template>
+              </span>
               <span>x{{ item.cantidad }} · {{ formatCurrency(item.precio_unitario_clp) }}</span>
             </li>
           </ul>
@@ -308,10 +311,10 @@ async function saveProfile() {
     if (validation.errors.length) {
       fieldErrors.nombre = validation.errors.find(msg => msg.startsWith('Nombre')) || ''
       fieldErrors.rut = validation.errors.find(msg => msg.startsWith('RUT')) || ''
-      fieldErrors.telefono = validation.errors.find(msg => msg.startsWith('Telefono')) || ''
-      fieldErrors.direccion = validation.errors.find(msg => msg.startsWith('Direccion')) || ''
+      fieldErrors.telefono = validation.errors.find(msg => msg.startsWith('Teléfono')) || ''
+      fieldErrors.direccion = validation.errors.find(msg => msg.startsWith('Dirección')) || ''
       fieldErrors.ciudad = validation.errors.find(msg => msg.startsWith('Ciudad')) || ''
-      fieldErrors.region = validation.errors.find(msg => msg.startsWith('Region')) || ''
+      fieldErrors.region = validation.errors.find(msg => msg.startsWith('Región')) || ''
       ui.error(validation.errors[0])
       return
     }
@@ -361,6 +364,7 @@ function formatShippingMethod(method) {
     free_shipping: 'Envío gratis',
     blue_express: 'Blue Express',
     local_delivery: 'Despacho Bloomskin',
+    store_pickup: 'Retiro coordinado',
   }
   return labels[method] || method || 'Por definir'
 }
@@ -776,6 +780,17 @@ function absoluteAssetUrl(path) {
   .account-layout,
   .orders-section {
     width: min(1120px, calc(100vw - 24px));
+  }
+
+  .back-link {
+    margin-bottom: 14px;
+  }
+
+  .hero-card,
+  .summary-card,
+  .panel,
+  .order-card {
+    border-radius: 20px;
   }
 
   .order-top,

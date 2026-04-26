@@ -30,16 +30,17 @@
         <div class="footer-col">
           <h4>Tienda</h4>
           <RouterLink to="/">Inicio</RouterLink>
-          <RouterLink to="/catalogo">Catalogo</RouterLink>
-          <RouterLink to="/contacto">Contactanos</RouterLink>
-          <RouterLink to="/quienes-somos">Quienes somos</RouterLink>
+          <RouterLink to="/catalogo">Catálogo</RouterLink>
+          <RouterLink to="/contacto">Contáctanos</RouterLink>
+          <RouterLink to="/quienes-somos">Quiénes somos</RouterLink>
         </div>
 
         <div class="footer-col">
-          <h4>Informacion</h4>
-          <RouterLink to="/envios">Envios</RouterLink>
+          <h4>Información</h4>
+          <RouterLink to="/envios">Envíos</RouterLink>
           <RouterLink to="/cambios-y-devoluciones">Cambios y devoluciones</RouterLink>
-          <RouterLink to="/condiciones-de-envio">Condiciones de envio</RouterLink>
+          <RouterLink to="/condiciones-de-envio">Condiciones de envío</RouterLink>
+          <RouterLink to="/terminos-y-condiciones">Términos y condiciones</RouterLink>
           <RouterLink to="/contacto">Ayuda y contacto</RouterLink>
         </div>
 
@@ -68,7 +69,7 @@ const footer = ref({
   brand_sub: 'K-Beauty - Chile',
   copy: 'Skincare coreano curado para Chile, con productos originales, ayuda real y compra simple.',
   instagram_url: 'https://www.instagram.com/bloomskin__cl',
-  whatsapp_url: 'https://wa.me/569948418523',
+  whatsapp_url: 'https://wa.me/56994841853',
   email: 'bloomskincl1@gmail.com',
   instagram_handle: '@bloomskin__cl',
   whatsapp_label: '+56 9 9484 1853',

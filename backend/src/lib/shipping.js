@@ -147,7 +147,7 @@ async function quoteShipping({ ciudad, direccion, subtotal_clp }) {
   const subtotal = Number(subtotal_clp || 0);
 
   if (!city) {
-    throw new Error('Debes indicar la ciudad para calcular envio');
+    throw new Error('Debes indicar la ciudad para calcular envío');
   }
 
   if (subtotal >= FREE_SHIPPING_THRESHOLD) {
@@ -157,7 +157,7 @@ async function quoteShipping({ ciudad, direccion, subtotal_clp }) {
       provider: 'Despacho gratis',
       fee_clp: 0,
       distance_km: null,
-      tier_label: `Envio gratis sobre $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-CL')}`,
+      tier_label: `Envío gratis sobre $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-CL')}`,
       resolved_address: address || city,
       geocoding_provider: null,
     };
@@ -177,7 +177,7 @@ async function quoteShipping({ ciudad, direccion, subtotal_clp }) {
   }
 
   if (!address) {
-    throw new Error('Debes indicar la direccion para calcular envio en Antofagasta');
+    throw new Error('Debes indicar la dirección para calcular envío en Antofagasta');
   }
 
   const [origin, destination] = await Promise.all([

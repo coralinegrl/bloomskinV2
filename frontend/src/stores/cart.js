@@ -17,8 +17,13 @@ export const useCartStore = defineStore('cart', () => {
   }, 0))
   const savings = computed(() => Math.max(0, subtotalBase.value - total.value))
 
+  function buildCartKey(producto) {
+    return `${producto.id}::${String(producto.tono_seleccionado || '')}`
+  }
+
   function agregar(producto) {
-    const existing = items.value.find(i => i.id === producto.id)
+    const cartKey = buildCartKey(producto)
+    const existing = items.value.find(i => i.cart_key === cartKey)
     if (existing) {
       const maxStock = Number(producto.stock ?? existing.stock ?? 0)
       existing.stock = maxStock
@@ -26,20 +31,20 @@ export const useCartStore = defineStore('cart', () => {
         existing.cantidad++
       }
     } else {
-      items.value.push({ ...producto, cantidad: 1 })
+      items.value.push({ ...producto, cart_key: cartKey, cantidad: 1 })
     }
     view.value = 'cart'
     open.value = true
   }
 
-  function quitar(id) {
-    items.value = items.value.filter(i => i.id !== id)
+  function quitar(cartKey) {
+    items.value = items.value.filter(i => i.cart_key !== cartKey)
   }
 
-  function cambiarCantidad(id, cantidad) {
-    const item = items.value.find(i => i.id === id)
+  function cambiarCantidad(cartKey, cantidad) {
+    const item = items.value.find(i => i.cart_key === cartKey)
     if (item) {
-      if (cantidad <= 0) quitar(id)
+      if (cantidad <= 0) quitar(cartKey)
       else {
         const maxStock = Number(item.stock ?? 0)
         item.cantidad = maxStock > 0 ? Math.min(cantidad, maxStock) : cantidad

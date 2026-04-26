@@ -28,7 +28,7 @@ export const useCustomerAuthStore = defineStore('customer-auth', () => {
       persistSession(data)
       return true
     } catch (err) {
-      error.value = err.response?.data?.error || 'No se pudo iniciar sesion'
+      error.value = err.response?.data?.error || 'No se pudo iniciar sesión'
       return false
     } finally {
       loading.value = false

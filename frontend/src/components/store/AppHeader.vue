@@ -2,7 +2,7 @@
   <header class="app-header">
     <div class="header-inner">
       <div class="mobile-bar">
-        <button class="mobile-menu-btn" type="button" :aria-expanded="mobileMenuOpen ? 'true' : 'false'" aria-label="Abrir menu" @click="mobileMenuOpen = !mobileMenuOpen">
+        <button class="mobile-menu-btn" type="button" :aria-expanded="mobileMenuOpen ? 'true' : 'false'" aria-label="Abrir menú" @click="mobileMenuOpen = !mobileMenuOpen">
           <span></span>
           <span></span>
           <span></span>
@@ -38,10 +38,10 @@
 
       <nav class="header-nav" :class="{ open: mobileMenuOpen }">
         <RouterLink class="nav-link" :to="homeTo" @click="closeMobileMenu">Inicio</RouterLink>
-        <RouterLink class="nav-link" :to="catalogTo" @click="closeMobileMenu">Catalogo</RouterLink>
-        <RouterLink class="nav-link" to="/contacto" @click="closeMobileMenu">Contactanos</RouterLink>
-        <RouterLink class="nav-link" to="/quienes-somos" @click="closeMobileMenu">Quienes somos</RouterLink>
-        <RouterLink class="nav-link" to="/envios" @click="closeMobileMenu">Envios</RouterLink>
+        <RouterLink class="nav-link" :to="catalogTo" @click="closeMobileMenu">Catálogo</RouterLink>
+        <RouterLink class="nav-link" to="/contacto" @click="closeMobileMenu">Contáctanos</RouterLink>
+        <RouterLink class="nav-link" to="/quienes-somos" @click="closeMobileMenu">Quiénes somos</RouterLink>
+        <RouterLink class="nav-link" to="/envios" @click="closeMobileMenu">Envíos</RouterLink>
       </nav>
 
       <RouterLink to="/" class="logo desktop-logo">

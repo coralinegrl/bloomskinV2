@@ -64,7 +64,7 @@ const defaultSettings = {
       { category: 'Serums', label: 'Serums', image_url: '' },
       { category: 'Hidratantes', label: 'Hidratantes', image_url: '' },
       { category: 'Limpiadores', label: 'Limpiadores', image_url: '' },
-      { category: 'Proteccion Solar', label: 'Proteccion Solar', image_url: '' },
+      { category: 'Proteccion Solar', label: 'Protección Solar', image_url: '' },
     ],
     promoItems: [
       { icon: 'truck', title: 'Envío gratis', copy: 'Sobre $49.990 en compras seleccionadas' },
@@ -134,7 +134,7 @@ const defaultSettings = {
     brand_sub: 'K-Beauty - Chile',
     copy: 'Skincare coreano curado para Chile, con productos originales, ayuda real y compra simple.',
     instagram_url: 'https://www.instagram.com/bloomskin__cl',
-    whatsapp_url: 'https://wa.me/569948418523',
+    whatsapp_url: 'https://wa.me/56994841853',
     email: 'bloomskincl1@gmail.com',
     instagram_handle: '@bloomskin__cl',
     whatsapp_label: '+56 9 9484 1853',
@@ -154,7 +154,7 @@ const defaultSettings = {
     site_name: 'Bloomskin',
     title_suffix: 'Bloomskin - K-Beauty Chile',
     default_title: 'Bloomskin - K-Beauty coreano en Chile',
-    default_description: 'Skincare coreano original en Chile. Compra serums, limpiadores, hidratantes y proteccion solar con envio a todo Chile.',
+    default_description: 'Skincare coreano original en Chile. Compra sérums, limpiadores, hidratantes y protección solar con envío a todo Chile.',
     og_image: '/brand/bloomskin-logo.png',
     favicon: '/brand/bloomskin-logo.png',
     ga_measurement_id: '',
@@ -166,26 +166,31 @@ const defaultSettings = {
     email_cta_label: 'Escribir por correo',
   },
   about: {
-    heading: 'Quienes somos',
+    heading: 'Quiénes somos',
     intro: 'Bloomskin nace para acercar el skincare coreano a Chile con una seleccion curada, amable de comprar y pensada para la vida real.',
-    body: 'Nos importan las formulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catalogo, acompaniamos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
-    signature: 'Curaduria real, ayuda cercana y una forma mas humana de comprar K-Beauty.',
+    body: 'Nos importan las fórmulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catálogo, acompañamos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
+    signature: 'Curaduría real, ayuda cercana y una forma más humana de comprar K-Beauty.',
   },
   legal: {
     shipping_policy: {
-      title: 'Tiempos y condiciones de envio',
+      title: 'Tiempos y condiciones de envío',
       intro: 'Despachamos desde Antofagasta y coordinamos cada pedido segun destino y disponibilidad.',
-      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envio es gratis cuando corresponda segun configuracion vigente. Los tiempos pueden variar en dias de alta demanda.',
+      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envío es gratis cuando corresponda según la configuración vigente. Los tiempos pueden variar en días de alta demanda.',
     },
     returns_policy: {
       title: 'Cambios y devoluciones',
-      intro: 'Si tu pedido llega con algun problema, escribenos para revisarlo caso a caso.',
-      body: 'Aceptamos revisiones por productos dañados, errores de preparacion o incidencias de transporte. Para evaluar un caso necesitaremos numero de pedido, fotos y contacto dentro del plazo informado por Bloomskin.',
+      intro: 'No realizamos cambios ni devoluciones por preferencia personal, aroma, textura o expectativas de uso.',
+      body: 'En Bloomskin solo revisamos casos en que el producto llegue quebrado, abierto, derramado, con falla evidente de fábrica o en mal estado al momento de la entrega. Si ocurre, escríbenos apenas lo recibas con tu número de pedido, fotos claras del empaque y del producto, y una breve descripción. Evaluaremos cada caso y, si corresponde, ofreceremos reposición, nota de crédito o solución equivalente según stock y disponibilidad.',
     },
     shipping_conditions: {
       title: 'Condiciones de despacho',
-      intro: 'Estas condiciones resumen como operan nuestros envios dentro de Chile.',
-      body: 'La clienta debe ingresar datos correctos y completos para evitar retrasos. Si el courier no logra entregar por direccion incompleta o ausencia reiterada, el pedido puede requerir coordinacion adicional.',
+      intro: 'Estas condiciones resumen cómo operan nuestros envíos dentro de Chile.',
+      body: 'La clienta debe ingresar datos correctos y completos para evitar retrasos. Si eliges envío, la dirección debe estar bien escrita y con referencias útiles. Si eliges retiro coordinado, no necesitas completar dirección de despacho para ese pedido. Si el courier no logra entregar por dirección incompleta o ausencia reiterada, el pedido puede requerir coordinación adicional.',
+    },
+    terms_conditions: {
+      title: 'Términos y condiciones',
+      intro: 'Bloomskin opera como una tienda online de skincare coreano con stock limitado, curaduría propia y atención personalizada desde Chile.',
+      body: 'Al comprar en Bloomskin, aceptas que la disponibilidad de productos, promociones, tiempos de preparación y formas de entrega pueden variar según stock, campañas activas y volumen operativo. Los pedidos por transferencia quedan sujetos a confirmación una vez recibido el comprobante dentro del plazo indicado en checkout. Nos reservamos el derecho de anular pedidos con datos incompletos, pagos no acreditados, errores manifiestos de precio o falta de stock sobreviniente, informándolo oportunamente a la clienta y ofreciendo la solución correspondiente. Todo el contenido, imágenes y textos del sitio son referenciales y buscan orientar mejor tu compra, sin reemplazar la lectura de ingredientes, indicaciones y precauciones propias de cada producto.',
     },
   },
 };
@@ -352,6 +357,7 @@ function sanitizeLegalSettings(legal = {}) {
     shipping_policy: sanitizeLegalPage(legal.shipping_policy, defaultSettings.legal.shipping_policy),
     returns_policy: sanitizeLegalPage(legal.returns_policy, defaultSettings.legal.returns_policy),
     shipping_conditions: sanitizeLegalPage(legal.shipping_conditions, defaultSettings.legal.shipping_conditions),
+    terms_conditions: sanitizeLegalPage(legal.terms_conditions, defaultSettings.legal.terms_conditions),
   };
 }
 

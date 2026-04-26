@@ -10,6 +10,13 @@ function normalizeStars(stars) {
 }
 
 function sanitizeProduct(product, index = 0) {
+  const tonos = Array.isArray(product.tonos)
+    ? product.tonos
+    : String(product.tonos || '')
+      .split(/\r?\n|,/)
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+
   return {
     marca: product.marca,
     nombre: product.nombre,
@@ -25,6 +32,8 @@ function sanitizeProduct(product, index = 0) {
     resenas: Number(product.resenas || 0),
     img_clase: product.img_clase || `p-img-${(index % 8) + 1}`,
     imagen_url: product.imagen_url || null,
+    usa_tonos: Boolean(product.usa_tonos && tonos.length),
+    tonos,
   };
 }
 

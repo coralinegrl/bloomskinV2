@@ -26,7 +26,7 @@ const siteSettings = ref({
     site_name: 'Bloomskin',
     title_suffix: 'Bloomskin - K-Beauty Chile',
     default_title: 'Bloomskin - K-Beauty coreano en Chile',
-    default_description: 'Skincare coreano original en Chile. Compra serums, limpiadores, hidratantes y proteccion solar con envio a todo Chile.',
+    default_description: 'Skincare coreano original en Chile. Compra sérums, limpiadores, hidratantes y protección solar con envío a todo Chile.',
     og_image: '/brand/bloomskin-logo.png',
     favicon: '/brand/bloomskin-logo.png',
     ga_measurement_id: '',
@@ -43,7 +43,7 @@ function handleAdminUnauthorized() {
 
 function handleClientUnauthorized() {
   customerAuth.logout()
-  ui.info('Tu sesion de clienta vencio. Ingresa nuevamente para seguir.')
+  ui.info('Tu sesión de clienta venció. Ingresa nuevamente para seguir.')
   if (router.currentRoute.value.meta.requiresClientAuth) {
     router.push({ name: 'store' })
   }
@@ -64,14 +64,16 @@ function applySeo() {
   const seo = siteSettings.value.seo || {}
   const pageTitles = {
     store: seo.default_title,
-    catalog: `Catalogo | ${seo.site_name || 'Bloomskin'}`,
+    catalog: `Catálogo | ${seo.site_name || 'Bloomskin'}`,
     'product-detail': `Producto | ${seo.site_name || 'Bloomskin'}`,
     'customer-account': `Mi cuenta | ${seo.site_name || 'Bloomskin'}`,
-    'shipping-policy': `Envios | ${seo.site_name || 'Bloomskin'}`,
+    'shipping-policy': `Envíos | ${seo.site_name || 'Bloomskin'}`,
     'returns-policy': `Cambios y devoluciones | ${seo.site_name || 'Bloomskin'}`,
-    'shipping-conditions': `Condiciones de envio | ${seo.site_name || 'Bloomskin'}`,
+    'shipping-conditions': `Condiciones de envío | ${seo.site_name || 'Bloomskin'}`,
+    'terms-conditions': `Términos y condiciones | ${seo.site_name || 'Bloomskin'}`,
     contact: `Contacto | ${seo.site_name || 'Bloomskin'}`,
-    about: `Quienes somos | ${seo.site_name || 'Bloomskin'}`,
+    about: `Quiénes somos | ${seo.site_name || 'Bloomskin'}`,
+    'not-found': `Pagina no encontrada | ${seo.site_name || 'Bloomskin'}`,
     admin: `Admin | ${seo.site_name || 'Bloomskin'}`,
     login: `Admin login | ${seo.site_name || 'Bloomskin'}`,
   }

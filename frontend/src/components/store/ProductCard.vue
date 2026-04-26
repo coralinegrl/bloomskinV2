@@ -36,7 +36,7 @@
       <div v-if="producto.stock === 0" class="stock-out">Sin stock</div>
       <div v-else-if="producto.stock <= 5" class="stock-low">Solo {{ producto.stock }} disponibles</div>
       <button class="add-to-cart" :disabled="producto.stock === 0" @click.stop="agregar">
-        {{ producto.stock === 0 ? 'Sin stock' : 'Agregar al carro' }}
+        {{ producto.stock === 0 ? 'Sin stock' : hasToneOptions ? 'Elegir tono' : 'Agregar al carro' }}
       </button>
     </div>
   </div>
@@ -61,6 +61,7 @@ const imageBroken = ref(false)
 
 const hasRealImage = computed(() => Boolean(props.producto.imagen_url) && !imageBroken.value)
 const wishlisted = computed(() => wishlist.isWishlisted(props.producto.id))
+const hasToneOptions = computed(() => Boolean(props.producto.usa_tonos && props.producto.tonos?.length))
 const offerActive = computed(() => {
   if (!props.producto.precio_oferta_clp) return false
   if (!props.producto.oferta_hasta) return true
@@ -91,6 +92,10 @@ function toggleWishlist() {
 }
 
 function agregar() {
+  if (hasToneOptions.value) {
+    goToProduct()
+    return
+  }
   const existing = cart.items.find(item => item.id === props.producto.id)
   if (existing && existing.cantidad >= Number(props.producto.stock || 0)) {
     ui.info('Ya agregaste todo el stock disponible de este producto.')

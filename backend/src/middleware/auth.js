@@ -51,12 +51,12 @@ function requireAdminAuth(req, res, next) {
 
       const admin = result.recordset[0];
       if (!admin || admin.activo !== true) {
-        return res.status(401).json({ error: 'Tu sesion de admin ya no esta activa' });
+        return res.status(401).json({ error: 'Tu sesión de admin ya no está activa' });
       }
 
       next();
     } catch {
-      return res.status(401).json({ error: 'No pudimos validar tu sesion de admin' });
+      return res.status(401).json({ error: 'No pudimos validar tu sesión de admin' });
     }
   });
 }
@@ -80,7 +80,7 @@ function requireClientAuth(req, res, next) {
 
       next();
     } catch {
-      return res.status(401).json({ error: 'No pudimos validar tu sesion de clienta' });
+      return res.status(401).json({ error: 'No pudimos validar tu sesión de clienta' });
     }
   });
 }
