@@ -11,7 +11,7 @@ async function run() {
   try {
     await transaction.begin();
 
-    await new sql.Request(transaction).query('DELETE FROM pedido_items; DELETE FROM pedidos; DELETE FROM productos; DBCC CHECKIDENT (\'productos\', RESEED, 0);');
+    await new sql.Request(transaction).query('IF OBJECT_ID(\'product_reviews\', \'U\') IS NOT NULL DELETE FROM product_reviews; DELETE FROM pedido_items; DELETE FROM pedidos; DELETE FROM productos; DBCC CHECKIDENT (\'productos\', RESEED, 0);');
 
     for (const [index, rawProduct] of products.entries()) {
       const product = sanitizeProduct(rawProduct, index);

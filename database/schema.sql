@@ -133,6 +133,20 @@ CREATE TABLE cliente_wishlist (
   CONSTRAINT UQ_cliente_wishlist UNIQUE (cliente_id, producto_id)
 );
 
+-- Resenas verificadas por compra
+CREATE TABLE product_reviews (
+  id              INT IDENTITY(1,1) PRIMARY KEY,
+  cliente_id      INT NOT NULL REFERENCES clientes(id),
+  producto_id     INT NOT NULL REFERENCES productos(id),
+  pedido_id       INT NOT NULL REFERENCES pedidos(id),
+  rating          INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  contenido       NVARCHAR(700) NOT NULL,
+  activo          BIT NOT NULL DEFAULT 1,
+  creado_en       DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  actualizado_en  DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+  CONSTRAINT UQ_product_reviews_cliente_producto UNIQUE (cliente_id, producto_id)
+);
+
 -- Mensajes / Consultas
 CREATE TABLE mensajes (
   id          INT IDENTITY(1,1) PRIMARY KEY,
@@ -164,6 +178,7 @@ CREATE INDEX IX_checkout_reservations_expires_en ON checkout_reservations(expire
 CREATE INDEX IX_checkout_reservation_items_reservation_id ON checkout_reservation_items(reservation_id);
 CREATE INDEX IX_mensajes_leido   ON mensajes(leido);
 CREATE INDEX IX_cliente_wishlist_cliente ON cliente_wishlist(cliente_id);
+CREATE INDEX IX_product_reviews_producto_activo ON product_reviews(producto_id, activo, creado_en);
 
 -- ============================================================
 -- DATOS SEMILLA

@@ -203,6 +203,54 @@
             </li>
           </ul>
 
+          <div v-if="canReviewOrder(order)" class="review-write-list">
+            <article
+              v-for="item in reviewableItems(order)"
+              :key="`review-${order.id}-${item.producto_id}`"
+              class="review-write-card"
+            >
+              <div class="review-write-head">
+                <div>
+                  <span class="review-kicker">Reseña verificada</span>
+                  <strong>{{ item.producto_marca }} · {{ item.producto_nombre }}</strong>
+                  <small>{{ existingReview(item.producto_id) ? 'Puedes actualizar tu reseña cuando quieras.' : 'Comparte como te fue con este producto.' }}</small>
+                </div>
+                <StarRating :value="reviewDraft(item).rating" />
+              </div>
+              <div class="rating-picker" role="group" aria-label="Calificación">
+                <button
+                  v-for="score in 5"
+                  :key="`score-${item.producto_id}-${score}`"
+                  type="button"
+                  :class="{ active: reviewDraft(item).rating === score }"
+                  @click="reviewDraft(item).rating = score"
+                >
+                  {{ score }}
+                </button>
+              </div>
+              <textarea
+                v-model.trim="reviewDraft(item).contenido"
+                maxlength="700"
+                rows="3"
+                placeholder="Cuenta qué textura, resultado o detalle te gustó."
+              ></textarea>
+              <div class="review-write-actions">
+                <small>{{ reviewDraft(item).contenido.length }}/700</small>
+                <button
+                  class="save-btn"
+                  :disabled="savingReviewKey === reviewKey(item)"
+                  @click="saveReview(order, item)"
+                >
+                  {{ savingReviewKey === reviewKey(item) ? 'Guardando...' : existingReview(item.producto_id) ? 'Actualizar reseña' : 'Publicar reseña' }}
+                </button>
+              </div>
+            </article>
+          </div>
+
+          <p v-else-if="order.estado !== 'cancelled'" class="review-locked">
+            Cuando este pedido quede marcado como entregado podrás escribir reseñas verificadas.
+          </p>
+
           <div class="order-financials">
             <span>Subtotal: {{ formatCurrency(order.subtotal_clp) }}</span>
             <span v-if="order.descuento_clp">Descuento: -{{ formatCurrency(order.descuento_clp) }}<template v-if="order.descuento_codigo"> con {{ order.descuento_codigo }}</template></span>
@@ -226,8 +274,9 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { pedidosApi, resolveAssetUrl } from '../api/index.js'
+import { pedidosApi, resolveAssetUrl, reviewsApi } from '../api/index.js'
 import ProductCard from '../components/store/ProductCard.vue'
+import StarRating from '../components/store/StarRating.vue'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import { useCustomerAuthStore } from '../stores/customerAuth.js'
 import { useUiStore } from '../stores/ui.js'
@@ -243,6 +292,9 @@ const wishlist = useWishlistStore()
 const saving = ref(false)
 const ordersLoading = ref(false)
 const orders = ref([])
+const reviews = ref([])
+const savingReviewKey = ref('')
+const reviewDrafts = reactive({})
 const profileForm = reactive(buildProfileForm(customerAuth.user))
 const fieldErrors = reactive({
   nombre: '',
@@ -266,7 +318,7 @@ const latestOrder = computed(() => orders.value[0] || null)
 const latestOrderLabel = computed(() => latestOrder.value ? formatDate(latestOrder.value.creado_en) : 'Sin pedidos')
 const latestOrderAmount = computed(() => latestOrder.value ? formatCurrency(latestOrder.value.total_clp) : 'Haz tu primera compra')
 
-void Promise.all([loadOrders(), loadWishlist()])
+void Promise.all([loadOrders(), loadWishlist(), loadReviews()])
 
 watch(
   () => customerAuth.user,
@@ -289,8 +341,82 @@ async function loadOrders() {
   }
 }
 
+async function loadReviews() {
+  try {
+    const { data } = await reviewsApi.mine()
+    reviews.value = Array.isArray(data) ? data : []
+    for (const review of reviews.value) {
+      const key = String(review.producto_id)
+      reviewDrafts[key] = {
+        rating: Number(review.rating || 5),
+        contenido: review.contenido || '',
+      }
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
 async function loadWishlist() {
   await wishlist.load(customerAuth.user?.id)
+}
+
+function canReviewOrder(order) {
+  return order?.estado === 'delivered' && reviewableItems(order).length > 0
+}
+
+function reviewableItems(order) {
+  const seen = new Set()
+  return (order?.items || []).filter(item => {
+    if (!item.producto_id || seen.has(item.producto_id)) return false
+    seen.add(item.producto_id)
+    return true
+  })
+}
+
+function reviewKey(item) {
+  return String(item.producto_id)
+}
+
+function existingReview(productoId) {
+  return reviews.value.find(review => Number(review.producto_id) === Number(productoId))
+}
+
+function reviewDraft(item) {
+  const key = reviewKey(item)
+  if (!reviewDrafts[key]) {
+    const review = existingReview(item.producto_id)
+    reviewDrafts[key] = {
+      rating: Number(review?.rating || 5),
+      contenido: review?.contenido || '',
+    }
+  }
+  return reviewDrafts[key]
+}
+
+async function saveReview(order, item) {
+  const draft = reviewDraft(item)
+  if (!draft.contenido || draft.contenido.trim().length < 10) {
+    ui.info('Escribe al menos 10 caracteres para publicar tu reseña.')
+    return
+  }
+
+  savingReviewKey.value = reviewKey(item)
+  try {
+    await reviewsApi.guardar({
+      pedido_id: order.id,
+      producto_id: item.producto_id,
+      rating: draft.rating,
+      contenido: draft.contenido,
+    })
+    await loadReviews()
+    ui.success('Tu reseña verificada quedó publicada.')
+  } catch (error) {
+    console.error(error)
+    ui.error(error.response?.data?.error || 'No pudimos guardar tu reseña.')
+  } finally {
+    savingReviewKey.value = ''
+  }
 }
 
 async function saveProfile() {
@@ -736,6 +862,81 @@ function absoluteAssetUrl(path) {
   color: var(--dark-mid);
 }
 
+.review-write-list {
+  display: grid;
+  gap: 14px;
+}
+
+.review-write-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 20px;
+  background: #fff9fb;
+  border: 1px solid rgba(191, 84, 122, 0.14);
+}
+
+.review-write-head,
+.review-write-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+}
+
+.review-write-head strong {
+  display: block;
+  margin: 4px 0;
+  color: var(--rose-dark);
+}
+
+.review-write-head small,
+.review-write-actions small,
+.review-locked {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.review-kicker {
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--rose);
+}
+
+.rating-picker {
+  display: flex;
+  gap: 8px;
+}
+
+.rating-picker button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(191, 84, 122, 0.22);
+  background: #fff;
+  color: var(--rose-dark);
+  font-size: 12px;
+}
+
+.rating-picker button.active {
+  background: var(--rose-dark);
+  color: #fff;
+  border-color: var(--rose-dark);
+}
+
+.review-write-card textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 92px;
+  border-radius: 16px;
+  border: 1px solid rgba(191, 84, 122, 0.16);
+  padding: 13px 15px;
+  background: #fff;
+  color: var(--dark);
+  line-height: 1.6;
+}
+
 .proof-link {
   width: fit-content;
 }
@@ -796,6 +997,8 @@ function absoluteAssetUrl(path) {
   .order-top,
   .order-meta,
   .order-financials,
+  .review-write-head,
+  .review-write-actions,
   .panel-head,
   .orders-head {
     flex-direction: column;

@@ -27,6 +27,11 @@ const rating = computed(() => {
   }
 
   if (typeof props.value === 'string') {
+    const numeric = Number(props.value)
+    if (Number.isFinite(numeric)) {
+      return Math.max(0, Math.min(5, Math.round(numeric)))
+    }
+
     const filled = (props.value.match(/★/g) || []).length
     const empty = (props.value.match(/☆/g) || []).length
 

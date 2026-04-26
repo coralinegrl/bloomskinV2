@@ -169,7 +169,7 @@ router.post('/catalogo-json/import', requireAdminAuth, async (req, res) => {
     const pool = await getPool();
     transaction = new sql.Transaction(pool);
     await transaction.begin();
-    await new sql.Request(transaction).query("DELETE FROM pedido_items; DELETE FROM pedidos; DELETE FROM productos; DBCC CHECKIDENT ('productos', RESEED, 0);");
+    await new sql.Request(transaction).query("IF OBJECT_ID('product_reviews', 'U') IS NOT NULL DELETE FROM product_reviews; DELETE FROM pedido_items; DELETE FROM pedidos; DELETE FROM productos; DBCC CHECKIDENT ('productos', RESEED, 0);");
 
     for (const [index, product] of sanitized.entries()) {
       await insertProduct(new sql.Request(transaction), product, index);

@@ -160,6 +160,39 @@
       </div>
     </section>
 
+    <div v-if="homeReviews.length" class="section-divider" aria-hidden="true"></div>
+
+    <section v-if="homeReviews.length" class="home-reviews-section">
+      <div class="section-header section-header-centered">
+        <div>
+          <div class="section-tag">Reseñas reales</div>
+          <h2 class="section-title">Lo que cuentan las clientas</h2>
+          <p class="section-copy section-copy-centered">
+            Opiniones verificadas de compras entregadas, mostradas al azar para descubrir favoritos desde experiencias reales.
+          </p>
+        </div>
+      </div>
+
+      <div class="home-reviews-grid">
+        <RouterLink
+          v-for="review in homeReviews"
+          :key="review.id"
+          class="home-review-card"
+          :to="{ name: 'product-detail', params: { id: review.producto_id } }"
+        >
+          <div class="home-review-top">
+            <div>
+              <span>{{ review.producto_marca }}</span>
+              <strong>{{ review.producto_nombre }}</strong>
+            </div>
+            <StarRating :value="review.rating" />
+          </div>
+          <p>{{ review.contenido }}</p>
+          <small>{{ review.cliente_nombre }}</small>
+        </RouterLink>
+      </div>
+    </section>
+
     <div v-if="newsItems.length || newsLoading" class="section-divider" aria-hidden="true"></div>
 
     <section v-if="newsItems.length" class="news-section">
@@ -212,9 +245,10 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { mensajesApi, newsApi, productosApi, resolveAssetUrl, settingsApi } from '../api/index.js'
+import { mensajesApi, newsApi, productosApi, resolveAssetUrl, reviewsApi, settingsApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
 import ProductCard from '../components/store/ProductCard.vue'
+import StarRating from '../components/store/StarRating.vue'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import AnnouncementBar from '../components/ui/AnnouncementBar.vue'
 import { useCartStore } from '../stores/cart.js'
@@ -288,6 +322,7 @@ const newsletterLoading = ref(false)
 const suscritoOk = ref(false)
 const newsItems = ref([])
 const newsLoading = ref(false)
+const homeReviews = ref([])
 
 const categoryAliases = {
   'Tónicos': 'Tonicos',
@@ -365,6 +400,7 @@ async function loadStoreData() {
       ...product,
       categoria: normalizeCategory(product.categoria),
     }))
+    await loadHomeReviews()
     siteSettings.value = settingsData || siteSettings.value
     newsLoading.value = true
     try {
@@ -389,8 +425,19 @@ async function handleVisibilityRefresh() {
       ...product,
       categoria: normalizeCategory(product.categoria),
     }))
+    await loadHomeReviews()
   } catch (error) {
     console.error('No se pudo refrescar la portada', error)
+  }
+}
+
+async function loadHomeReviews() {
+  try {
+    const { data } = await reviewsApi.home(6)
+    homeReviews.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error('No se pudieron cargar las reseñas del home', error)
+    homeReviews.value = []
   }
 }
 
@@ -511,7 +558,7 @@ nav { display: flex; gap: 24px; }
 .tile-name { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dark-mid); font-weight: 500; }
 .tile-count { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
 
-.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,footer { max-width: 1280px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
+.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,footer { max-width: 1280px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 .promo-band { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-top: 28px; }
 .promo-item { background: var(--sage-light); border: 1px solid #c8dcc8; border-radius: 22px; padding: 18px 18px; display: flex; align-items: center; gap: 12px; }
 .promo-icon { width: 40px; height: 40px; background: var(--sage); color: #335f4a; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -522,7 +569,7 @@ nav { display: flex; gap: 24px; }
 .promo-text strong { display: block; font-size: 12px; }
 .promo-text span { font-size: 12px; color: var(--text-muted); }
 
-.showcase-section,.editorial-section,.catalog-cta-section,.newsletter-section { padding-top: 58px; }
+.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,.newsletter-section { padding-top: 58px; }
 .section-header { text-align: center; }
 .section-header.split { display: flex; justify-content: space-between; align-items: end; gap: 18px; text-align: left; }
 .section-header-centered { display: grid; justify-items: center; text-align: center; gap: 10px; }
@@ -563,6 +610,42 @@ nav { display: flex; gap: 24px; }
 .editorial-cream { background: linear-gradient(160deg,#fff8f1,#f2e1cf); }
 
 .catalog-cta-card { padding: 28px; border-radius: 30px; background: linear-gradient(135deg,#fff5f8,#f7e9ee); border: 1px solid rgba(191,84,122,.1); display: flex; justify-content: space-between; align-items: end; gap: 18px; }
+
+.home-reviews-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+.home-review-card {
+  min-height: 230px;
+  display: grid;
+  align-content: space-between;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid rgba(191,84,122,.12);
+  box-shadow: 0 16px 36px rgba(139,63,85,.06);
+  color: var(--dark);
+}
+.home-review-top { display: flex; justify-content: space-between; gap: 14px; align-items: start; }
+.home-review-top span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--rose);
+}
+.home-review-top strong {
+  display: block;
+  margin-top: 6px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 26px;
+  line-height: 1.05;
+}
+.home-review-card p { color: var(--dark-mid); line-height: 1.75; }
+.home-review-card small {
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--rose-dark);
+}
 
 .news-section { max-width: 1280px; margin: 0 auto; padding: 58px 32px 0; }
 .news-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(4,1fr); gap: 18px; }
@@ -628,16 +711,16 @@ footer { padding-top: 36px; padding-bottom: 42px; }
   .header-inner { grid-template-columns: 1fr; min-height: auto; padding: 16px 24px; }
   nav,.header-right { justify-content: center; flex-wrap: wrap; }
   .hero,.section-header.split,.catalog-cta-card,.footer-top { grid-template-columns: 1fr; display: grid; }
-  .promo-band,.showcase-grid,.editorial-grid,.news-grid { grid-template-columns: repeat(2,1fr); }
+  .promo-band,.showcase-grid,.editorial-grid,.home-reviews-grid,.news-grid { grid-template-columns: repeat(2,1fr); }
 }
 
 @media (max-width: 720px) {
   .search-link { order: 3; width: 100%; justify-content: center; }
   .account-btn { flex: 1; }
-  .hero-left,.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,footer,.newsletter-section,.news-section { padding-left: 20px; padding-right: 20px; }
+  .hero-left,.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,footer,.newsletter-section,.news-section { padding-left: 20px; padding-right: 20px; }
   .hero-left { padding-top: 56px; padding-bottom: 56px; }
   .hero-title,.section-title,.newsletter-title { font-size: 42px; }
-  .promo-band,.showcase-grid,.editorial-grid,.hero-right,.newsletter-form,.footer-top,.news-grid { grid-template-columns: 1fr; }
+  .promo-band,.showcase-grid,.editorial-grid,.home-reviews-grid,.hero-right,.newsletter-form,.footer-top,.news-grid { grid-template-columns: 1fr; }
   .footer-bottom { flex-direction: column; }
 }
 </style>

@@ -6,6 +6,7 @@ const cors = require('cors');
 const { getPool } = require('./config/db');
 const { ensureDiscountSchema } = require('./lib/discounts');
 const pedidosRouter = require('./routes/pedidos');
+const resenasRouter = require('./routes/resenas');
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET no esta configurado. Revisa backend/.env antes de iniciar el servidor.');
@@ -55,6 +56,7 @@ app.use('/uploads', express.static(uploadsRoot));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/productos', require('./routes/productos'));
 app.use('/api/pedidos', pedidosRouter);
+app.use('/api/resenas', resenasRouter);
 app.use('/api/clientes', require('./routes/clientes'));
 app.use('/api/mensajes', require('./routes/mensajes'));
 app.use('/api/news', require('./routes/news'));
@@ -86,6 +88,7 @@ getPool()
   .then(async pool => {
     await ensureDiscountSchema(pool);
     await pedidosRouter.ensurePedidosSchema(pool);
+    await resenasRouter.ensureReviewsSchema(pool);
     await pedidosRouter.runOrderMaintenance();
     setInterval(() => {
       pedidosRouter.runOrderMaintenance().catch(err => {

@@ -106,6 +106,13 @@ export const pedidosApi = {
   cambiarEstado: (id, estado) => adminApi.patch(`/pedidos/${id}/estado`, { estado }),
 }
 
+export const reviewsApi = {
+  home: (limit = 6) => publicApi.get(`/resenas/home?limit=${encodeURIComponent(limit)}`),
+  product: id => publicApi.get(`/resenas/product/${id}`),
+  mine: () => clientApi.get('/resenas/mine'),
+  guardar: payload => clientApi.post('/resenas', payload),
+}
+
 export const descuentosApi = {
   listar: () => adminApi.get('/descuentos'),
   validar: payload => publicApi.post('/descuentos/validate', payload),

@@ -524,7 +524,7 @@ router.get('/', requireAdminAuth, async (_req, res) => {
       const items = await pool.request()
         .input('pedido_id', sql.Int, ped.id)
         .query(`
-          SELECT pi.cantidad, pi.precio_unitario_clp, pi.tono_seleccionado,
+          SELECT pi.producto_id, pi.cantidad, pi.precio_unitario_clp, pi.tono_seleccionado,
                  pr.nombre AS producto_nombre, pr.marca AS producto_marca
           FROM pedido_items pi
           JOIN productos pr ON pr.id = pi.producto_id
@@ -593,7 +593,7 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
       const items = await pool.request()
         .input('pedido_id', sql.Int, order.id)
         .query(`
-          SELECT pi.cantidad, pi.precio_unitario_clp, pi.tono_seleccionado,
+          SELECT pi.producto_id, pi.cantidad, pi.precio_unitario_clp, pi.tono_seleccionado,
                  pr.nombre AS producto_nombre, pr.marca AS producto_marca
           FROM pedido_items pi
           JOIN productos pr ON pr.id = pi.producto_id

@@ -87,6 +87,33 @@
           </div>
         </div>
 
+        <section class="reviews-section">
+          <div class="reviews-head">
+            <div>
+              <div class="eyebrow">Reseñas verificadas</div>
+              <h2>Opiniones de este producto</h2>
+            </div>
+            <span>{{ productReviews.length }} publicadas</span>
+          </div>
+
+          <div v-if="reviewsLoading" class="reviews-state">Cargando reseñas...</div>
+          <div v-else-if="productReviews.length" class="reviews-grid">
+            <article v-for="review in productReviews" :key="review.id" class="review-card">
+              <div class="review-card-head">
+                <div>
+                  <strong>{{ review.cliente_nombre }}</strong>
+                  <small>{{ formatReviewDate(review.creado_en) }}</small>
+                </div>
+                <StarRating :value="review.rating" />
+              </div>
+              <p>{{ review.contenido }}</p>
+            </article>
+          </div>
+          <div v-else class="reviews-state">
+            Aún no hay reseñas verificadas para este producto.
+          </div>
+        </section>
+
         <section v-if="relatedProducts.length" class="related-section">
           <div class="related-head">
             <div>
@@ -111,7 +138,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import ProductCard from '../components/store/ProductCard.vue'
 import StarRating from '../components/store/StarRating.vue'
-import { productosApi } from '../api/index.js'
+import { productosApi, reviewsApi } from '../api/index.js'
 import { useCartStore } from '../stores/cart.js'
 import { useUiStore } from '../stores/ui.js'
 
@@ -122,6 +149,8 @@ const ui = useUiStore()
 const loading = ref(true)
 const producto = ref(null)
 const allProducts = ref([])
+const productReviews = ref([])
+const reviewsLoading = ref(false)
 const qty = ref(1)
 const imageBroken = ref(false)
 const selectedTone = ref('')
@@ -162,6 +191,7 @@ async function loadProductData() {
     producto.value = detail
     allProducts.value = listing
     selectedTone.value = detail?.usa_tonos && detail?.tonos?.length ? detail.tonos[0] : ''
+    await loadProductReviews()
   } catch (error) {
     console.error(error)
     ui.error('No pudimos cargar este producto.')
@@ -179,6 +209,7 @@ async function refreshProductData() {
     ])
     producto.value = detail
     allProducts.value = listing
+    await loadProductReviews()
     if (detail?.usa_tonos && detail?.tonos?.length) {
       if (!detail.tonos.includes(selectedTone.value)) selectedTone.value = detail.tonos[0]
     } else {
@@ -186,6 +217,19 @@ async function refreshProductData() {
     }
   } catch (error) {
     console.error('No pudimos refrescar este producto.', error)
+  }
+}
+
+async function loadProductReviews() {
+  reviewsLoading.value = true
+  try {
+    const { data } = await reviewsApi.product(route.params.id)
+    productReviews.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error('No pudimos cargar las reseñas del producto.', error)
+    productReviews.value = []
+  } finally {
+    reviewsLoading.value = false
   }
 }
 
@@ -216,6 +260,10 @@ function addToCart() {
 
 function fmt(n) {
   return '$' + Number(n || 0).toLocaleString('es-CL')
+}
+
+function formatReviewDate(value) {
+  return new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium' }).format(new Date(value))
 }
 </script>
 
@@ -452,6 +500,61 @@ function fmt(n) {
   color: var(--text-muted);
   font-size: 12px;
 }
+.reviews-section {
+  margin-top: 38px;
+}
+.reviews-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: end;
+}
+.reviews-head h2 {
+  margin-top: 8px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 42px;
+  line-height: 1;
+  color: var(--dark);
+}
+.reviews-head span {
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.reviews-grid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.review-card,
+.reviews-state {
+  background: rgba(255,255,255,.82);
+  border: 1px solid rgba(139,63,85,.08);
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow: 0 16px 38px rgba(139,63,85,.06);
+}
+.review-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+}
+.review-card strong {
+  display: block;
+  color: var(--rose-dark);
+}
+.review-card small,
+.reviews-state {
+  color: var(--text-muted);
+}
+.review-card p {
+  margin-top: 14px;
+  color: var(--dark-mid);
+  line-height: 1.75;
+}
 .related-section {
   margin-top: 40px;
 }
@@ -471,6 +574,7 @@ function fmt(n) {
 
 @media (max-width: 980px) {
   .detail-grid,
+  .reviews-grid,
   .related-grid {
     grid-template-columns: 1fr;
   }
@@ -527,6 +631,11 @@ function fmt(n) {
   }
 
   .detail-price-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .reviews-head {
     flex-direction: column;
     align-items: flex-start;
   }
