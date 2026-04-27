@@ -102,8 +102,21 @@
         <RouterLink class="section-link" to="/catalogo">{{ homeContent.bestSellers.link_label }}</RouterLink>
       </div>
 
-      <div class="showcase-grid">
-        <ProductCard v-for="product in bestSellers" :key="product.id" :producto="product" />
+      <div v-if="visibleBestSellers.length" class="best-seller-carousel" aria-live="polite">
+        <div class="showcase-grid best-seller-grid">
+          <ProductCard
+            v-for="product in visibleBestSellers"
+            :key="`best-seller-${bestSellerIndex}-${product.id}`"
+            :producto="product"
+          />
+        </div>
+        <div v-if="bestSellers.length > 1" class="carousel-progress" aria-hidden="true">
+          <span
+            v-for="(_, index) in bestSellers"
+            :key="`best-seller-dot-${index}`"
+            :class="{ active: index === bestSellerIndex }"
+          ></span>
+        </div>
       </div>
     </section>
 
@@ -243,7 +256,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { mensajesApi, newsApi, productosApi, resolveAssetUrl, reviewsApi, settingsApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
@@ -323,6 +336,8 @@ const suscritoOk = ref(false)
 const newsItems = ref([])
 const newsLoading = ref(false)
 const homeReviews = ref([])
+const bestSellerIndex = ref(0)
+let bestSellerTimer = null
 
 const categoryAliases = {
   'Tónicos': 'Tonicos',
@@ -354,16 +369,23 @@ const heroTiles = computed(() => {
 })
 
 const bestSellers = computed(() => {
-  const badgeScore = { hot: 3, sale: 2, new: 1 }
-  return [...productos.value]
+  return productos.value
+    .filter(product => product.badge === 'hot')
     .sort((a, b) => {
-      const badgeDelta = (badgeScore[b.badge] || 0) - (badgeScore[a.badge] || 0)
-      if (badgeDelta !== 0) return badgeDelta
       const reviewDelta = Number(b.resenas || 0) - Number(a.resenas || 0)
       if (reviewDelta !== 0) return reviewDelta
       return Number(b.stock || 0) - Number(a.stock || 0)
     })
-    .slice(0, 4)
+})
+
+const visibleBestSellers = computed(() => {
+  const items = bestSellers.value
+  if (!items.length) return []
+  const visibleCount = Math.min(4, items.length)
+  return Array.from({ length: visibleCount }, (_, offset) => {
+    const index = (bestSellerIndex.value + offset) % items.length
+    return items[index]
+  })
 })
 
 const newArrivals = computed(() => {
@@ -387,7 +409,21 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('focus', handleVisibilityRefresh)
   document.removeEventListener('visibilitychange', handleVisibilityRefresh)
+  stopBestSellerCarousel()
 })
+
+watch(
+  () => bestSellers.value.length,
+  length => {
+    bestSellerIndex.value = 0
+    if (length > 1) {
+      startBestSellerCarousel()
+    } else {
+      stopBestSellerCarousel()
+    }
+  },
+  { immediate: true }
+)
 
 async function loadStoreData() {
   try {
@@ -444,6 +480,21 @@ async function loadHomeReviews() {
 function normalizeCategory(category) {
   if (!category) return 'Sin categoría'
   return categoryAliases[category] || category
+}
+
+function startBestSellerCarousel() {
+  stopBestSellerCarousel()
+  bestSellerTimer = window.setInterval(() => {
+    const total = bestSellers.value.length
+    if (total <= 1) return
+    bestSellerIndex.value = (bestSellerIndex.value + 1) % total
+  }, 4000)
+}
+
+function stopBestSellerCarousel() {
+  if (!bestSellerTimer) return
+  window.clearInterval(bestSellerTimer)
+  bestSellerTimer = null
 }
 
 function promoIconKey(icon) {
@@ -599,6 +650,51 @@ nav { display: flex; gap: 24px; }
   transform: translate(-50%, -50%);
 }
 .showcase-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(4,1fr); gap: 22px; }
+.best-seller-carousel {
+  margin-top: 24px;
+  display: grid;
+  gap: 18px;
+}
+.best-seller-grid {
+  margin-top: 0;
+}
+.best-seller-grid > * {
+  animation: carouselCardIn .42s ease both;
+}
+.carousel-progress {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  width: min(180px, 100%);
+  height: 1px;
+  margin: 6px auto 0;
+  background: linear-gradient(90deg, transparent, rgba(191,84,122,.22), transparent);
+  position: relative;
+}
+.carousel-progress span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f4dbe4;
+  border: 1px solid rgba(191,84,122,.26);
+  opacity: 0;
+  transform: translateY(-4px) scale(.8);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.carousel-progress span.active {
+  opacity: 1;
+  transform: translateY(-4px) scale(1);
+}
+@keyframes carouselCardIn {
+  from {
+    opacity: .72;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 
 .editorial-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
 .editorial-card { min-height: 280px; border: 1px solid rgba(139,63,85,.08); border-radius: 30px; padding: 28px; display: flex; flex-direction: column; justify-content: end; gap: 12px; text-align: left; }
