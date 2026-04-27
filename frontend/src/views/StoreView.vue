@@ -237,6 +237,29 @@
 
     <div class="section-divider" aria-hidden="true"></div>
 
+    <section class="whatsapp-club-section">
+      <div class="whatsapp-club-card">
+        <div class="whatsapp-club-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" class="whatsapp-club-svg" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M20 11.5a8 8 0 1 1-14.9 4L4 20l4.7-1.1A8 8 0 1 1 20 11.5Z" />
+            <path d="M9 8.8c.2-.4.4-.4.7-.4h.6c.2 0 .4 0 .5.4l.6 1.6c.1.2.1.4 0 .6l-.5.8c-.1.2-.1.4 0 .6c.5.8 1.2 1.5 2 2c.2.1.4.1.6 0l.8-.5c.2-.1.4-.1.6 0l1.6.6c.4.1.4.3.4.5v.6c0 .3 0 .5-.4.7c-.6.3-1.3.5-2 .4c-1.1-.1-2.5-.8-3.9-2.2c-1.4-1.4-2.1-2.8-2.2-3.9c-.1-.7.1-1.4.4-2Z" />
+          </svg>
+        </div>
+        <div class="whatsapp-club-copy">
+          <div class="section-tag">Ofertas secretas</div>
+          <h2 class="section-title">Entra al círculo Bloomskin</h2>
+          <p class="section-copy left">
+            Únete al grupo de WhatsApp para recibir drops, preventas y descuentos sorpresa antes que aparezcan en la tienda.
+          </p>
+        </div>
+        <a class="btn-primary whatsapp-club-btn" :href="whatsappGroupUrl" target="_blank" rel="noreferrer">
+          Unirme al grupo
+        </a>
+      </div>
+    </section>
+
+    <div class="section-divider" aria-hidden="true"></div>
+
     <section class="newsletter-section">
       <div class="newsletter-tag">{{ homeContent.newsletter.tag }}</div>
       <h2 class="newsletter-title">{{ homeContent.newsletter.title }}<br /><em>{{ homeContent.newsletter.emphasis }}</em></h2>
@@ -335,6 +358,7 @@ const newsItems = ref([])
 const newsLoading = ref(false)
 const homeReviews = ref([])
 const bestSellerIndex = ref(0)
+const whatsappGroupUrl = 'https://chat.whatsapp.com/CM0Ba6ZMc9cAJwDoVnr4zi?mode=gi_t'
 let bestSellerTimer = null
 
 const categoryAliases = {
@@ -607,7 +631,7 @@ nav { display: flex; gap: 24px; }
 .tile-name { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dark-mid); font-weight: 500; }
 .tile-count { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
 
-.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,footer { max-width: 1280px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
+.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,.whatsapp-club-section,footer { max-width: 1280px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 .promo-band { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-top: 28px; }
 .promo-item { background: var(--sage-light); border: 1px solid #c8dcc8; border-radius: 22px; padding: 18px 18px; display: flex; align-items: center; gap: 12px; }
 .promo-icon { width: 40px; height: 40px; background: var(--sage); color: #335f4a; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -618,7 +642,7 @@ nav { display: flex; gap: 24px; }
 .promo-text strong { display: block; font-size: 12px; }
 .promo-text span { font-size: 12px; color: var(--text-muted); }
 
-.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,.newsletter-section { padding-top: 58px; }
+.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,.whatsapp-club-section,.newsletter-section { padding-top: 58px; }
 .section-header { text-align: center; }
 .section-header.split { display: flex; justify-content: space-between; align-items: end; gap: 18px; text-align: left; }
 .section-header-centered { display: grid; justify-items: center; text-align: center; gap: 10px; }
@@ -704,6 +728,37 @@ nav { display: flex; gap: 24px; }
 .editorial-cream { background: linear-gradient(160deg,#fff8f1,#f2e1cf); }
 
 .catalog-cta-card { padding: 28px; border-radius: 30px; background: linear-gradient(135deg,#fff5f8,#f7e9ee); border: 1px solid rgba(191,84,122,.1); display: flex; justify-content: space-between; align-items: end; gap: 18px; }
+
+.whatsapp-club-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 22px;
+  padding: 26px 30px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 11% 12%, rgba(78, 183, 129, .22), transparent 30%),
+    linear-gradient(135deg, #f4fbf4, #fff4f8 58%, #f9eef3);
+  border: 1px solid rgba(72, 151, 107, .18);
+  box-shadow: 0 20px 48px rgba(139,63,85,.08);
+}
+.whatsapp-club-icon {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1f7c4a;
+  background: #e5f6e9;
+  border: 1px solid rgba(72, 151, 107, .22);
+  box-shadow: inset 0 0 0 8px rgba(255,255,255,.55);
+}
+.whatsapp-club-svg { width: 34px; height: 34px; display: block; }
+.whatsapp-club-copy { display: grid; gap: 8px; }
+.whatsapp-club-copy .section-title { margin-top: 0; font-size: 42px; }
+.whatsapp-club-copy .section-copy { max-width: 620px; }
+.whatsapp-club-btn { white-space: nowrap; background: #278b55; }
 
 .home-reviews-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
 .home-review-card {
@@ -804,17 +859,21 @@ footer { padding-top: 36px; padding-bottom: 42px; }
 @media (max-width: 1080px) {
   .header-inner { grid-template-columns: 1fr; min-height: auto; padding: 16px 24px; }
   nav,.header-right { justify-content: center; flex-wrap: wrap; }
-  .hero,.section-header.split,.catalog-cta-card,.footer-top { grid-template-columns: 1fr; display: grid; }
+  .hero,.section-header.split,.catalog-cta-card,.whatsapp-club-card,.footer-top { grid-template-columns: 1fr; display: grid; }
   .promo-band,.showcase-grid,.editorial-grid,.home-reviews-grid,.news-grid { grid-template-columns: repeat(2,1fr); }
+  .whatsapp-club-card { justify-items: start; }
 }
 
 @media (max-width: 720px) {
   .search-link { order: 3; width: 100%; justify-content: center; }
   .account-btn { flex: 1; }
-  .hero-left,.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,footer,.newsletter-section,.news-section { padding-left: 20px; padding-right: 20px; }
+  .hero-left,.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,.whatsapp-club-section,footer,.newsletter-section,.news-section { padding-left: 20px; padding-right: 20px; }
   .hero-left { padding-top: 56px; padding-bottom: 56px; }
   .hero-title,.section-title,.newsletter-title { font-size: 42px; }
   .promo-band,.showcase-grid,.editorial-grid,.home-reviews-grid,.hero-right,.newsletter-form,.footer-top,.news-grid { grid-template-columns: 1fr; }
+  .whatsapp-club-card { padding: 24px; text-align: left; }
+  .whatsapp-club-copy .section-title { font-size: 34px; }
+  .whatsapp-club-btn { width: 100%; }
   .footer-bottom { flex-direction: column; }
 }
 </style>
