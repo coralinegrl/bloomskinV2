@@ -61,9 +61,9 @@
             <path d="M12 9H7.5a2.5 2.5 0 1 1 0-5c2.4 0 3.6 2.5 4.5 5Z" />
             <path d="M12 9h4.5a2.5 2.5 0 1 0 0-5C14.1 4 12.9 6.5 12 9Z" />
           </svg>
-          <svg v-else-if="promoIconKey(promo.icon) === 'whatsapp'" viewBox="0 0 24 24" class="promo-svg" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M20 11.5a8 8 0 1 1-14.9 4L4 20l4.7-1.1A8 8 0 1 1 20 11.5Z" />
-            <path d="M9 8.8c.2-.4.4-.4.7-.4h.6c.2 0 .4 0 .5.4l.6 1.6c.1.2.1.4 0 .6l-.5.8c-.1.2-.1.4 0 .6c.5.8 1.2 1.5 2 2c.2.1.4.1.6 0l.8-.5c.2-.1.4-.1.6 0l1.6.6c.4.1.4.3.4.5v.6c0 .3 0 .5-.4.7c-.6.3-1.3.5-2 .4c-1.1-.1-2.5-.8-3.9-2.2c-1.4-1.4-2.1-2.8-2.2-3.9c-.1-.7.1-1.4.4-2Z" />
+          <svg v-else-if="promoIconKey(promo.icon) === 'whatsapp'" viewBox="0 0 24 24" class="promo-svg whatsapp-mark" aria-hidden="true">
+            <path d="M12 3.5a8.5 8.5 0 0 0-7.2 13L3.9 20l3.6-1a8.5 8.5 0 1 0 4.5-15.5Zm0 1.8a6.7 6.7 0 1 1 0 13.4c-1.2 0-2.4-.3-3.4-.9l-.3-.2-1.9.5.5-1.8-.2-.3A6.7 6.7 0 0 1 12 5.3Z" />
+            <path d="M9.6 8.1c.2-.3.4-.4.7-.4h.5c.2 0 .4.1.5.4l.6 1.4c.1.3.1.5-.1.7l-.4.5c-.1.2-.1.3 0 .5.5.8 1.2 1.5 2 2 .2.1.3.1.5 0l.6-.4c.2-.2.4-.2.7-.1l1.4.6c.3.1.4.3.4.6v.5c0 .3-.1.5-.4.7-.5.3-1.1.5-1.8.4-1-.1-2.4-.7-3.7-2-1.3-1.3-1.9-2.7-2-3.7-.1-.7.1-1.3.4-1.8Z" />
           </svg>
           <svg v-else-if="promoIconKey(promo.icon) === 'flag-kr'" viewBox="0 0 64 64" class="flag-svg">
             <circle cx="32" cy="32" r="30" fill="#fff" />
@@ -240,9 +240,9 @@
     <section class="whatsapp-club-section">
       <div class="whatsapp-club-card">
         <div class="whatsapp-club-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" class="whatsapp-club-svg" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M20 11.5a8 8 0 1 1-14.9 4L4 20l4.7-1.1A8 8 0 1 1 20 11.5Z" />
-            <path d="M9 8.8c.2-.4.4-.4.7-.4h.6c.2 0 .4 0 .5.4l.6 1.6c.1.2.1.4 0 .6l-.5.8c-.1.2-.1.4 0 .6c.5.8 1.2 1.5 2 2c.2.1.4.1.6 0l.8-.5c.2-.1.4-.1.6 0l1.6.6c.4.1.4.3.4.5v.6c0 .3 0 .5-.4.7c-.6.3-1.3.5-2 .4c-1.1-.1-2.5-.8-3.9-2.2c-1.4-1.4-2.1-2.8-2.2-3.9c-.1-.7.1-1.4.4-2Z" />
+          <svg viewBox="0 0 24 24" class="whatsapp-club-svg whatsapp-mark" aria-hidden="true">
+            <path d="M12 3.5a8.5 8.5 0 0 0-7.2 13L3.9 20l3.6-1a8.5 8.5 0 1 0 4.5-15.5Zm0 1.8a6.7 6.7 0 1 1 0 13.4c-1.2 0-2.4-.3-3.4-.9l-.3-.2-1.9.5.5-1.8-.2-.3A6.7 6.7 0 0 1 12 5.3Z" />
+            <path d="M9.6 8.1c.2-.3.4-.4.7-.4h.5c.2 0 .4.1.5.4l.6 1.4c.1.3.1.5-.1.7l-.4.5c-.1.2-.1.3 0 .5.5.8 1.2 1.5 2 2 .2.1.3.1.5 0l.6-.4c.2-.2.4-.2.7-.1l1.4.6c.3.1.4.3.4.6v.5c0 .3-.1.5-.4.7-.5.3-1.1.5-1.8.4-1-.1-2.4-.7-3.7-2-1.3-1.3-1.9-2.7-2-3.7-.1-.7.1-1.3.4-1.8Z" />
           </svg>
         </div>
         <div class="whatsapp-club-copy">
@@ -637,6 +637,7 @@ nav { display: flex; gap: 24px; }
 .promo-icon { width: 40px; height: 40px; background: var(--sage); color: #335f4a; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .promo-flag-icon { padding: 0; overflow: hidden; }
 .promo-svg { width: 20px; height: 20px; display: block; }
+.whatsapp-mark { fill: currentColor; }
 .promo-fallback { font-size: 13px; font-weight: 700; }
 .flag-svg { width: 24px; height: 24px; display: block; }
 .promo-text strong { display: block; font-size: 12px; }
