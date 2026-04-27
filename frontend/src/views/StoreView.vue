@@ -102,19 +102,26 @@
         <RouterLink class="section-link" to="/catalogo">{{ homeContent.bestSellers.link_label }}</RouterLink>
       </div>
 
-      <div v-if="visibleBestSellers.length" class="best-seller-carousel" aria-live="polite">
-        <div class="showcase-grid best-seller-grid">
+      <div v-if="bestSellers.length" class="best-seller-carousel" aria-live="polite">
+        <div class="best-seller-viewport">
+          <div
+            class="best-seller-track"
+            :class="{ resetting: bestSellerResetting }"
+            :style="{ '--carousel-index': renderedBestSellerIndex }"
+            @transitionend="handleBestSellerTransitionEnd"
+          >
           <ProductCard
-            v-for="product in visibleBestSellers"
-            :key="`best-seller-${bestSellerIndex}-${product.id}`"
+            v-for="(product, index) in carouselBestSellers"
+            :key="`best-seller-${product.id}-${index}`"
             :producto="product"
           />
+          </div>
         </div>
         <div v-if="bestSellers.length > 1" class="carousel-progress" aria-hidden="true">
           <span
             v-for="(_, index) in bestSellers"
             :key="`best-seller-dot-${index}`"
-            :class="{ active: index === bestSellerIndex }"
+            :class="{ active: index === activeBestSellerIndex }"
           ></span>
         </div>
       </div>
@@ -358,6 +365,8 @@ const newsItems = ref([])
 const newsLoading = ref(false)
 const homeReviews = ref([])
 const bestSellerIndex = ref(0)
+const renderedBestSellerIndex = ref(0)
+const bestSellerResetting = ref(false)
 const whatsappGroupUrl = 'https://chat.whatsapp.com/CM0Ba6ZMc9cAJwDoVnr4zi?mode=gi_t'
 let bestSellerTimer = null
 
@@ -400,14 +409,18 @@ const bestSellers = computed(() => {
     })
 })
 
-const visibleBestSellers = computed(() => {
+const visibleBestSellerCount = computed(() => Math.min(4, bestSellers.value.length || 4))
+
+const carouselBestSellers = computed(() => {
   const items = bestSellers.value
   if (!items.length) return []
-  const visibleCount = Math.min(4, items.length)
-  return Array.from({ length: visibleCount }, (_, offset) => {
-    const index = (bestSellerIndex.value + offset) % items.length
-    return items[index]
-  })
+  return [...items, ...items.slice(0, visibleBestSellerCount.value)]
+})
+
+const activeBestSellerIndex = computed(() => {
+  const total = bestSellers.value.length
+  if (!total) return 0
+  return bestSellerIndex.value % total
 })
 
 const newArrivals = computed(() => {
@@ -438,6 +451,8 @@ watch(
   () => bestSellers.value.length,
   length => {
     bestSellerIndex.value = 0
+    renderedBestSellerIndex.value = 0
+    bestSellerResetting.value = false
     if (length > 1) {
       startBestSellerCarousel()
     } else {
@@ -509,7 +524,9 @@ function startBestSellerCarousel() {
   bestSellerTimer = window.setInterval(() => {
     const total = bestSellers.value.length
     if (total <= 1) return
-    bestSellerIndex.value = (bestSellerIndex.value + 1) % total
+    bestSellerResetting.value = false
+    renderedBestSellerIndex.value += 1
+    bestSellerIndex.value = renderedBestSellerIndex.value % total
   }, 4000)
 }
 
@@ -517,6 +534,21 @@ function stopBestSellerCarousel() {
   if (!bestSellerTimer) return
   window.clearInterval(bestSellerTimer)
   bestSellerTimer = null
+}
+
+function handleBestSellerTransitionEnd(event) {
+  if (!event.target?.classList?.contains('best-seller-track')) return
+  const total = bestSellers.value.length
+  if (!total || renderedBestSellerIndex.value < total) return
+
+  bestSellerResetting.value = true
+  renderedBestSellerIndex.value = 0
+  bestSellerIndex.value = 0
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      bestSellerResetting.value = false
+    })
+  })
 }
 
 function promoIconKey(icon) {
@@ -678,11 +710,24 @@ nav { display: flex; gap: 24px; }
   display: grid;
   gap: 18px;
 }
-.best-seller-grid {
-  margin-top: 0;
+.best-seller-viewport {
+  --best-seller-gap: 22px;
+  --best-seller-visible: 4;
+  overflow: hidden;
 }
-.best-seller-grid > * {
-  animation: carouselCardIn .42s ease both;
+.best-seller-track {
+  display: flex;
+  gap: var(--best-seller-gap);
+  transform: translateX(calc(var(--carousel-index) * -1 * ((100% + var(--best-seller-gap)) / var(--best-seller-visible))));
+  transition: transform .72s cubic-bezier(.22, .8, .28, 1);
+  will-change: transform;
+}
+.best-seller-track.resetting {
+  transition: none;
+}
+.best-seller-track > * {
+  flex: 0 0 calc((100% - (var(--best-seller-visible) - 1) * var(--best-seller-gap)) / var(--best-seller-visible));
+  min-width: 0;
 }
 .carousel-progress {
   display: flex;
@@ -708,17 +753,6 @@ nav { display: flex; gap: 24px; }
   opacity: 1;
   transform: translateY(-4px) scale(1);
 }
-@keyframes carouselCardIn {
-  from {
-    opacity: .72;
-    transform: translateX(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 .editorial-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
 .editorial-card { min-height: 280px; border: 1px solid rgba(139,63,85,.08); border-radius: 30px; padding: 28px; display: flex; flex-direction: column; justify-content: end; gap: 12px; text-align: left; }
 .editorial-card strong { font-family: 'Cormorant Garamond', serif; font-size: 34px; line-height: 1.05; color: var(--dark); }
@@ -862,6 +896,7 @@ footer { padding-top: 36px; padding-bottom: 42px; }
   nav,.header-right { justify-content: center; flex-wrap: wrap; }
   .hero,.section-header.split,.catalog-cta-card,.whatsapp-club-card,.footer-top { grid-template-columns: 1fr; display: grid; }
   .promo-band,.showcase-grid,.editorial-grid,.home-reviews-grid,.news-grid { grid-template-columns: repeat(2,1fr); }
+  .best-seller-viewport { --best-seller-visible: 2; }
   .whatsapp-club-card { justify-items: start; }
 }
 
@@ -872,6 +907,7 @@ footer { padding-top: 36px; padding-bottom: 42px; }
   .hero-left { padding-top: 56px; padding-bottom: 56px; }
   .hero-title,.section-title,.newsletter-title { font-size: 42px; }
   .promo-band,.showcase-grid,.editorial-grid,.home-reviews-grid,.hero-right,.newsletter-form,.footer-top,.news-grid { grid-template-columns: 1fr; }
+  .best-seller-viewport { --best-seller-visible: 1; }
   .whatsapp-club-card { padding: 24px; text-align: left; }
   .whatsapp-club-copy .section-title { font-size: 34px; }
   .whatsapp-club-btn { width: 100%; }

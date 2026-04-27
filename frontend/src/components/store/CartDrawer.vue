@@ -295,7 +295,7 @@
                     @input="discountError = ''"
                     @keydown.enter.prevent="applyDiscountCode"
                   />
-                  <button class="ghost-btn discount-clear" type="button" :disabled="discountLoading || !appliedDiscount" @click="clearDiscountCode">
+                  <button class="ghost-btn discount-clear" type="button" :disabled="discountLoading || (!discountCode && !appliedDiscount)" @click="clearDiscountCode">
                     Quitar
                   </button>
                 </div>
@@ -350,7 +350,8 @@
 
               <div class="checkout-panel">
                 <strong>Sube tu comprobante</strong>
-                <input class="proof-input" type="file" accept="image/*,.pdf" @change="handleProofSelected" :disabled="proofUploading" />
+                <input class="proof-input" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/bmp,image/tiff" @change="handleProofSelected" :disabled="proofUploading" />
+                <p class="panel-copy">Aceptamos imágenes JPG, PNG, WebP, HEIC, BMP o TIFF de hasta 5 MB.</p>
                 <button class="primary-btn" type="button" :disabled="proofUploading || !proofFile" @click="uploadProof">
                   {{ proofUploading ? 'Subiendo comprobante...' : 'Subir comprobante' }}
                 </button>
@@ -421,6 +422,9 @@ const reservationInfo = ref(null)
 const reservationLoading = ref(false)
 const reservationError = ref('')
 const nowTick = ref(Date.now())
+const MAX_PROOF_FILE_BYTES = 5 * 1024 * 1024
+const ALLOWED_PROOF_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/bmp', 'image/tiff'])
+const ALLOWED_PROOF_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'bmp', 'tif', 'tiff'])
 let shippingDebounce = null
 let reservationSyncDebounce = null
 const timerInterval = window.setInterval(() => {
@@ -720,6 +724,7 @@ function clearDiscountCode() {
   appliedDiscount.value = null
   discountCode.value = ''
   discountError.value = ''
+  checkoutError.value = ''
   if (cart.view === 'checkout') {
     void calculateShipping()
   }
@@ -888,7 +893,29 @@ function isDiscountErrorMessage(message) {
 
 function handleProofSelected(event) {
   proofUploadedUrl.value = ''
-  proofFile.value = event.target.files?.[0] || null
+  checkoutError.value = ''
+  const file = event.target.files?.[0] || null
+  proofFile.value = null
+
+  if (!file) return
+
+  const fileType = String(file.type || '').toLowerCase()
+  const fileExtension = String(file.name || '').split('.').pop()?.toLowerCase() || ''
+  if (!ALLOWED_PROOF_TYPES.has(fileType) && !ALLOWED_PROOF_EXTENSIONS.has(fileExtension)) {
+    checkoutError.value = 'El comprobante debe ser una imagen JPG, PNG, WebP, HEIC, BMP o TIFF. No se permiten videos, GIF ni PDF.'
+    ui.error(checkoutError.value)
+    event.target.value = ''
+    return
+  }
+
+  if (file.size > MAX_PROOF_FILE_BYTES) {
+    checkoutError.value = 'El comprobante no puede pesar más de 5 MB.'
+    ui.error(checkoutError.value)
+    event.target.value = ''
+    return
+  }
+
+  proofFile.value = file
 }
 
 async function uploadProof() {

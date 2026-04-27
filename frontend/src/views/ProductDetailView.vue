@@ -206,6 +206,14 @@ watch(
 )
 
 async function loadProductData(productId = route.params.id, options = {}) {
+  if (!productId) {
+    loading.value = false
+    producto.value = null
+    productReviews.value = []
+    reviewsLoading.value = false
+    return
+  }
+
   const token = ++productLoadToken
   loading.value = true
   producto.value = null
@@ -236,6 +244,7 @@ async function loadProductData(productId = route.params.id, options = {}) {
 
 async function refreshProductData() {
   if (document.visibilityState && document.visibilityState !== 'visible') return
+  if (!route.params.id) return
   try {
     const [{ data: detail }, { data: listing }] = await Promise.all([
       productosApi.obtener(route.params.id),
@@ -255,6 +264,12 @@ async function refreshProductData() {
 }
 
 async function loadProductReviews(productId = route.params.id, token = productLoadToken) {
+  if (!productId) {
+    productReviews.value = []
+    reviewsLoading.value = false
+    return
+  }
+
   reviewsLoading.value = true
   try {
     const { data } = await reviewsApi.product(productId)

@@ -106,11 +106,16 @@ router.get('/home', async (req, res) => {
 });
 
 router.get('/product/:productoId', async (req, res) => {
+  const productoId = Number(req.params.productoId);
+  if (!Number.isInteger(productoId) || productoId <= 0) {
+    return res.status(400).json({ error: 'Producto invalido' });
+  }
+
   try {
     const pool = await getPool();
     await ensureReviewsSchema(pool);
     const result = await pool.request()
-      .input('producto_id', sql.Int, req.params.productoId)
+      .input('producto_id', sql.Int, productoId)
       .query(`
         SELECT
           r.id, r.producto_id, r.rating, r.contenido, r.creado_en, r.actualizado_en,

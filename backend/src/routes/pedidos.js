@@ -63,6 +63,17 @@ const INVENTORY_COMMITTED_STATES = new Set(['paid', 'shipped', 'delivered']);
 const MANUAL_SALES_CLIENT_EMAIL = 'ventas-manuales@bloomskin.local';
 const CHECKOUT_RESERVATION_MINUTES = 20;
 const PAYMENT_PROOF_WINDOW_MINUTES = 60;
+const MAX_PROOF_FILE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PROOF_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'image/bmp',
+  'image/tiff',
+]);
+const ALLOWED_PROOF_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.bmp', '.tif', '.tiff']);
 
 const proofStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, proofUploadsDir),
@@ -78,16 +89,31 @@ const proofStorage = multer.diskStorage({
 
 const uploadProof = multer({
   storage: proofStorage,
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: MAX_PROOF_FILE_BYTES },
   fileFilter: (_req, file, cb) => {
-    const allowedTypes = ['image/', 'application/pdf'];
-    if (!allowedTypes.some(type => file.mimetype.startsWith(type))) {
-      cb(new Error('Solo se permiten imagenes o PDF'));
+    const mimetype = String(file.mimetype || '').toLowerCase();
+    const extension = path.extname(file.originalname || '').toLowerCase();
+    if (!ALLOWED_PROOF_MIME_TYPES.has(mimetype) || !ALLOWED_PROOF_EXTENSIONS.has(extension)) {
+      cb(new Error('El comprobante debe ser una imagen JPG, PNG, WebP, HEIC, BMP o TIFF. No se permiten videos, GIF ni PDF.'));
       return;
     }
     cb(null, true);
   },
 });
+
+function handleProofUpload(req, res, next) {
+  uploadProof.single('comprobante')(req, res, err => {
+    if (!err) return next();
+
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'El comprobante no puede pesar más de 5 MB.' });
+    }
+
+    return res.status(400).json({
+      error: err.message || 'No pudimos leer el comprobante. Sube una imagen válida.',
+    });
+  });
+}
 
 function getTransferConfig() {
   const settings = readSettings();
@@ -1514,7 +1540,7 @@ router.post('/manual', requireAdminAuth, async (req, res) => {
   }
 });
 
-router.post('/:id/comprobante', requireClientAuth, uploadProof.single('comprobante'), async (req, res) => {
+router.post('/:id/comprobante', requireClientAuth, handleProofUpload, async (req, res) => {
   const pedidoId = Number(req.params.id);
 
   if (!req.file) {
