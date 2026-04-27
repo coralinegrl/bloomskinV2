@@ -3,6 +3,37 @@ const { getPool, sql } = require('../config/db');
 const { requireAdminAuth, requireClientAuth } = require('../middleware/auth');
 const { normalizeEmail, validateCustomerPayload, validateRequiredText } = require('../lib/validation');
 
+function normalizeToneOptions(value) {
+  try {
+    const raw = Array.isArray(value) ? value : JSON.parse(String(value || '[]'));
+    return [...new Set(raw.map(entry => String(entry || '').trim()).filter(Boolean))].slice(0, 40);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeToneStock(value, tones = [], fallbackStock = 0) {
+  let parsed = {};
+  try {
+    parsed = value ? JSON.parse(String(value)) : {};
+  } catch {
+    parsed = {};
+  }
+  const clean = {};
+  const hasExplicit = tones.some(tone => Object.prototype.hasOwnProperty.call(parsed, tone));
+  for (const tone of tones) clean[tone] = Math.max(0, Math.floor(Number(parsed?.[tone] || 0)));
+  if (!hasExplicit && tones.length) {
+    const total = Math.max(0, Math.floor(Number(fallbackStock || 0)));
+    const base = Math.floor(total / tones.length);
+    let remainder = total % tones.length;
+    for (const tone of tones) {
+      clean[tone] = base + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder -= 1;
+    }
+  }
+  return clean;
+}
+
 async function fetchWishlistByClientId(clienteId) {
   const pool = await getPool();
   const result = await pool.request()
@@ -12,6 +43,7 @@ async function fetchWishlistByClientId(clienteId) {
         pr.id, pr.marca, pr.nombre, pr.descripcion, pr.categoria,
         pr.precio_usd, pr.precio_clp, pr.precio_oferta_clp, pr.oferta_hasta, pr.stock,
         pr.badge, pr.estrellas, pr.resenas, pr.img_clase, pr.imagen_url,
+        pr.usa_tonos, pr.tonos_json, pr.tonos_stock_json,
         cw.creado_en AS wishlisted_en
       FROM cliente_wishlist cw
       JOIN productos pr ON pr.id = cw.producto_id
@@ -19,7 +51,18 @@ async function fetchWishlistByClientId(clienteId) {
       ORDER BY cw.creado_en DESC
     `);
 
-  return result.recordset;
+  return result.recordset.map(product => {
+    const tones = normalizeToneOptions(product.tonos_json);
+    const usesTones = Boolean(product.usa_tonos && tones.length);
+    const toneStock = usesTones ? normalizeToneStock(product.tonos_stock_json, tones, product.stock) : {};
+    return {
+      ...product,
+      usa_tonos: usesTones,
+      tonos: tones,
+      tonos_stock: toneStock,
+      stock: usesTones ? Object.values(toneStock).reduce((sum, value) => sum + Number(value || 0), 0) : product.stock,
+    };
+  });
 }
 
 router.get('/', requireAdminAuth, async (_req, res) => {

@@ -56,26 +56,28 @@
                   class="tone-chip"
                   :class="{ active: selectedTone === tone }"
                   type="button"
+                  :disabled="toneStock(tone) === 0"
                   @click="selectedTone = tone"
                 >
                   {{ tone }}
+                  <small>{{ toneStock(tone) }} disp.</small>
                 </button>
               </div>
             </div>
 
             <div class="detail-meta">
               <div><span>Categoría</span><strong>{{ producto.categoria }}</strong></div>
-              <div><span>Disponibilidad</span><strong>{{ producto.stock > 0 ? `${producto.stock} en stock` : 'Sin stock' }}</strong></div>
+              <div><span>Disponibilidad</span><strong>{{ availabilityLabel }}</strong></div>
             </div>
 
             <div class="detail-actions">
               <div class="qty-control">
                 <button @click="qty = Math.max(1, qty - 1)">-</button>
                 <span>{{ qty }}</span>
-                <button :disabled="qty >= producto.stock" @click="qty = Math.min(producto.stock, qty + 1)">+</button>
+                <button :disabled="qty >= selectedStock" @click="qty = Math.min(selectedStock, qty + 1)">+</button>
               </div>
-              <button class="add-btn" :disabled="producto.stock === 0 || (hasToneOptions && !selectedTone)" @click="addToCart">
-                {{ producto.stock === 0 ? 'Sin stock' : 'Agregar al carrito' }}
+              <button class="add-btn" :disabled="selectedStock === 0 || (hasToneOptions && !selectedTone)" @click="addToCart">
+                {{ selectedStock === 0 ? 'Sin stock' : 'Agregar al carrito' }}
               </button>
             </div>
 
@@ -158,6 +160,19 @@ let productLoadToken = 0
 
 const hasRealImage = computed(() => Boolean(producto.value?.imagen_url) && !imageBroken.value)
 const hasToneOptions = computed(() => Boolean(producto.value?.usa_tonos && producto.value?.tonos?.length))
+const selectedStock = computed(() => {
+  if (!producto.value) return 0
+  if (!hasToneOptions.value) return Number(producto.value.stock || 0)
+  return toneStock(selectedTone.value)
+})
+const availabilityLabel = computed(() => {
+  if (!producto.value) return 'Sin stock'
+  if (hasToneOptions.value && selectedTone.value) {
+    const stock = selectedStock.value
+    return stock > 0 ? `${stock} en stock para ${selectedTone.value}` : `Sin stock para ${selectedTone.value}`
+  }
+  return Number(producto.value.stock || 0) > 0 ? `${producto.value.stock} en stock` : 'Sin stock'
+})
 const offerActive = computed(() => {
   if (!producto.value?.precio_oferta_clp) return false
   if (!producto.value?.oferta_hasta) return true
@@ -207,7 +222,7 @@ async function loadProductData(productId = route.params.id, options = {}) {
     if (token !== productLoadToken) return
     producto.value = detail
     allProducts.value = listing
-    selectedTone.value = detail?.usa_tonos && detail?.tonos?.length ? detail.tonos[0] : ''
+    selectedTone.value = firstAvailableTone(detail)
     await loadProductReviews(productId, token)
     if (options.scrollToTop) window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (error) {
@@ -230,7 +245,7 @@ async function refreshProductData() {
     allProducts.value = listing
     await loadProductReviews()
     if (detail?.usa_tonos && detail?.tonos?.length) {
-      if (!detail.tonos.includes(selectedTone.value)) selectedTone.value = detail.tonos[0]
+      if (!detail.tonos.includes(selectedTone.value) || toneStock(selectedTone.value) === 0) selectedTone.value = firstAvailableTone(detail)
     } else {
       selectedTone.value = ''
     }
@@ -265,14 +280,16 @@ function addToCart() {
     && String(item.tono_seleccionado || '') === String(selectedTone.value || '')
   )
   const currentInCart = existing?.cantidad || 0
-  if (currentInCart + qty.value > Number(producto.value.stock || 0)) {
-    ui.info('No puedes agregar más unidades que el stock disponible.')
-    qty.value = Math.max(1, Number(producto.value.stock || 1) - currentInCart)
+  const availableStock = selectedStock.value
+  if (currentInCart + qty.value > availableStock) {
+    ui.info('No puedes agregar más unidades que el stock disponible para este tipo.')
+    qty.value = Math.max(1, availableStock - currentInCart)
     return
   }
   for (let i = 0; i < qty.value; i += 1) {
     cart.agregar({
       ...producto.value,
+      stock: availableStock,
       tono_seleccionado: hasToneOptions.value ? selectedTone.value : null,
     })
   }
@@ -281,6 +298,16 @@ function addToCart() {
 
 function fmt(n) {
   return '$' + Number(n || 0).toLocaleString('es-CL')
+}
+
+function toneStock(tone) {
+  if (!tone) return 0
+  return Math.max(0, Math.floor(Number(producto.value?.tonos_stock?.[tone] || 0)))
+}
+
+function firstAvailableTone(product) {
+  if (!product?.usa_tonos || !product?.tonos?.length) return ''
+  return product.tonos.find(tone => Number(product.tonos_stock?.[tone] || 0) > 0) || product.tonos[0]
 }
 
 function formatReviewDate(value) {
@@ -453,11 +480,25 @@ function formatReviewDate(value) {
   padding: 10px 14px;
   font-size: 12px;
   line-height: 1;
+  display: inline-grid;
+  gap: 4px;
+  justify-items: center;
+}
+.tone-chip small {
+  font-size: 10px;
+  color: var(--text-muted);
 }
 .tone-chip.active {
   background: var(--rose-dark);
   border-color: var(--rose-dark);
   color: #fff;
+}
+.tone-chip.active small {
+  color: rgba(255,255,255,.78);
+}
+.tone-chip:disabled {
+  opacity: .5;
+  cursor: not-allowed;
 }
 .detail-meta {
   display: grid;

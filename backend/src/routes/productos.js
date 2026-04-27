@@ -57,21 +57,73 @@ function normalizeToneOptions(value) {
   return [...new Set(tones.filter(Boolean))].slice(0, 40);
 }
 
+function normalizeToneStock(value) {
+  if (!value) return {};
+  const raw = typeof value === 'string'
+    ? (() => {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return {};
+        }
+      })()
+    : value;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw)
+      .map(([key, stock]) => [String(key || '').trim(), Math.max(0, Math.floor(Number(stock || 0)))])
+      .filter(([key]) => key)
+  );
+}
+
+function buildToneStock(product, tones) {
+  const provided = normalizeToneStock(product?.tonos_stock || product?.tonos_stock_json);
+  const totalStock = Math.max(0, Math.floor(Number(product?.stock || 0)));
+  const clean = {};
+  for (const tone of tones) {
+    clean[tone] = Number.isInteger(provided[tone]) ? provided[tone] : 0;
+  }
+
+  const hasProvidedStock = tones.some(tone => Number.isInteger(provided[tone]));
+  if (!hasProvidedStock && tones.length) {
+    const base = Math.floor(totalStock / tones.length);
+    let remainder = totalStock % tones.length;
+    for (const tone of tones) {
+      clean[tone] = base + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder -= 1;
+    }
+  }
+  return clean;
+}
+
+function sumToneStock(toneStock) {
+  return Object.values(toneStock || {}).reduce((sum, value) => sum + Math.max(0, Math.floor(Number(value || 0))), 0);
+}
+
 function serializeToneOptions(product) {
   const tones = normalizeToneOptions(product?.tonos);
+  const usesTones = Boolean(product?.usa_tonos && tones.length);
+  const toneStock = usesTones ? buildToneStock(product, tones) : {};
   return {
-    usa_tonos: Boolean(product?.usa_tonos && tones.length),
+    usa_tonos: usesTones,
     tonos: tones,
     tonos_json: JSON.stringify(tones),
+    tonos_stock: toneStock,
+    tonos_stock_json: usesTones ? JSON.stringify(toneStock) : null,
+    stock: usesTones ? sumToneStock(toneStock) : Math.max(0, Math.floor(Number(product?.stock || 0))),
   };
 }
 
 function hydrateProduct(product) {
   const tones = normalizeToneOptions(product?.tonos_json ? JSON.parse(product.tonos_json) : product?.tonos);
+  const usesTones = Boolean(product?.usa_tonos && tones.length);
+  const toneStock = usesTones ? buildToneStock(product, tones) : {};
   return {
     ...product,
-    usa_tonos: Boolean(product?.usa_tonos && tones.length),
+    usa_tonos: usesTones,
     tonos: tones,
+    tonos_stock: toneStock,
+    stock: usesTones ? sumToneStock(toneStock) : product.stock,
   };
 }
 
@@ -89,6 +141,12 @@ async function ensureProductSchema(pool) {
       ALTER TABLE productos
       ADD tonos_json NVARCHAR(MAX) NULL;
     END;
+
+    IF COL_LENGTH('productos', 'tonos_stock_json') IS NULL
+    BEGIN
+      ALTER TABLE productos
+      ADD tonos_stock_json NVARCHAR(MAX) NULL;
+    END;
   `);
 }
 
@@ -99,7 +157,7 @@ router.get('/', async (req, res) => {
     const result = await pool.request().query(`
       SELECT id, marca, nombre, descripcion, categoria, precio_clp, precio_oferta_clp,
              oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url,
-             usa_tonos, tonos_json
+             usa_tonos, tonos_json, tonos_stock_json
       FROM productos
       WHERE activo = 1
       ORDER BY creado_en DESC
@@ -237,7 +295,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       .input('precio_clp', sql.Int, product.precio_clp)
       .input('precio_oferta_clp', sql.Int, product.precio_oferta_clp)
       .input('oferta_hasta', sql.Date, product.oferta_hasta)
-      .input('stock', sql.Int, product.stock)
+      .input('stock', sql.Int, toneConfig.stock)
       .input('badge', sql.NVarChar, product.badge)
       .input('estrellas', sql.NVarChar, product.estrellas)
       .input('resenas', sql.Int, product.resenas)
@@ -245,6 +303,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       .input('imagen_url', sql.NVarChar, product.imagen_url)
       .input('usa_tonos', sql.Bit, toneConfig.usa_tonos)
       .input('tonos_json', sql.NVarChar(sql.MAX), toneConfig.tonos_json)
+      .input('tonos_stock_json', sql.NVarChar(sql.MAX), toneConfig.tonos_stock_json)
       .input('activo', sql.Bit, req.body.activo !== undefined ? req.body.activo : 1)
       .query(`
         UPDATE productos SET
@@ -264,6 +323,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
           imagen_url=@imagen_url,
           usa_tonos=@usa_tonos,
           tonos_json=@tonos_json,
+          tonos_stock_json=@tonos_stock_json,
           activo=@activo,
           actualizado_en=GETDATE()
         OUTPUT INSERTED.*
@@ -305,7 +365,13 @@ router.patch('/:id/stock', requireAdminAuth, async (req, res) => {
     await pool.request()
       .input('id', sql.Int, req.params.id)
       .input('stock', sql.Int, stock)
-      .query('UPDATE productos SET stock = @stock, actualizado_en = GETDATE() WHERE id = @id');
+      .query(`
+        UPDATE productos
+        SET stock = @stock,
+            tonos_stock_json = CASE WHEN usa_tonos = 1 THEN NULL ELSE tonos_stock_json END,
+            actualizado_en = GETDATE()
+        WHERE id = @id
+      `);
     res.json({ ok: true, stock });
   } catch (err) {
     console.error(err);
@@ -364,7 +430,7 @@ async function insertProduct(request, product, index = 0) {
     .input('precio_clp', sql.Int, product.precio_clp)
     .input('precio_oferta_clp', sql.Int, product.precio_oferta_clp)
     .input('oferta_hasta', sql.Date, product.oferta_hasta)
-    .input('stock', sql.Int, product.stock)
+    .input('stock', sql.Int, toneConfig.stock)
     .input('badge', sql.NVarChar, product.badge)
     .input('estrellas', sql.NVarChar, product.estrellas || '*****')
     .input('resenas', sql.Int, product.resenas || 0)
@@ -372,12 +438,13 @@ async function insertProduct(request, product, index = 0) {
     .input('imagen_url', sql.NVarChar, product.imagen_url || null)
     .input('usa_tonos', sql.Bit, toneConfig.usa_tonos)
     .input('tonos_json', sql.NVarChar(sql.MAX), toneConfig.tonos_json)
+    .input('tonos_stock_json', sql.NVarChar(sql.MAX), toneConfig.tonos_stock_json)
     .query(`
       INSERT INTO productos
-      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url, usa_tonos, tonos_json)
+      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url, usa_tonos, tonos_json, tonos_stock_json)
       OUTPUT INSERTED.*
       VALUES
-      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url, @usa_tonos, @tonos_json)
+      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url, @usa_tonos, @tonos_json, @tonos_stock_json)
     `);
 }
 

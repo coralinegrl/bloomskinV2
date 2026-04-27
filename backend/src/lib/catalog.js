@@ -34,6 +34,7 @@ function sanitizeProduct(product, index = 0) {
     imagen_url: product.imagen_url || null,
     usa_tonos: Boolean(product.usa_tonos && tonos.length),
     tonos,
+    tonos_stock: product.tonos_stock && typeof product.tonos_stock === 'object' ? product.tonos_stock : {},
   };
 }
 

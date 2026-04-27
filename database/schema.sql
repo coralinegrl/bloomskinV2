@@ -37,6 +37,9 @@ CREATE TABLE productos (
   img_clase         NVARCHAR(20)   NOT NULL DEFAULT 'p-img-1',
   imagen_url        NVARCHAR(255)  NULL,
   activo            BIT            NOT NULL DEFAULT 1,
+  usa_tonos         BIT            NOT NULL DEFAULT 0,
+  tonos_json        NVARCHAR(MAX)  NULL,
+  tonos_stock_json  NVARCHAR(MAX)  NULL,
   creado_en         DATETIME2      NOT NULL DEFAULT GETDATE(),
   actualizado_en    DATETIME2      NOT NULL DEFAULT GETDATE()
 );

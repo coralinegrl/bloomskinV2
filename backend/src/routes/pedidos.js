@@ -128,8 +128,102 @@ function normalizeToneOptions(value) {
   }
 }
 
+function normalizeToneStock(value, tones = [], fallbackStock = 0) {
+  let parsed = {};
+  if (value) {
+    try {
+      parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    } catch {
+      parsed = {};
+    }
+  }
+  const clean = {};
+  for (const tone of tones) {
+    clean[tone] = Math.max(0, Math.floor(Number(parsed?.[tone] || 0)));
+  }
+  const hasExplicitStock = tones.some(tone => Object.prototype.hasOwnProperty.call(parsed || {}, tone));
+  if (!hasExplicitStock && tones.length) {
+    const total = Math.max(0, Math.floor(Number(fallbackStock || 0)));
+    const base = Math.floor(total / tones.length);
+    let remainder = total % tones.length;
+    for (const tone of tones) {
+      clean[tone] = base + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder -= 1;
+    }
+  }
+  return clean;
+}
+
+function sumToneStock(toneStock) {
+  return Object.values(toneStock || {}).reduce((sum, value) => sum + Math.max(0, Math.floor(Number(value || 0))), 0);
+}
+
 function normalizeToneSelection(value) {
   return cleanString(value) || null;
+}
+
+async function adjustProductStock(transaction, { productoId, cantidad, tonoSeleccionado = null, direction }) {
+  const delta = Number(direction) * Number(cantidad);
+  const productResult = await new sql.Request(transaction)
+    .input('producto_id', sql.Int, productoId)
+    .query(`
+      SELECT id, nombre, stock, usa_tonos, tonos_json, tonos_stock_json
+      FROM productos WITH (UPDLOCK, ROWLOCK)
+      WHERE id = @producto_id
+    `);
+
+  const product = productResult.recordset[0];
+  if (!product) {
+    return { ok: false, error: `Producto ${productoId} no encontrado.` };
+  }
+
+  const tones = normalizeToneOptions(product.tonos_json);
+  if (product.usa_tonos && tones.length) {
+    if (!tonoSeleccionado) {
+      return { ok: false, error: `Debes elegir un tipo para ${product.nombre}.` };
+    }
+    if (!tones.includes(tonoSeleccionado)) {
+      return { ok: false, error: `El tipo seleccionado para ${product.nombre} ya no está disponible.` };
+    }
+
+    const toneStock = normalizeToneStock(product.tonos_stock_json, tones, product.stock);
+    const currentToneStock = Number(toneStock[tonoSeleccionado] || 0);
+    if (delta < 0 && currentToneStock < Math.abs(delta)) {
+      return { ok: false, error: `No hay stock suficiente para ${product.nombre} en ${tonoSeleccionado}.` };
+    }
+
+    toneStock[tonoSeleccionado] = Math.max(0, currentToneStock + delta);
+    const totalStock = sumToneStock(toneStock);
+    await new sql.Request(transaction)
+      .input('producto_id', sql.Int, productoId)
+      .input('stock', sql.Int, totalStock)
+      .input('tonos_stock_json', sql.NVarChar(sql.MAX), JSON.stringify(toneStock))
+      .query(`
+        UPDATE productos
+        SET stock = @stock,
+            tonos_stock_json = @tonos_stock_json,
+            actualizado_en = GETDATE()
+        WHERE id = @producto_id
+      `);
+    return { ok: true, product: { ...product, stock: totalStock, tonos_stock: toneStock } };
+  }
+
+  const currentStock = Number(product.stock || 0);
+  if (delta < 0 && currentStock < Math.abs(delta)) {
+    return { ok: false, error: `No hay stock suficiente para ${product.nombre}.` };
+  }
+
+  await new sql.Request(transaction)
+    .input('producto_id', sql.Int, productoId)
+    .input('stock', sql.Int, Math.max(0, currentStock + delta))
+    .query(`
+      UPDATE productos
+      SET stock = @stock,
+          actualizado_en = GETDATE()
+      WHERE id = @producto_id
+    `);
+
+  return { ok: true, product };
 }
 
 async function ensurePedidosSchema(pool) {
@@ -187,6 +281,9 @@ async function ensurePedidosSchema(pool) {
 
     IF COL_LENGTH('pedido_items', 'tono_seleccionado') IS NULL
       ALTER TABLE pedido_items ADD tono_seleccionado NVARCHAR(120) NULL;
+
+    IF COL_LENGTH('productos', 'tonos_stock_json') IS NULL
+      ALTER TABLE productos ADD tonos_stock_json NVARCHAR(MAX) NULL;
   `);
 }
 
@@ -253,20 +350,18 @@ async function releaseReservation(transaction, reservationId) {
   const itemsResult = await new sql.Request(transaction)
     .input('reservation_id', sql.Int, reservationId)
     .query(`
-      SELECT producto_id, cantidad
+      SELECT producto_id, cantidad, tono_seleccionado
       FROM checkout_reservation_items
       WHERE reservation_id = @reservation_id
     `);
 
   for (const item of itemsResult.recordset) {
-    await new sql.Request(transaction)
-      .input('producto_id', sql.Int, item.producto_id)
-      .input('cantidad', sql.Int, item.cantidad)
-      .query(`
-        UPDATE productos
-        SET stock = stock + @cantidad
-        WHERE id = @producto_id
-      `);
+    await adjustProductStock(transaction, {
+      productoId: item.producto_id,
+      cantidad: item.cantidad,
+      tonoSeleccionado: item.tono_seleccionado,
+      direction: 1,
+    });
   }
 
   await new sql.Request(transaction)
@@ -347,20 +442,18 @@ async function cleanupExpiredPendingOrders(pool) {
       const itemsResult = await new sql.Request(transaction)
         .input('pedido_id', sql.Int, order.id)
         .query(`
-          SELECT producto_id, cantidad
+          SELECT producto_id, cantidad, tono_seleccionado
           FROM pedido_items
           WHERE pedido_id = @pedido_id
         `);
 
       for (const item of itemsResult.recordset) {
-        await new sql.Request(transaction)
-          .input('producto_id', sql.Int, item.producto_id)
-          .input('cantidad', sql.Int, item.cantidad)
-          .query(`
-            UPDATE productos
-            SET stock = stock + @cantidad
-            WHERE id = @producto_id
-          `);
+        await adjustProductStock(transaction, {
+          productoId: item.producto_id,
+          cantidad: item.cantidad,
+          tonoSeleccionado: item.tono_seleccionado,
+          direction: 1,
+        });
       }
 
       await new sql.Request(transaction)
@@ -832,7 +925,7 @@ router.post('/reservation', requireClientAuth, async (req, res) => {
       const productResult = await new sql.Request(transaction)
         .input('producto_id', sql.Int, item.producto_id)
         .query(`
-          SELECT id, nombre, marca, stock, usa_tonos, tonos_json
+          SELECT id, nombre, marca, stock, usa_tonos, tonos_json, tonos_stock_json
           FROM productos WITH (UPDLOCK, ROWLOCK)
           WHERE id = @producto_id AND activo = 1
         `);
@@ -859,10 +952,12 @@ router.post('/reservation', requireClientAuth, async (req, res) => {
         item.tono_seleccionado = null;
       }
 
-      if (Number(product.stock || 0) < item.cantidad) {
+      const toneStock = normalizeToneStock(product.tonos_stock_json, availableTones, product.stock);
+      const availableStock = product.usa_tonos ? Number(toneStock[item.tono_seleccionado] || 0) : Number(product.stock || 0);
+      if (availableStock < item.cantidad) {
         await transaction.rollback();
         transactionClosed = true;
-        return res.status(409).json({ error: `No hay stock suficiente para ${product.nombre}.` });
+        return res.status(409).json({ error: product.usa_tonos ? `No hay stock suficiente para ${product.nombre} en ${item.tono_seleccionado}.` : `No hay stock suficiente para ${product.nombre}.` });
       }
 
       await new sql.Request(transaction)
@@ -875,14 +970,17 @@ router.post('/reservation', requireClientAuth, async (req, res) => {
           VALUES (@reservation_id, @producto_id, @cantidad, @tono_seleccionado)
         `);
 
-      await new sql.Request(transaction)
-        .input('producto_id', sql.Int, item.producto_id)
-        .input('cantidad', sql.Int, item.cantidad)
-        .query(`
-          UPDATE productos
-          SET stock = stock - @cantidad
-          WHERE id = @producto_id AND stock >= @cantidad
-        `);
+      const stockUpdate = await adjustProductStock(transaction, {
+        productoId: item.producto_id,
+        cantidad: item.cantidad,
+        tonoSeleccionado: item.tono_seleccionado,
+        direction: -1,
+      });
+      if (!stockUpdate.ok) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(409).json({ error: stockUpdate.error });
+      }
     }
 
     reservation.items = items;
@@ -1289,7 +1387,7 @@ router.post('/manual', requireAdminAuth, async (req, res) => {
       const prod = await new sql.Request(transaction)
         .input('id', sql.Int, productoId)
         .query(`
-          SELECT id, nombre, stock, precio_clp
+          SELECT id, nombre, stock, precio_clp, usa_tonos
           FROM productos
           WHERE id = @id AND activo = 1
         `);
@@ -1299,6 +1397,12 @@ router.post('/manual', requireAdminAuth, async (req, res) => {
         await transaction.rollback();
         transactionClosed = true;
         return res.status(400).json({ error: `Producto ${productoId} no encontrado.` });
+      }
+
+      if (producto.usa_tonos) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: `La venta externa de ${producto.nombre} debe registrarse desde la tienda o agregando soporte de tipo en venta manual.` });
       }
 
       if (Number(producto.stock || 0) < cantidad) {
@@ -1518,26 +1622,24 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
       const itemsResult = await new sql.Request(transaction)
         .input('pedido_id', sql.Int, req.params.id)
         .query(`
-          SELECT pi.producto_id, pi.cantidad, p.nombre
+          SELECT pi.producto_id, pi.cantidad, pi.tono_seleccionado, p.nombre
           FROM pedido_items pi
           JOIN productos p ON p.id = pi.producto_id
           WHERE pi.pedido_id = @pedido_id
         `);
 
       for (const item of itemsResult.recordset) {
-        const stockUpdate = await new sql.Request(transaction)
-          .input('producto_id', sql.Int, item.producto_id)
-          .input('cantidad', sql.Int, item.cantidad)
-          .query(`
-            UPDATE productos
-            SET stock = stock - @cantidad
-            WHERE id = @producto_id AND stock >= @cantidad
-          `);
+        const stockUpdate = await adjustProductStock(transaction, {
+          productoId: item.producto_id,
+          cantidad: item.cantidad,
+          tonoSeleccionado: item.tono_seleccionado,
+          direction: -1,
+        });
 
-        if (stockUpdate.rowsAffected[0] !== 1) {
+        if (!stockUpdate.ok) {
           await transaction.rollback();
           return res.status(409).json({
-            error: `No hay stock suficiente para validar este pedido. Revisa el producto "${item.nombre}".`,
+            error: stockUpdate.error || `No hay stock suficiente para validar este pedido. Revisa el producto "${item.nombre}".`,
           });
         }
       }
@@ -1547,20 +1649,18 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
       const itemsResult = await new sql.Request(transaction)
         .input('pedido_id', sql.Int, req.params.id)
         .query(`
-          SELECT producto_id, cantidad
+          SELECT producto_id, cantidad, tono_seleccionado
           FROM pedido_items
           WHERE pedido_id = @pedido_id
         `);
 
       for (const item of itemsResult.recordset) {
-        await new sql.Request(transaction)
-          .input('producto_id', sql.Int, item.producto_id)
-          .input('cantidad', sql.Int, item.cantidad)
-          .query(`
-            UPDATE productos
-            SET stock = stock + @cantidad
-            WHERE id = @producto_id
-          `);
+        await adjustProductStock(transaction, {
+          productoId: item.producto_id,
+          cantidad: item.cantidad,
+          tonoSeleccionado: item.tono_seleccionado,
+          direction: 1,
+        });
       }
     }
 

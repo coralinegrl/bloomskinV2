@@ -235,15 +235,17 @@
                           class="stock-input"
                           type="number"
                           min="0"
+                          :disabled="p.usa_tonos"
                           @click.stop
                         >
                         <button
                           class="btn-stock"
-                          :disabled="savingStockId === p.id || Number(stockDrafts[p.id]) === Number(p.stock)"
+                          :disabled="p.usa_tonos || savingStockId === p.id || Number(stockDrafts[p.id]) === Number(p.stock)"
                           @click.stop="guardarStockRapido(p)"
                         >
                           {{ savingStockId === p.id ? '...' : 'Guardar' }}
                         </button>
+                        <span v-if="p.usa_tonos" class="muted d-block">Editar por tipo</span>
                       </div>
                     </td>
                     <td class="muted">{{ p.imagen_url ? 'Real' : 'Fallback' }}</td>
@@ -1325,6 +1327,17 @@
             <textarea v-model="form.tonos_texto" rows="4" placeholder="300&#10;700&#10;Set completo"></textarea>
           </div>
 
+          <div v-if="form.usa_tonos && formToneList.length" class="form-group">
+            <label>Stock por tipo <span class="label-hint">(el stock total se calcula solo)</span></label>
+            <div class="variant-stock-grid">
+              <label v-for="tone in formToneList" :key="`tone-stock-${tone}`" class="variant-stock-row">
+                <span>{{ tone }}</span>
+                <input v-model.number="form.tonos_stock[tone]" type="number" min="0" step="1">
+              </label>
+            </div>
+            <div class="form-hint">Stock total por tipos: {{ formVariantStockTotal }}</div>
+          </div>
+
           <div class="form-group">
             <label>Foto del producto <span class="label-hint">(puedes pegar una URL externa o usar una subida)</span></label>
             <input v-model.trim="form.imagen_url" type="text" placeholder="https://... o /uploads/productos/imagen.png">
@@ -1606,7 +1619,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { clientesApi, descuentosApi, mensajesApi, pedidosApi, productosApi, settingsApi } from '../api/index.js'
 import { useAuthStore } from '../stores/auth.js'
@@ -1970,6 +1983,18 @@ const filteredDescuentos = computed(() => {
   })
 })
 
+const formToneList = computed(() => parseToneText(form.value.tonos_texto))
+const formVariantStockTotal = computed(() => formToneList.value.reduce((sum, tone) => sum + Number(form.value.tonos_stock?.[tone] || 0), 0))
+
+watch(formToneList, tones => {
+  if (!form.value.tonos_stock) form.value.tonos_stock = {}
+  const nextStock = {}
+  for (const tone of tones) {
+    nextStock[tone] = Math.max(0, Math.floor(Number(form.value.tonos_stock[tone] || 0)))
+  }
+  form.value.tonos_stock = nextStock
+})
+
 const filteredMensajes = computed(() => {
   const q = mensajeSearch.value.trim().toLowerCase()
   return mensajes.value.filter(mensaje => {
@@ -2034,6 +2059,7 @@ function resetForm() {
     imagen_url: '',
     usa_tonos: false,
     tonos_texto: '',
+    tonos_stock: {},
   }
   selectedImageFile.value = null
   if (imageInput.value) imageInput.value.value = ''
@@ -2071,6 +2097,7 @@ function openProductoModal(producto = null) {
       oferta_hasta: producto.oferta_hasta ? String(producto.oferta_hasta).slice(0, 10) : '',
       usa_tonos: Boolean(producto.usa_tonos && producto.tonos?.length),
       tonos_texto: Array.isArray(producto.tonos) ? producto.tonos.join('\n') : '',
+      tonos_stock: { ...(producto.tonos_stock || {}) },
     }
     selectedImageFile.value = null
     if (imageInput.value) imageInput.value.value = ''
@@ -2162,10 +2189,10 @@ async function guardarProducto() {
 
   saving.value = true
   try {
-    const tonos = String(form.value.tonos_texto || '')
-      .split(/\r?\n|,/)
-      .map(value => String(value || '').trim())
-      .filter(Boolean)
+    const tonos = formToneList.value
+    const tonosStock = Object.fromEntries(
+      tonos.map(tone => [tone, Math.max(0, Math.floor(Number(form.value.tonos_stock?.[tone] || 0)))])
+    )
     const payload = {
       ...form.value,
       precio_usd: 0,
@@ -2174,6 +2201,8 @@ async function guardarProducto() {
       oferta_hasta: form.value.oferta_hasta || null,
       usa_tonos: Boolean(form.value.usa_tonos && tonos.length),
       tonos,
+      tonos_stock: tonosStock,
+      stock: form.value.usa_tonos && tonos.length ? Object.values(tonosStock).reduce((sum, value) => sum + Number(value || 0), 0) : Number(form.value.stock || 0),
     }
     if (editingProducto.value) {
       await productosApi.actualizar(editingProducto.value.id, payload)
@@ -2349,6 +2378,15 @@ async function guardarDescuento() {
   } finally {
     savingDiscount.value = false
   }
+}
+
+function parseToneText(value) {
+  return [...new Set(
+    String(value || '')
+      .split(/\r?\n|,/)
+      .map(entry => String(entry || '').trim())
+      .filter(Boolean)
+  )]
 }
 
 function validateDiscountForm() {
@@ -2747,6 +2785,9 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 .stock-warn { background: rgba(240,180,50,.15); color: #f0b432; }
 .stock-zero { background: rgba(229,115,115,.15); color: #e57373; }
 .stock-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.variant-stock-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.variant-stock-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 10px; align-items: center; }
+.variant-stock-row span { color: var(--ad-muted); font-size: 12px; overflow-wrap: anywhere; }
 .stock-input {
   width: 72px;
   padding: 6px 8px;
