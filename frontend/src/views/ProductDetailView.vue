@@ -133,7 +133,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import ProductCard from '../components/store/ProductCard.vue'
@@ -154,6 +154,7 @@ const reviewsLoading = ref(false)
 const qty = ref(1)
 const imageBroken = ref(false)
 const selectedTone = ref('')
+let productLoadToken = 0
 
 const hasRealImage = computed(() => Boolean(producto.value?.imagen_url) && !imageBroken.value)
 const hasToneOptions = computed(() => Boolean(producto.value?.usa_tonos && producto.value?.tonos?.length))
@@ -174,7 +175,6 @@ const relatedProducts = computed(() => {
 onMounted(async () => {
   window.addEventListener('focus', refreshProductData)
   document.addEventListener('visibilitychange', refreshProductData)
-  await loadProductData()
 })
 
 onBeforeUnmount(() => {
@@ -182,21 +182,40 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', refreshProductData)
 })
 
-async function loadProductData() {
+watch(
+  () => route.params.id,
+  async productId => {
+    await loadProductData(productId, { scrollToTop: true })
+  },
+  { immediate: true }
+)
+
+async function loadProductData(productId = route.params.id, options = {}) {
+  const token = ++productLoadToken
+  loading.value = true
+  producto.value = null
+  productReviews.value = []
+  imageBroken.value = false
+  qty.value = 1
+  selectedTone.value = ''
+
   try {
     const [{ data: detail }, { data: listing }] = await Promise.all([
-      productosApi.obtener(route.params.id),
+      productosApi.obtener(productId),
       productosApi.listar(),
     ])
+    if (token !== productLoadToken) return
     producto.value = detail
     allProducts.value = listing
     selectedTone.value = detail?.usa_tonos && detail?.tonos?.length ? detail.tonos[0] : ''
-    await loadProductReviews()
+    await loadProductReviews(productId, token)
+    if (options.scrollToTop) window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (error) {
+    if (token !== productLoadToken) return
     console.error(error)
     ui.error('No pudimos cargar este producto.')
   } finally {
-    loading.value = false
+    if (token === productLoadToken) loading.value = false
   }
 }
 
@@ -220,16 +239,18 @@ async function refreshProductData() {
   }
 }
 
-async function loadProductReviews() {
+async function loadProductReviews(productId = route.params.id, token = productLoadToken) {
   reviewsLoading.value = true
   try {
-    const { data } = await reviewsApi.product(route.params.id)
+    const { data } = await reviewsApi.product(productId)
+    if (token !== productLoadToken) return
     productReviews.value = Array.isArray(data) ? data : []
   } catch (error) {
+    if (token !== productLoadToken) return
     console.error('No pudimos cargar las reseñas del producto.', error)
     productReviews.value = []
   } finally {
-    reviewsLoading.value = false
+    if (token === productLoadToken) reviewsLoading.value = false
   }
 }
 
