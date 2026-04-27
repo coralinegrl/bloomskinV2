@@ -120,8 +120,6 @@
       </div>
     </section>
 
-    <div class="section-divider" aria-hidden="true"></div>
-
     <section class="editorial-section">
       <div class="section-header">
         <div class="section-tag">{{ homeContent.editorial.tag }}</div>
