@@ -941,7 +941,15 @@ router.post('/reservation', requireClientAuth, async (req, res) => {
 
     const existingReservation = await getActiveReservation(transaction, req.user.id);
     if (existingReservation) {
-      await releaseReservation(transaction, existingReservation.id);
+      if (new Date(existingReservation.expires_en).getTime() <= Date.now()) {
+        await releaseReservation(transaction, existingReservation.id);
+      } else if (sameReservationItems(existingReservation.items, items)) {
+        await transaction.commit();
+        transactionClosed = true;
+        return res.status(200).json({ reservation: formatReservationPayload(existingReservation) });
+      } else {
+        await releaseReservation(transaction, existingReservation.id);
+      }
     }
 
     const reservationResult = await new sql.Request(transaction)

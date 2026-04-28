@@ -437,6 +437,7 @@ const deliveryMode = ref('delivery')
 const reservationInfo = ref(null)
 const reservationLoading = ref(false)
 const reservationError = ref('')
+const reservationCartKey = ref('')
 const nowTick = ref(Date.now())
 const MAX_PROOF_FILE_BYTES = 5 * 1024 * 1024
 const ALLOWED_PROOF_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/bmp', 'image/tiff'])
@@ -487,6 +488,7 @@ const uploadProofCountdownLabel = computed(() => {
   const seconds = String(uploadProofSecondsLeft.value % 60).padStart(2, '0')
   return `${minutes}:${seconds}`
 })
+const currentCartReservationKey = computed(() => cartReservationKey(cart.items))
 
 const shippingValueLabel = computed(() => {
   if (checkoutOk.value) return fmt(checkoutOk.value.envio_clp)
@@ -588,6 +590,12 @@ watch(
   }
 )
 
+watch(currentCartReservationKey, async key => {
+  if (!reservationInfo.value || checkoutOk.value || cart.view !== 'cart') return
+  if (!reservationCartKey.value || key === reservationCartKey.value) return
+  await releaseCheckoutReservation()
+})
+
 watch(discountCode, value => {
   if (!appliedDiscount.value) return
   if (String(value || '').trim().toUpperCase() !== String(appliedDiscount.value.code || '').trim().toUpperCase()) {
@@ -600,6 +608,7 @@ watch(reservationSecondsLeft, seconds => {
   if (checkoutOk.value || !reservationInfo.value) return
   if (seconds > 0) return
   reservationInfo.value = null
+  reservationCartKey.value = ''
   reservationError.value = 'Tu reserva de 20 minutos venció. Volvimos a liberar el stock.'
   checkoutError.value = reservationError.value
   cart.view = 'cart'
@@ -662,6 +671,25 @@ function closeDrawer() {
   proofSuccessModalOpen.value = false
 }
 
+function cartReservationKey(items) {
+  return [...(items || [])]
+    .map(item => `${Number(item.id || item.producto_id)}:${Number(item.cantidad)}:${String(item.tono_seleccionado || '')}`)
+    .sort()
+    .join('|')
+}
+
+async function releaseCheckoutReservation() {
+  if (!customerAuth.isAuthenticated || !reservationInfo.value) return
+  try {
+    await pedidosApi.liberarReserva()
+  } catch (error) {
+    console.error('No se pudo liberar la reserva del checkout', error)
+  } finally {
+    reservationInfo.value = null
+    reservationCartKey.value = ''
+  }
+}
+
 async function syncCheckoutReservation() {
   if (!customerAuth.isAuthenticated || checkoutOk.value || cart.items.length === 0) return
   reservationLoading.value = true
@@ -673,8 +701,10 @@ async function syncCheckoutReservation() {
       tono_seleccionado: item.tono_seleccionado || null,
     })))
     reservationInfo.value = data?.reservation || null
+    reservationCartKey.value = reservationInfo.value ? currentCartReservationKey.value : ''
   } catch (error) {
     reservationInfo.value = null
+    reservationCartKey.value = ''
     reservationError.value = error.response?.data?.error || 'No pudimos reservar tu carrito en este momento.'
     ui.error(reservationError.value)
   } finally {
@@ -870,6 +900,7 @@ async function handleCheckout() {
 
     checkoutOk.value = pedido
     reservationInfo.value = null
+    reservationCartKey.value = ''
     cart.vaciar()
     checkoutNotas.value = ''
     ui.success(`Tu pedido ${checkoutOk.value.codigo} fue creado. Ahora transfiere y sube tu comprobante.`)
