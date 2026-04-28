@@ -701,7 +701,7 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
                p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
                p.cliente_nombre, p.cliente_email, p.cliente_rut, p.cliente_telefono,
                p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
-               p.estado, p.comprobante_url, p.notas, p.creado_en, p.actualizado_en
+               p.estado, p.comprobante_url, p.comprobante_limite_en, p.notas, p.creado_en, p.actualizado_en
         FROM pedidos p
         WHERE p.creado_en >= @start_date AND p.creado_en < @end_date
         ORDER BY p.creado_en ASC, p.id ASC
@@ -874,7 +874,7 @@ router.get('/mine', requireClientAuth, async (req, res) => {
       const items = await pool.request()
         .input('pedido_id', sql.Int, pedido.id)
         .query(`
-          SELECT pi.cantidad, pi.precio_unitario_clp, pi.tono_seleccionado,
+          SELECT pi.producto_id, pi.cantidad, pi.precio_unitario_clp, pi.tono_seleccionado,
                  pr.nombre AS producto_nombre, pr.marca AS producto_marca
           FROM pedido_items pi
           JOIN productos pr ON pr.id = pi.producto_id

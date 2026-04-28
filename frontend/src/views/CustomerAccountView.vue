@@ -262,6 +262,37 @@
             Ver comprobante subido
           </a>
 
+          <div v-else-if="canUploadProof(order)" class="proof-upload-box">
+            <div>
+              <strong>Sube tu comprobante</strong>
+              <p>
+                Tienes hasta {{ formatDate(order.comprobante_limite_en) }} para adjuntar la imagen de tu transferencia.
+              </p>
+            </div>
+            <input
+              class="proof-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/bmp,image/tiff"
+              :disabled="proofUploadingOrderId === order.id"
+              @change="handleProofSelected(order, $event)"
+            />
+            <div class="proof-upload-actions">
+              <button
+                class="save-btn"
+                :disabled="proofUploadingOrderId === order.id || !proofFiles[order.id]"
+                @click="uploadOrderProof(order)"
+              >
+                {{ proofUploadingOrderId === order.id ? 'Subiendo...' : 'Subir comprobante' }}
+              </button>
+              <small>JPG, PNG, WebP, HEIC, BMP o TIFF. Máximo 5 MB.</small>
+            </div>
+            <p v-if="proofErrors[order.id]" class="field-error">{{ proofErrors[order.id] }}</p>
+          </div>
+
+          <p v-else-if="order.estado === 'pending_payment' && order.comprobante_limite_en" class="proof-expired">
+            El plazo para subir el comprobante ya terminó. Actualiza tus pedidos o escríbenos si ya habías transferido.
+          </p>
+
           <p v-if="order.notas" class="order-notes">Notas: {{ order.notas }}</p>
         </article>
       </div>
@@ -295,7 +326,13 @@ const orders = ref([])
 const reviews = ref([])
 const savingReviewKey = ref('')
 const reviewDrafts = reactive({})
+const proofFiles = reactive({})
+const proofErrors = reactive({})
+const proofUploadingOrderId = ref(null)
 const profileForm = reactive(buildProfileForm(customerAuth.user))
+const MAX_PROOF_FILE_BYTES = 5 * 1024 * 1024
+const ALLOWED_PROOF_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/bmp', 'image/tiff'])
+const ALLOWED_PROOF_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'bmp', 'tif', 'tiff'])
 const fieldErrors = reactive({
   nombre: '',
   rut: '',
@@ -359,6 +396,62 @@ async function loadReviews() {
 
 async function loadWishlist() {
   await wishlist.load(customerAuth.user?.id)
+}
+
+function canUploadProof(order) {
+  if (!order || order.estado !== 'pending_payment' || order.comprobante_url) return false
+  if (!order.comprobante_limite_en) return true
+  return new Date(order.comprobante_limite_en).getTime() > Date.now()
+}
+
+function handleProofSelected(order, event) {
+  if (!order?.id) return
+  proofErrors[order.id] = ''
+  proofFiles[order.id] = null
+  const file = event.target.files?.[0] || null
+  if (!file) return
+
+  const fileType = String(file.type || '').toLowerCase()
+  const fileExtension = String(file.name || '').split('.').pop()?.toLowerCase() || ''
+  if (!ALLOWED_PROOF_TYPES.has(fileType) && !ALLOWED_PROOF_EXTENSIONS.has(fileExtension)) {
+    proofErrors[order.id] = 'El comprobante debe ser una imagen JPG, PNG, WebP, HEIC, BMP o TIFF. No se permiten videos, GIF ni PDF.'
+    ui.error(proofErrors[order.id])
+    event.target.value = ''
+    return
+  }
+
+  if (file.size > MAX_PROOF_FILE_BYTES) {
+    proofErrors[order.id] = 'El comprobante no puede pesar más de 5 MB.'
+    ui.error(proofErrors[order.id])
+    event.target.value = ''
+    return
+  }
+
+  proofFiles[order.id] = file
+}
+
+async function uploadOrderProof(order) {
+  const file = proofFiles[order.id]
+  if (!file) return
+
+  proofUploadingOrderId.value = order.id
+  proofErrors[order.id] = ''
+  try {
+    await pedidosApi.subirComprobante({
+      pedidoId: order.id,
+      file,
+      codigo: order.codigo,
+      token: customerAuth.token,
+    })
+    proofFiles[order.id] = null
+    await loadOrders()
+    ui.success('Comprobante subido correctamente. Tu pago quedó en revisión.')
+  } catch (error) {
+    proofErrors[order.id] = error.response?.data?.error || 'No se pudo subir el comprobante.'
+    ui.error(proofErrors[order.id])
+  } finally {
+    proofUploadingOrderId.value = null
+  }
 }
 
 function canReviewOrder(order) {
@@ -939,6 +1032,48 @@ function absoluteAssetUrl(path) {
 
 .proof-link {
   width: fit-content;
+}
+
+.proof-upload-box {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(191, 84, 122, .16);
+  background: linear-gradient(135deg, #fff9fb, #f7eef2);
+}
+
+.proof-upload-box strong {
+  color: var(--rose-dark);
+}
+
+.proof-upload-box p,
+.proof-upload-box small,
+.proof-expired {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.proof-input {
+  width: 100%;
+  border: 1px dashed rgba(191, 84, 122, .34);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+  color: var(--dark-mid);
+}
+
+.proof-upload-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.proof-expired {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #fff7e8;
 }
 
 @media (max-width: 960px) {
