@@ -670,16 +670,18 @@ router.get('/stats', requireAdminAuth, async (_req, res) => {
     await ensurePedidosSchema(pool);
     const result = await pool.request().query(`
       SELECT
-        COUNT(*) AS total_pedidos,
-        COALESCE(SUM(total_clp), 0) AS ventas_totales,
-        COALESCE(SUM(CASE WHEN MONTH(creado_en) = MONTH(GETDATE())
+        COUNT(CASE WHEN estado <> 'cancelled' THEN 1 END) AS total_pedidos,
+        COALESCE(SUM(CASE WHEN estado IN ('paid', 'shipped', 'delivered') THEN total_clp ELSE 0 END), 0) AS ventas_totales,
+        COALESCE(SUM(CASE WHEN estado IN ('paid', 'shipped', 'delivered')
+                          AND MONTH(creado_en) = MONTH(GETDATE())
                           AND YEAR(creado_en) = YEAR(GETDATE())
-                          THEN total_clp END), 0) AS ventas_mes,
+                          THEN total_clp ELSE 0 END), 0) AS ventas_mes,
         COUNT(CASE WHEN estado = 'pending_payment' THEN 1 END) AS pendientes_pago,
         COUNT(CASE WHEN estado = 'payment_submitted' THEN 1 END) AS pagos_por_validar,
         COUNT(CASE WHEN estado = 'paid' THEN 1 END) AS pagados,
         COUNT(CASE WHEN estado = 'shipped' THEN 1 END) AS enviados,
-        COUNT(CASE WHEN estado = 'delivered' THEN 1 END) AS entregados
+        COUNT(CASE WHEN estado = 'delivered' THEN 1 END) AS entregados,
+        COUNT(CASE WHEN estado = 'cancelled' THEN 1 END) AS cancelados
       FROM pedidos
       WHERE eliminado_en IS NULL
     `);
@@ -711,6 +713,7 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
         WHERE p.creado_en >= @start_date
           AND p.creado_en < @end_date
           AND p.eliminado_en IS NULL
+          AND p.estado IN ('paid', 'shipped', 'delivered')
         ORDER BY p.creado_en ASC, p.id ASC
       `);
 

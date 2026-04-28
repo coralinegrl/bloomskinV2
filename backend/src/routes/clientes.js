@@ -70,10 +70,10 @@ router.get('/', requireAdminAuth, async (_req, res) => {
     const pool = await getPool();
     const result = await pool.request().query(`
       SELECT c.id, c.nombre, c.email, c.rut, c.telefono, c.direccion, c.ciudad, c.region, c.tipo_piel, c.notas, c.activo, c.creado_en,
-        COUNT(p.id) AS total_pedidos,
-        COALESCE(SUM(p.total_clp), 0) AS total_comprado
+        COUNT(CASE WHEN p.estado IN ('paid', 'shipped', 'delivered') THEN 1 END) AS total_pedidos,
+        COALESCE(SUM(CASE WHEN p.estado IN ('paid', 'shipped', 'delivered') THEN p.total_clp ELSE 0 END), 0) AS total_comprado
       FROM clientes c
-      LEFT JOIN pedidos p ON p.cliente_id = c.id
+      LEFT JOIN pedidos p ON p.cliente_id = c.id AND p.eliminado_en IS NULL
       GROUP BY c.id, c.nombre, c.email, c.rut, c.telefono, c.direccion, c.ciudad, c.region, c.tipo_piel, c.notas, c.activo, c.creado_en
       ORDER BY c.activo DESC, c.creado_en DESC, total_comprado DESC
     `);

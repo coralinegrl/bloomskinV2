@@ -63,12 +63,12 @@
           <template v-if="activeSection === 'dashboard'">
             <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-label">Facturación del mes</div>
+                <div class="stat-label">Facturación confirmada del mes</div>
                 <div class="stat-value">{{ fmt(stats.ventas_mes || 0) }}</div>
-                <div class="stat-change up">Ritmo comercial actual</div>
+                <div class="stat-change up">Solo pagos validados, enviados o entregados</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Pedidos ingresados</div>
+                <div class="stat-label">Pedidos activos</div>
                 <div class="stat-value">{{ stats.total_pedidos || 0 }}</div>
                 <div class="stat-change">{{ (stats.pendientes_pago || 0) + (stats.pagos_por_validar || 0) }} esperando revisión</div>
               </div>
@@ -579,8 +579,8 @@
                     <th>Ciudad</th>
                     <th>Región</th>
                     <th>Estado</th>
-                    <th>Pedidos</th>
-                    <th>Total comprado</th>
+                    <th>Compras reales</th>
+                    <th>Total pagado</th>
                     <th>Tipo de piel</th>
                     <th>Acciones</th>
                   </tr>
