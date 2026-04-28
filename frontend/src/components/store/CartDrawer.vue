@@ -128,13 +128,21 @@
                 <div class="panel-head">
                   <strong>Cómo quieres recibir tu pedido</strong>
                 </div>
-                <div class="delivery-mode-grid">
+                <div class="delivery-mode-grid" role="radiogroup" aria-label="Forma de entrega">
                   <button
                     class="delivery-mode-card"
                     :class="{ active: deliveryMode === 'delivery' }"
                     type="button"
+                    role="radio"
+                    :aria-pressed="deliveryMode === 'delivery'"
+                    :aria-checked="deliveryMode === 'delivery'"
                     @click="deliveryMode = 'delivery'"
                   >
+                    <span class="delivery-radio" aria-hidden="true"></span>
+                    <span class="delivery-copy">
+                      <strong>Despacho a domicilio</strong>
+                      <small>Calculamos el despacho segun tu comuna y direccion.</small>
+                    </span>
                     <strong>Envío a domicilio</strong>
                     <span>Calculamos el despacho según comuna y dirección.</span>
                   </button>
@@ -142,8 +150,16 @@
                     class="delivery-mode-card"
                     :class="{ active: deliveryMode === 'pickup' }"
                     type="button"
+                    role="radio"
+                    :aria-pressed="deliveryMode === 'pickup'"
+                    :aria-checked="deliveryMode === 'pickup'"
                     @click="deliveryMode = 'pickup'"
                   >
+                    <span class="delivery-radio" aria-hidden="true"></span>
+                    <span class="delivery-copy">
+                      <strong>Retiro en Sierra Nevada 10706A</strong>
+                      <small>Coordinamos el retiro sin costo cuando tu pedido este listo.</small>
+                    </span>
                     <strong>Retiro en domicilio</strong>
                     <span>Coordinamos contigo en Antofagasta y no cobramos envío.</span>
                   </button>
@@ -1251,6 +1267,74 @@ onBeforeUnmount(() => {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.7;
+}
+
+.delivery-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.delivery-mode-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  padding: 14px 15px;
+  border: 1px solid rgba(191, 84, 122, .16);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff, #fff8fb);
+  color: var(--dark);
+  box-shadow: 0 12px 28px rgba(139, 63, 85, .06);
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.delivery-mode-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(191, 84, 122, .32);
+  box-shadow: 0 16px 34px rgba(139, 63, 85, .09);
+}
+
+.delivery-mode-card.active {
+  border-color: rgba(191, 84, 122, .58);
+  background: linear-gradient(135deg, #fff4f8, #fceaf1);
+}
+
+.delivery-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid #e3c3ce;
+  background: #fff;
+  box-shadow: inset 0 0 0 4px #fff;
+}
+
+.delivery-mode-card.active .delivery-radio {
+  border-color: var(--rose-dark);
+  background: var(--rose-dark);
+}
+
+.delivery-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.delivery-copy strong {
+  font-size: 13px;
+  color: var(--rose-dark);
+}
+
+.delivery-copy small {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.delivery-mode-card > strong,
+.delivery-mode-card > span:not(.delivery-radio):not(.delivery-copy) {
+  display: none;
 }
 
 .discount-row {
