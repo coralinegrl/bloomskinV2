@@ -141,7 +141,7 @@
                     <span class="delivery-radio" aria-hidden="true"></span>
                     <span class="delivery-copy">
                       <strong>Despacho a domicilio</strong>
-                      <small>Calculamos el despacho segun tu comuna y direccion.</small>
+                      <small>Calculamos el despacho según tu comuna y dirección.</small>
                     </span>
                     <strong>Envío a domicilio</strong>
                     <span>Calculamos el despacho según comuna y dirección.</span>
@@ -158,7 +158,7 @@
                     <span class="delivery-radio" aria-hidden="true"></span>
                     <span class="delivery-copy">
                       <strong>Retiro en Sierra Nevada 10706A</strong>
-                      <small>Coordinamos el retiro sin costo cuando tu pedido este listo.</small>
+                      <small>Coordinamos el retiro sin costo cuando tu pedido esté listo.</small>
                     </span>
                     <strong>Retiro en domicilio</strong>
                     <span>Coordinamos contigo en Antofagasta y no cobramos envío.</span>
