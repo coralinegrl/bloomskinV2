@@ -82,6 +82,7 @@ CREATE TABLE pedidos (
   region_envio    NVARCHAR(120),
   comprobante_url NVARCHAR(500),
   notas           NVARCHAR(MAX),
+  eliminado_en    DATETIME2     NULL,
   creado_en       DATETIME2     NOT NULL DEFAULT GETDATE(),
   actualizado_en  DATETIME2     NOT NULL DEFAULT GETDATE()
 );

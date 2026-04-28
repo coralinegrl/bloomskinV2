@@ -275,6 +275,9 @@ async function ensurePedidosSchema(pool) {
     IF COL_LENGTH('pedidos', 'comprobante_limite_en') IS NULL
       ALTER TABLE pedidos ADD comprobante_limite_en DATETIME2 NULL;
 
+    IF COL_LENGTH('pedidos', 'eliminado_en') IS NULL
+      ALTER TABLE pedidos ADD eliminado_en DATETIME2 NULL;
+
     IF OBJECT_ID(N'dbo.checkout_reservations', N'U') IS NULL
     BEGIN
       CREATE TABLE checkout_reservations (
@@ -635,6 +638,7 @@ router.get('/', requireAdminAuth, async (_req, res) => {
              c.region AS cliente_region_actual
       FROM pedidos p
       JOIN clientes c ON c.id = p.cliente_id
+      WHERE p.eliminado_en IS NULL
       ORDER BY p.creado_en DESC
     `);
 
@@ -677,6 +681,7 @@ router.get('/stats', requireAdminAuth, async (_req, res) => {
         COUNT(CASE WHEN estado = 'shipped' THEN 1 END) AS enviados,
         COUNT(CASE WHEN estado = 'delivered' THEN 1 END) AS entregados
       FROM pedidos
+      WHERE eliminado_en IS NULL
     `);
     res.json(result.recordset[0]);
   } catch (err) {
@@ -703,7 +708,9 @@ router.get('/export/monthly', requireAdminAuth, async (req, res) => {
                p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
                p.estado, p.comprobante_url, p.comprobante_limite_en, p.notas, p.creado_en, p.actualizado_en
         FROM pedidos p
-        WHERE p.creado_en >= @start_date AND p.creado_en < @end_date
+        WHERE p.creado_en >= @start_date
+          AND p.creado_en < @end_date
+          AND p.eliminado_en IS NULL
         ORDER BY p.creado_en ASC, p.id ASC
       `);
 
@@ -1721,6 +1728,49 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al actualizar estado' });
+  }
+});
+
+router.delete('/:id', requireAdminAuth, async (req, res) => {
+  const pedidoId = Number(req.params.id);
+  if (!Number.isInteger(pedidoId) || pedidoId <= 0) {
+    return res.status(400).json({ error: 'Pedido invalido.' });
+  }
+
+  try {
+    const pool = await getPool();
+    await ensurePedidosSchema(pool);
+
+    const lookup = await pool.request()
+      .input('id', sql.Int, pedidoId)
+      .query(`
+        SELECT id, estado, eliminado_en
+        FROM pedidos
+        WHERE id = @id
+      `);
+
+    const pedido = lookup.recordset[0];
+    if (!pedido || pedido.eliminado_en) {
+      return res.status(404).json({ error: 'Pedido no encontrado.' });
+    }
+
+    if (pedido.estado !== 'cancelled') {
+      return res.status(409).json({ error: 'Solo puedes ocultar ventas canceladas.' });
+    }
+
+    await pool.request()
+      .input('id', sql.Int, pedidoId)
+      .query(`
+        UPDATE pedidos
+        SET eliminado_en = SYSUTCDATETIME(),
+            actualizado_en = GETDATE()
+        WHERE id = @id
+      `);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo ocultar la venta.' });
   }
 });
 

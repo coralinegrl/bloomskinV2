@@ -307,11 +307,12 @@
                     <th>Estado</th>
                     <th>Comprobante</th>
                     <th>Actualizar estado</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-if="filteredPedidos.length === 0">
-                    <td colspan="8" class="empty-state table-empty">No hay pedidos para ese filtro.</td>
+                    <td colspan="9" class="empty-state table-empty">No hay pedidos para ese filtro.</td>
                   </tr>
                   <tr
                     v-for="p in filteredPedidos"
@@ -347,6 +348,17 @@
                         <option value="delivered">Entregado</option>
                         <option value="cancelled">Cancelado</option>
                       </select>
+                    </td>
+                    <td>
+                      <button
+                        v-if="p.estado === 'cancelled'"
+                        class="btn-delete"
+                        type="button"
+                        @click.stop="ocultarPedido(p)"
+                      >
+                        Ocultar
+                      </button>
+                      <span v-else class="muted">-</span>
                     </td>
                   </tr>
                 </tbody>
@@ -2239,6 +2251,19 @@ async function cambiarEstado(id, estado) {
     showToast('Estado actualizado.')
   } catch (err) {
     showToast(err.response?.data?.error || 'No se pudo actualizar el estado.', 'error')
+  }
+}
+
+async function ocultarPedido(pedido) {
+  if (!pedido?.id) return
+  if (!window.confirm(`Ocultar la venta ${pedido.codigo}? No se borrara de la base de datos, solo dejara de aparecer en ventas y reportes.`)) return
+  try {
+    await pedidosApi.eliminar(pedido.id)
+    if (selectedOrderId.value === pedido.id) selectedOrderId.value = null
+    await Promise.all([cargarPedidos(), cargarStats()])
+    showToast('Venta oculta correctamente.')
+  } catch (err) {
+    showToast(err.response?.data?.error || 'No se pudo ocultar la venta.', 'error')
   }
 }
 

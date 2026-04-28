@@ -104,6 +104,7 @@ export const pedidosApi = {
     })
   },
   cambiarEstado: (id, estado) => adminApi.patch(`/pedidos/${id}/estado`, { estado }),
+  eliminar: id => adminApi.delete(`/pedidos/${id}`),
 }
 
 export const reviewsApi = {
