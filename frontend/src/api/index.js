@@ -72,6 +72,14 @@ export const productosApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  analizarImagen: file => {
+    const formData = new FormData()
+    formData.append('image', file)
+    return adminApi.post('/productos/scan-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    })
+  },
   crear: data => adminApi.post('/productos', data),
   actualizar: (id, data) => adminApi.put(`/productos/${id}`, data),
   eliminar: id => adminApi.delete(`/productos/${id}`),

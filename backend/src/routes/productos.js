@@ -12,6 +12,28 @@ const uploadsRoot = process.env.UPLOADS_DIR
 const uploadsDir = path.join(uploadsRoot, 'productos');
 fs.mkdirSync(uploadsDir, { recursive: true });
 
+const allowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const productCategories = [
+  'Limpiadores',
+  'Tónicos',
+  'Esencias',
+  'Serums',
+  'Ampollas',
+  'Contorno de Ojos',
+  'Hidratantes',
+  'Protección Solar',
+  'Maquillaje',
+  'Extras',
+];
+
+function imageOnlyFilter(_req, file, cb) {
+  if (!allowedImageTypes.has(file.mimetype)) {
+    cb(new Error('Solo se permiten imagenes JPG, PNG o WebP'));
+    return;
+  }
+  cb(null, true);
+}
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
@@ -27,14 +49,26 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
-      cb(new Error('Solo se permiten imagenes'));
-      return;
-    }
-    cb(null, true);
-  },
+  fileFilter: imageOnlyFilter,
 });
+
+const scanUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 },
+  fileFilter: imageOnlyFilter,
+});
+
+function runImageUpload(uploadMiddleware, fieldName) {
+  return (req, res, next) => {
+    uploadMiddleware.single(fieldName)(req, res, err => {
+      if (!err) return next();
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'La imagen es demasiado pesada.' });
+      }
+      return res.status(400).json({ error: err.message || 'No pudimos procesar la imagen.' });
+    });
+  };
+}
 
 function calcPrecio(usd) {
   return Math.ceil((parseFloat(usd) + 1) * 1000 * 1.19 * 1.3);
@@ -70,6 +104,29 @@ async function resolveCanonicalBrand(pool, value) {
 
   const existing = result.recordset.find(row => brandCompareKey(row.marca) === brandCompareKey(normalized));
   return normalizeBrandName(existing?.marca || normalized);
+}
+
+function getResponseText(payload) {
+  if (typeof payload?.output_text === 'string') return payload.output_text;
+
+  for (const output of payload?.output || []) {
+    for (const content of output?.content || []) {
+      if (typeof content?.text === 'string') return content.text;
+    }
+  }
+
+  return '';
+}
+
+function cleanScanSuggestion(raw) {
+  const category = productCategories.includes(raw?.categoria) ? raw.categoria : 'Extras';
+  return {
+    marca: normalizeBrandName(raw?.marca).slice(0, 80),
+    nombre: normalizeBrandName(raw?.nombre).slice(0, 140),
+    categoria: category,
+    descripcion: String(raw?.descripcion || '').trim().replace(/\s+/g, ' ').slice(0, 320),
+    confidence: Math.max(0, Math.min(1, Number(raw?.confidence || 0))),
+  };
 }
 
 function normalizeToneOptions(value) {
@@ -215,7 +272,7 @@ router.get('/catalogo-json', requireAdminAuth, async (req, res) => {
   }
 });
 
-router.post('/upload-image', requireAdminAuth, upload.single('image'), async (req, res) => {
+router.post('/upload-image', requireAdminAuth, runImageUpload(upload, 'image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Debes adjuntar una imagen' });
   }
@@ -225,6 +282,82 @@ router.post('/upload-image', requireAdminAuth, upload.single('image'), async (re
     image_url: `/uploads/productos/${req.file.filename}`,
     filename: req.file.filename,
   });
+});
+
+router.post('/scan-image', requireAdminAuth, runImageUpload(scanUpload, 'image'), async (req, res) => {
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(503).json({ error: 'Falta configurar OPENAI_API_KEY en el backend para analizar productos con foto.' });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'Debes adjuntar una imagen JPG, PNG o WebP' });
+  }
+
+  try {
+    const imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_PRODUCT_VISION_MODEL || 'gpt-4o-mini',
+        input: [{
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: [
+                'Analiza la foto de este producto de skincare, k-beauty o maquillaje para Bloomskin Chile.',
+                'Devuelve solo datos probables y editables para completar un formulario admin.',
+                `La categoria debe ser exactamente una de estas: ${productCategories.join(', ')}.`,
+                'No inventes precio, stock, promociones, ingredientes ni beneficios medicos.',
+                'La descripcion debe ser breve, comercial, natural y en espanol de Chile.',
+              ].join(' '),
+            },
+            { type: 'input_image', image_url: imageUrl },
+          ],
+        }],
+        text: {
+          format: {
+            type: 'json_schema',
+            name: 'product_scan',
+            strict: true,
+            schema: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                marca: { type: 'string' },
+                nombre: { type: 'string' },
+                categoria: { type: 'string', enum: productCategories },
+                descripcion: { type: 'string' },
+                confidence: { type: 'number', minimum: 0, maximum: 1 },
+              },
+              required: ['marca', 'nombre', 'categoria', 'descripcion', 'confidence'],
+            },
+          },
+        },
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('OpenAI product scan error:', data);
+      return res.status(502).json({ error: 'No pudimos analizar la imagen del producto en este momento.' });
+    }
+
+    const rawText = getResponseText(data);
+    const suggestion = cleanScanSuggestion(JSON.parse(rawText));
+    if (!suggestion.marca && !suggestion.nombre) {
+      return res.status(422).json({ error: 'La foto no muestra suficiente informacion para completar el producto.' });
+    }
+
+    res.json({ ok: true, suggestion });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No pudimos leer la imagen del producto.' });
+  }
 });
 
 router.put('/catalogo-json', requireAdminAuth, async (req, res) => {

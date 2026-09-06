@@ -1255,6 +1255,27 @@
         <div class="modal">
           <h3 class="modal-title">{{ editingProducto ? 'Editar producto' : 'Nuevo producto' }}</h3>
 
+          <div class="ai-fill-card">
+            <div class="ai-fill-copy">
+              <div class="ai-fill-title">Rellenar con foto</div>
+              <div class="ai-fill-text">Usa una foto temporal para sugerir marca, nombre, categoría y descripción.</div>
+            </div>
+            <input
+              ref="scanImageInput"
+              class="visually-hidden"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              @change="handleScanImageChange"
+            >
+            <button class="camera-scan-btn" type="button" :disabled="scanningImage" @click="openScanImagePicker" title="Analizar foto del producto">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7.5 7 9 5h6l1.5 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2.5Z"/>
+                <circle cx="12" cy="13" r="3.2"/>
+              </svg>
+              <span>{{ scanningImage ? 'Analizando...' : 'Analizar foto' }}</span>
+            </button>
+          </div>
+
           <div class="form-row">
             <div class="form-group">
               <label>Marca</label>
@@ -1319,18 +1340,9 @@
 
           <div class="form-row">
             <div class="form-group">
-                    <label>Categoría</label>
+              <label>Categoría</label>
               <select v-model="form.categoria">
-                <option>Limpiadores</option>
-                    <option>Tónicos</option>
-                <option>Esencias</option>
-                <option>Serums</option>
-                <option>Ampollas</option>
-                <option>Contorno de Ojos</option>
-                <option>Hidratantes</option>
-                    <option>Protección Solar</option>
-                <option>Maquillaje</option>
-                <option>Extras</option>
+                <option v-for="category in productCategoryOptions" :key="category" :value="category">{{ category }}</option>
               </select>
             </div>
             <div class="form-group">
@@ -1664,6 +1676,18 @@ const navItems = [
   { section: 'clientes', icon: 'L', label: 'Clientas' },
   { section: 'mensajes', icon: 'B', label: 'Bandeja' },
 ]
+const productCategoryOptions = [
+  'Limpiadores',
+  'Tónicos',
+  'Esencias',
+  'Serums',
+  'Ampollas',
+  'Contorno de Ojos',
+  'Hidratantes',
+  'Protección Solar',
+  'Maquillaje',
+  'Extras',
+]
 const titleMap = {
   dashboard: 'Resumen',
   productos: 'Catálogo',
@@ -1852,6 +1876,7 @@ const saving = ref(false)
 const showClienteModal = ref(false)
 const savingCliente = ref(false)
 const uploadingImage = ref(false)
+const scanningImage = ref(false)
 const savingStockId = ref(null)
 const form = ref({})
 const brandMode = ref('')
@@ -1860,6 +1885,7 @@ const clienteForm = ref(buildProfileForm())
 const clienteFormError = ref('')
 const selectedImageFile = ref(null)
 const imageInput = ref(null)
+const scanImageInput = ref(null)
 const stockDrafts = ref({})
 
 const productoSearch = ref('')
@@ -2097,6 +2123,7 @@ function resetForm() {
   brandMode.value = ''
   selectedImageFile.value = null
   if (imageInput.value) imageInput.value.value = ''
+  if (scanImageInput.value) scanImageInput.value.value = ''
 }
 
 function syncStockDrafts() {
@@ -2236,6 +2263,58 @@ function removeManualSaleItem(index) {
 
 function handleImageFileChange(event) {
   selectedImageFile.value = event.target.files?.[0] || null
+}
+
+function openScanImagePicker() {
+  if (scanningImage.value) return
+  scanImageInput.value?.click()
+}
+
+function validateScanImage(file) {
+  if (!file) return 'Selecciona una foto del producto.'
+  const validTypes = ['image/png', 'image/jpeg', 'image/webp']
+  if (!validTypes.includes(file.type)) return 'Usa una imagen JPG, PNG o WebP.'
+  if (file.size > 4 * 1024 * 1024) return 'La imagen para analizar no puede pesar más de 4 MB.'
+  return ''
+}
+
+function applyProductScanSuggestion(suggestion = {}) {
+  const brand = normalizeBrandName(suggestion.marca)
+  const existingBrand = findExistingBrand(brand)
+  if (existingBrand) {
+    form.value.marca = existingBrand
+    brandMode.value = existingBrand
+  } else if (brand) {
+    form.value.marca = brand
+    brandMode.value = '__new'
+  }
+
+  if (suggestion.nombre) form.value.nombre = normalizeBrandName(suggestion.nombre)
+  if (productCategoryOptions.includes(suggestion.categoria)) form.value.categoria = suggestion.categoria
+  if (suggestion.descripcion) form.value.descripcion = String(suggestion.descripcion).trim()
+}
+
+async function handleScanImageChange(event) {
+  const file = event.target.files?.[0]
+  const validationError = validateScanImage(file)
+  if (validationError) {
+    showToast(validationError, 'error')
+    if (scanImageInput.value) scanImageInput.value.value = ''
+    return
+  }
+
+  scanningImage.value = true
+  try {
+    const { data } = await productosApi.analizarImagen(file)
+    applyProductScanSuggestion(data.suggestion)
+    const confidence = Number(data.suggestion?.confidence || 0)
+    showToast(confidence < 0.55 ? 'Datos sugeridos con baja certeza. Revísalos antes de guardar.' : 'Datos del producto sugeridos.')
+  } catch (err) {
+    showToast(err.response?.data?.error || 'No pudimos analizar la foto del producto.', 'error')
+  } finally {
+    scanningImage.value = false
+    if (scanImageInput.value) scanImageInput.value.value = ''
+  }
 }
 
 async function subirImagenProducto() {
@@ -2979,6 +3058,52 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(4px); }
 .modal { background: var(--ad-surface); border: 1px solid var(--ad-border); border-radius: 12px; padding: 32px; width: 100%; max-width: 620px; max-height: 85vh; overflow-y: auto; }
 .modal-title { font-size: 18px; font-weight: 600; color: var(--ad-text); margin-bottom: 24px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.ai-fill-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(196,100,122,.22);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(196,100,122,.12), rgba(255,255,255,.025));
+}
+.ai-fill-copy { min-width: 0; }
+.ai-fill-title { color: var(--ad-text); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.ai-fill-text { color: var(--ad-muted); font-size: 11px; line-height: 1.45; }
+.camera-scan-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 9px 13px;
+  border: 1px solid rgba(196,100,122,.36);
+  border-radius: 999px;
+  background: rgba(196,100,122,.18);
+  color: var(--blush);
+  font-size: 11px;
+  font-weight: 700;
+  transition: border-color .2s, background .2s, transform .2s;
+}
+.camera-scan-btn:hover:not(:disabled) {
+  background: rgba(196,100,122,.26);
+  border-color: rgba(196,100,122,.58);
+  transform: translateY(-1px);
+}
+.camera-scan-btn:disabled { opacity: .62; cursor: not-allowed; transform: none; }
+.camera-scan-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ad-muted); margin-bottom: 7px; }
@@ -3086,6 +3211,8 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
   }
   .admin-content { padding: 20px; }
   .stats-grid, .detail-grid, .dash-grid, .form-row, .home-settings-grid { grid-template-columns: 1fr; }
+  .ai-fill-card { align-items: flex-start; flex-direction: column; }
+  .camera-scan-btn { width: 100%; }
   .section-actions { flex-direction: column; }
   .toolbar-input, .toolbar-select { width: 100%; min-width: 0; }
   .ad-card, .modal { padding: 20px; }
