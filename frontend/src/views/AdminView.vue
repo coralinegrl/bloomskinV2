@@ -1259,6 +1259,9 @@
             <div class="ai-fill-copy">
               <div class="ai-fill-title">Rellenar con foto</div>
               <div class="ai-fill-text">Usa una foto temporal para sugerir marca, nombre, categoría y descripción.</div>
+              <div v-if="scanImageMessage" class="ai-fill-message" :class="`ai-fill-message-${scanImageMessage.kind}`">
+                {{ scanImageMessage.text }}
+              </div>
             </div>
             <input
               ref="scanImageInput"
@@ -1877,6 +1880,7 @@ const showClienteModal = ref(false)
 const savingCliente = ref(false)
 const uploadingImage = ref(false)
 const scanningImage = ref(false)
+const scanImageMessage = ref(null)
 const savingStockId = ref(null)
 const form = ref({})
 const brandMode = ref('')
@@ -2122,6 +2126,7 @@ function resetForm() {
   }
   brandMode.value = ''
   selectedImageFile.value = null
+  scanImageMessage.value = null
   if (imageInput.value) imageInput.value.value = ''
   if (scanImageInput.value) scanImageInput.value.value = ''
 }
@@ -2267,6 +2272,7 @@ function handleImageFileChange(event) {
 
 function openScanImagePicker() {
   if (scanningImage.value) return
+  scanImageMessage.value = null
   scanImageInput.value?.click()
 }
 
@@ -2299,18 +2305,24 @@ async function handleScanImageChange(event) {
   const validationError = validateScanImage(file)
   if (validationError) {
     showToast(validationError, 'error')
+    scanImageMessage.value = { kind: 'error', text: validationError }
     if (scanImageInput.value) scanImageInput.value.value = ''
     return
   }
 
   scanningImage.value = true
+  scanImageMessage.value = { kind: 'loading', text: 'Analizando la foto...' }
   try {
     const { data } = await productosApi.analizarImagen(file)
     applyProductScanSuggestion(data.suggestion)
     const confidence = Number(data.suggestion?.confidence || 0)
-    showToast(confidence < 0.55 ? 'Datos sugeridos con baja certeza. Revísalos antes de guardar.' : 'Datos del producto sugeridos.')
+    const message = confidence < 0.55 ? 'Datos sugeridos con baja certeza. Revísalos antes de guardar.' : 'Datos del producto sugeridos. Puedes editarlos antes de guardar.'
+    scanImageMessage.value = { kind: confidence < 0.55 ? 'warning' : 'ok', text: message }
+    showToast(message)
   } catch (err) {
-    showToast(err.response?.data?.error || 'No pudimos analizar la foto del producto.', 'error')
+    const message = err.response?.data?.error || 'No pudimos analizar la foto del producto.'
+    scanImageMessage.value = { kind: 'error', text: message }
+    showToast(message, 'error')
   } finally {
     scanningImage.value = false
     if (scanImageInput.value) scanImageInput.value.value = ''
@@ -3073,6 +3085,18 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 .ai-fill-copy { min-width: 0; }
 .ai-fill-title { color: var(--ad-text); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
 .ai-fill-text { color: var(--ad-muted); font-size: 11px; line-height: 1.45; }
+.ai-fill-message {
+  display: inline-flex;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.ai-fill-message-loading { color: var(--ad-muted); background: rgba(255,255,255,.06); }
+.ai-fill-message-ok { color: #6fcf97; background: rgba(111,207,151,.12); }
+.ai-fill-message-warning { color: #f0b432; background: rgba(240,180,50,.12); }
+.ai-fill-message-error { color: #ff8aa5; background: rgba(255,138,165,.12); }
 .camera-scan-btn {
   flex-shrink: 0;
   display: inline-flex;

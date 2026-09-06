@@ -129,6 +129,29 @@ function cleanScanSuggestion(raw) {
   };
 }
 
+function openAiScanErrorMessage(data) {
+  const code = data?.error?.code;
+  const type = data?.error?.type;
+  if (code === 'credit_balance_exhausted' || type === 'insufficient_quota') {
+    return {
+      status: 402,
+      message: 'La cuenta de OpenAI no tiene creditos disponibles. Agrega saldo en OpenAI Billing para usar el analisis con foto.',
+    };
+  }
+
+  if (code === 'invalid_api_key' || type === 'invalid_request_error') {
+    return {
+      status: 401,
+      message: 'La llave de OpenAI no es valida o no tiene permisos para analizar imagenes.',
+    };
+  }
+
+  return {
+    status: 502,
+    message: 'No pudimos analizar la imagen del producto en este momento.',
+  };
+}
+
 function normalizeToneOptions(value) {
   const tones = Array.isArray(value)
     ? value
@@ -295,8 +318,11 @@ router.post('/scan-image', requireAdminAuth, runImageUpload(scanUpload, 'image')
 
   try {
     const imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
@@ -340,11 +366,13 @@ router.post('/scan-image', requireAdminAuth, runImageUpload(scanUpload, 'image')
         },
       }),
     });
+    clearTimeout(timeout);
 
     const data = await response.json();
     if (!response.ok) {
       console.error('OpenAI product scan error:', data);
-      return res.status(502).json({ error: 'No pudimos analizar la imagen del producto en este momento.' });
+      const friendlyError = openAiScanErrorMessage(data);
+      return res.status(friendlyError.status).json({ error: friendlyError.message });
     }
 
     const rawText = getResponseText(data);
@@ -356,6 +384,9 @@ router.post('/scan-image', requireAdminAuth, runImageUpload(scanUpload, 'image')
     res.json({ ok: true, suggestion });
   } catch (err) {
     console.error(err);
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'El analisis de la foto tardo demasiado. Intenta con una imagen mas liviana o prueba nuevamente.' });
+    }
     res.status(500).json({ error: 'No pudimos leer la imagen del producto.' });
   }
 });
