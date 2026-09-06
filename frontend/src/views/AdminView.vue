@@ -1258,7 +1258,21 @@
           <div class="form-row">
             <div class="form-group">
               <label>Marca</label>
-              <input v-model="form.marca" type="text" placeholder="ej. COSRX">
+              <select v-model="brandMode" @change="handleBrandModeChange">
+                <option value="">Selecciona una marca</option>
+                <option v-for="brand in productBrandOptions" :key="brand" :value="brand">{{ brand }}</option>
+                <option value="__new">+ Agregar marca nueva</option>
+              </select>
+              <input
+                v-if="brandMode === '__new'"
+                v-model.trim="form.marca"
+                class="brand-new-input"
+                type="text"
+                placeholder="Escribe la nueva marca"
+                @blur="normalizeNewBrand"
+              >
+              <small v-if="brandMode !== '__new' && form.marca" class="form-hint compact">Se usará la marca existente: {{ form.marca }}</small>
+              <small v-if="brandDuplicateWarning" class="form-warning">{{ brandDuplicateWarning }}</small>
             </div>
             <div class="form-group">
               <label>Distintivo</label>
@@ -1840,6 +1854,7 @@ const savingCliente = ref(false)
 const uploadingImage = ref(false)
 const savingStockId = ref(null)
 const form = ref({})
+const brandMode = ref('')
 const editingCliente = ref(null)
 const clienteForm = ref(buildProfileForm())
 const clienteFormError = ref('')
@@ -1899,7 +1914,13 @@ const sinStock = computed(() => productos.value.filter(p => p.stock === 0).lengt
 const productosStockBajo = computed(() => productos.value.filter(p => p.stock <= 5).sort((a, b) => a.stock - b.stock))
 const productosDisponiblesVentaManual = computed(() => productos.value.filter(producto => producto.activo !== false))
 const productoCategorias = computed(() => [...new Set(productos.value.map(p => p.categoria).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es')))
-const productoMarcas = computed(() => [...new Set(productos.value.map(p => p.marca).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es')))
+const productBrandOptions = computed(() => uniqueProductBrands(productos.value))
+const productoMarcas = computed(() => productBrandOptions.value)
+const brandDuplicateWarning = computed(() => {
+  if (brandMode.value !== '__new' || !form.value.marca) return ''
+  const existing = findExistingBrand(form.value.marca)
+  return existing ? `Ya existe como "${existing}". Selecciona esa marca para evitar duplicados.` : ''
+})
 const noLeidos = computed(() => mensajes.value.filter(m => !m.leido).length)
 const mensajesPendientes = computed(() => mensajes.value.filter(m => !m.respondido).length)
 const clientesConNotas = computed(() => clientes.value.filter(c => c.notas).length)
@@ -2073,6 +2094,7 @@ function resetForm() {
     tonos_texto: '',
     tonos_stock: {},
   }
+  brandMode.value = ''
   selectedImageFile.value = null
   if (imageInput.value) imageInput.value.value = ''
 }
@@ -2103,20 +2125,68 @@ function handleLogout() {
 function openProductoModal(producto = null) {
   editingProducto.value = producto
   if (producto) {
+    const existingBrand = findExistingBrand(producto.marca)
     form.value = {
       ...producto,
+      marca: existingBrand || producto.marca || '',
       precio_usd: producto.precio_usd || 0,
       oferta_hasta: producto.oferta_hasta ? String(producto.oferta_hasta).slice(0, 10) : '',
       usa_tonos: Boolean(producto.usa_tonos && producto.tonos?.length),
       tonos_texto: Array.isArray(producto.tonos) ? producto.tonos.join('\n') : '',
       tonos_stock: { ...(producto.tonos_stock || {}) },
     }
+    brandMode.value = existingBrand || (producto.marca ? '__new' : '')
     selectedImageFile.value = null
     if (imageInput.value) imageInput.value.value = ''
   } else {
     resetForm()
   }
   showModal.value = true
+}
+
+function normalizeBrandName(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
+function brandCompareKey(value) {
+  return normalizeBrandName(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('es')
+}
+
+function uniqueProductBrands(products) {
+  const byKey = new Map()
+  for (const product of products || []) {
+    const brand = normalizeBrandName(product?.marca)
+    if (!brand) continue
+    const key = brandCompareKey(brand)
+    if (!byKey.has(key)) byKey.set(key, brand)
+  }
+  return [...byKey.values()].sort((a, b) => a.localeCompare(b, 'es'))
+}
+
+function findExistingBrand(value) {
+  const key = brandCompareKey(value)
+  if (!key) return ''
+  return productBrandOptions.value.find(brand => brandCompareKey(brand) === key) || ''
+}
+
+function handleBrandModeChange() {
+  if (brandMode.value === '__new') {
+    form.value.marca = ''
+    return
+  }
+  form.value.marca = brandMode.value
+}
+
+function normalizeNewBrand() {
+  const normalized = normalizeBrandName(form.value.marca)
+  const existing = findExistingBrand(normalized)
+  form.value.marca = existing || normalized
+  if (existing) brandMode.value = existing
 }
 
 function openClienteModal(cliente) {
@@ -2194,6 +2264,13 @@ function openOrderDetails(id) {
 }
 
 async function guardarProducto() {
+  form.value.marca = normalizeBrandName(form.value.marca)
+  const existingBrand = findExistingBrand(form.value.marca)
+  if (existingBrand) {
+    form.value.marca = existingBrand
+    brandMode.value = existingBrand
+  }
+
   if (!form.value.marca || !form.value.nombre || !form.value.precio_clp) {
     showToast('Marca, nombre y precio en CLP son obligatorios.', 'error')
     return
@@ -2947,6 +3024,15 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 }
 .form-hint { font-size: 11px; color: var(--ad-muted); background: rgba(196,100,122,.08); border: 1px solid rgba(196,100,122,.15); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; }
 .form-hint strong { color: var(--blush); }
+.form-hint.compact { display: block; margin-top: 8px; margin-bottom: 0; padding: 8px 10px; }
+.brand-new-input { margin-top: 10px; }
+.form-warning {
+  display: block;
+  margin-top: 8px;
+  color: #f0b432;
+  font-size: 11px;
+  line-height: 1.5;
+}
 .modal-actions { display: flex; gap: 12px; justify-content: flex-end; padding-top: 20px; border-top: 1px solid var(--ad-border); margin-top: 8px; }
 
 .modal-enter-active, .modal-leave-active { transition: opacity .2s; }

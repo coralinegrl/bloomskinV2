@@ -47,6 +47,31 @@ function normalizeOfferDate(value) {
   return trimmed.slice(0, 10);
 }
 
+function normalizeBrandName(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function brandCompareKey(value) {
+  return normalizeBrandName(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('es');
+}
+
+async function resolveCanonicalBrand(pool, value) {
+  const normalized = normalizeBrandName(value);
+  if (!normalized) return '';
+
+  const result = await pool.request().query(`
+    SELECT DISTINCT marca
+    FROM productos
+    WHERE marca IS NOT NULL AND LTRIM(RTRIM(marca)) <> ''
+  `);
+
+  const existing = result.recordset.find(row => brandCompareKey(row.marca) === brandCompareKey(normalized));
+  return normalizeBrandName(existing?.marca || normalized);
+}
+
 function normalizeToneOptions(value) {
   const tones = Array.isArray(value)
     ? value
@@ -260,6 +285,7 @@ router.post('/', requireAdminAuth, async (req, res) => {
     await ensureProductSchema(pool);
     const product = sanitizeProduct({
       ...req.body,
+      marca: await resolveCanonicalBrand(pool, req.body.marca),
       precio_usd: req.body.precio_usd || 0,
       precio_clp: req.body.precio_clp,
       oferta_hasta: normalizeOfferDate(req.body.oferta_hasta),
@@ -279,6 +305,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
     await ensureProductSchema(pool);
     const product = sanitizeProduct({
       ...req.body,
+      marca: await resolveCanonicalBrand(pool, req.body.marca),
       precio_usd: req.body.precio_usd || 0,
       precio_clp: req.body.precio_clp,
       oferta_hasta: normalizeOfferDate(req.body.oferta_hasta),
