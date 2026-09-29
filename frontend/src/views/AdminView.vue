@@ -1857,7 +1857,7 @@ const siteSettings = ref({
     shipping_policy: {
       title: 'Tiempos y condiciones de envío',
       intro: 'Despachamos desde Antofagasta y coordinamos cada pedido según destino y disponibilidad.',
-      body: 'Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envío es gratis cuando corresponda según la configuración vigente. Los tiempos pueden variar en días de alta demanda.',
+      body: 'Antofagasta se calcula por distancia desde Oficina Lina 210. Fuera de Antofagasta usamos Blue Express. Sobre $49.990 el envío es gratis cuando corresponda según la configuración vigente. Los tiempos pueden variar en días de alta demanda.',
     },
     returns_policy: {
       title: 'Cambios y devoluciones',

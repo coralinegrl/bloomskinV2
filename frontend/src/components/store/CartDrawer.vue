@@ -143,8 +143,6 @@
                       <strong>Despacho a domicilio</strong>
                       <small>Calculamos el despacho según tu comuna y dirección.</small>
                     </span>
-                    <strong>Envío a domicilio</strong>
-                    <span>Calculamos el despacho según comuna y dirección.</span>
                   </button>
                   <button
                     class="delivery-mode-card"
@@ -157,11 +155,9 @@
                   >
                     <span class="delivery-radio" aria-hidden="true"></span>
                     <span class="delivery-copy">
-                      <strong>Retiro en Sierra Nevada 10706A</strong>
+                      <strong>Retiro en Oficina Lina 210</strong>
                       <small>Coordinamos el retiro sin costo cuando tu pedido esté listo.</small>
                     </span>
-                    <strong>Retiro en domicilio</strong>
-                    <span>Coordinamos contigo en Antofagasta y no cobramos envío.</span>
                   </button>
                 </div>
               </div>
@@ -213,7 +209,7 @@
                 </div>
 
                 <p class="panel-copy">
-                  Antofagasta se calcula por distancia desde Bloomskin. Fuera de Antofagasta usamos Blue Express por {{ fmt(3990) }}. Sobre {{ fmt(49990) }} el envío es gratis.
+                  Antofagasta se calcula por distancia desde Oficina Lina 210. Fuera de Antofagasta usamos Blue Express por {{ fmt(3990) }}. Sobre {{ fmt(49990) }} el envío es gratis.
                 </p>
                 <p v-if="shippingQuote" class="panel-ok">
                   {{ shippingQuote.provider }} - {{ shippingQuote.tier_label }}
@@ -225,7 +221,7 @@
               <div v-else class="checkout-panel">
                 <strong>Retiro coordinado</strong>
                 <p class="panel-copy">
-                  Si eliges retiro, coordinaremos contigo por WhatsApp o correo una vez creado el pedido.
+                  Si eliges retiro, coordinaremos contigo por WhatsApp o correo una vez creado el pedido en Oficina Lina 210.
                   Tu dirección personal puede seguir guardada en tu cuenta para futuras compras con despacho.
                 </p>
                 <p class="panel-ok">No se cobrará envío en este pedido.</p>

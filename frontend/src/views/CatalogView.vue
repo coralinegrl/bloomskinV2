@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="catalog-page">
     <AnnouncementBar />
     <AppHeader
@@ -64,7 +64,20 @@
         </div>
 
         <div class="filters-footer">
-          <div class="toolbar-meta">{{ filteredProducts.length }} productos</div>
+          <div>
+            <div class="toolbar-meta">{{ filteredProducts.length }} productos</div>
+            <div v-if="activeFilterChips.length" class="active-filter-chips">
+              <button
+                v-for="chip in activeFilterChips"
+                :key="chip.key"
+                class="filter-chip"
+                type="button"
+                @click="clearFilter(chip.key)"
+              >
+                {{ chip.label }} ×
+              </button>
+            </div>
+          </div>
           <button class="clear-btn" type="button" @click="resetFilters">Limpiar filtros</button>
         </div>
       </div>
@@ -73,7 +86,12 @@
         <div v-for="n in 8" :key="n" class="skeleton-card"></div>
       </div>
       <div v-else-if="filteredProducts.length === 0" class="no-results">
-        No encontramos productos con esa combinación de filtros.
+        <strong>No encontramos productos con esa combinación.</strong>
+        <p>Prueba limpiar filtros o buscar por otra marca, categoría o producto.</p>
+        <div class="no-results-actions">
+          <button class="clear-btn" type="button" @click="resetFilters">Ver todo el catálogo</button>
+          <a class="clear-btn whatsapp-empty" href="https://wa.me/56994841853" target="_blank" rel="noreferrer">Pedir ayuda</a>
+        </div>
       </div>
       <div v-else class="products-grid">
         <ProductCard v-for="product in filteredProducts" :key="product.id" :producto="product" />
@@ -114,7 +132,12 @@ const badgeFilter = ref('all')
 const sortBy = ref('featured')
 
 const categoryOrder = ['Limpiadores', 'Tónicos', 'Esencias', 'Serums', 'Ampollas', 'Contorno de Ojos', 'Hidratantes', 'Protección Solar', 'Maquillaje', 'Extras']
-const categoryAliases = { Tónicos: 'Tónicos', 'Protección Solar': 'Protección Solar' }
+const categoryAliases = {
+  'TÃ³nicos': 'Tónicos',
+  'Tónicos': 'Tónicos',
+  'ProtecciÃ³n Solar': 'Protección Solar',
+  'Protección Solar': 'Protección Solar',
+}
 
 const tabs = computed(() => {
   const seen = new Set()
@@ -140,6 +163,19 @@ const stockOptions = [{ value: 'all', label: 'Todo el stock' }, { value: 'in', l
 const priceOptions = [{ value: 'all', label: 'Todos los precios' }, { value: 'under-15000', label: 'Hasta $15.000' }, { value: '15000-30000', label: '$15.000 a $30.000' }, { value: '30000-50000', label: '$30.000 a $50.000' }, { value: 'over-50000', label: 'Sobre $50.000' }]
 const badgeOptions = [{ value: 'all', label: 'Todas las etiquetas' }, { value: 'hot', label: 'Más vendidos' }, { value: 'new', label: 'Nuevos' }, { value: 'sale', label: 'Ofertas' }]
 const sortOptions = [{ value: 'featured', label: 'Destacados' }, { value: 'price-asc', label: 'Precio: menor a mayor' }, { value: 'price-desc', label: 'Precio: mayor a menor' }, { value: 'name-asc', label: 'Nombre: A-Z' }, { value: 'brand-asc', label: 'Marca: A-Z' }, { value: 'reviews-desc', label: 'Más reseñas' }]
+const optionLabel = (options, value) => options.find(option => option.value === value)?.label || value
+
+const activeFilterChips = computed(() => {
+  const chips = []
+  if (activeTab.value !== 'todos') chips.push({ key: 'category', label: activeTab.value })
+  if (searchQuery.value.trim()) chips.push({ key: 'q', label: `Búsqueda: ${searchQuery.value.trim()}` })
+  if (brandFilter.value !== 'all') chips.push({ key: 'brand', label: `Marca: ${brandFilter.value}` })
+  if (stockFilter.value !== 'all') chips.push({ key: 'stock', label: optionLabel(stockOptions, stockFilter.value) })
+  if (priceFilter.value !== 'all') chips.push({ key: 'price', label: optionLabel(priceOptions, priceFilter.value) })
+  if (badgeFilter.value !== 'all') chips.push({ key: 'badge', label: optionLabel(badgeOptions, badgeFilter.value) })
+  if (sortBy.value !== 'featured') chips.push({ key: 'sort', label: `Orden: ${optionLabel(sortOptions, sortBy.value)}` })
+  return chips
+})
 
 const filteredProducts = computed(() => {
   let list = [...productos.value]
@@ -198,7 +234,7 @@ async function refreshCatalogProducts() {
 }
 
 watch(() => route.query, applyRouteFilters)
-watch([activeTab, searchQuery], () => {
+watch([activeTab, searchQuery, brandFilter, stockFilter, priceFilter, badgeFilter, sortBy], () => {
   syncRouteQuery()
 })
 
@@ -206,15 +242,32 @@ function applyRouteFilters() {
   const nextCategory = route.query.category ? normalizeCategory(String(route.query.category)) : 'todos'
   activeTab.value = tabs.value.some(tab => tab.key === nextCategory) ? nextCategory : 'todos'
   searchQuery.value = typeof route.query.q === 'string' ? route.query.q : ''
+  brandFilter.value = typeof route.query.brand === 'string' && brandOptions.value.some(option => option.value === route.query.brand) ? route.query.brand : 'all'
+  stockFilter.value = typeof route.query.stock === 'string' && stockOptions.some(option => option.value === route.query.stock) ? route.query.stock : 'all'
+  priceFilter.value = typeof route.query.price === 'string' && priceOptions.some(option => option.value === route.query.price) ? route.query.price : 'all'
+  badgeFilter.value = typeof route.query.badge === 'string' && badgeOptions.some(option => option.value === route.query.badge) ? route.query.badge : 'all'
+  sortBy.value = typeof route.query.sort === 'string' && sortOptions.some(option => option.value === route.query.sort) ? route.query.sort : 'featured'
 }
 
 function syncRouteQuery() {
   const nextQuery = {}
   if (activeTab.value !== 'todos') nextQuery.category = activeTab.value
   if (searchQuery.value.trim()) nextQuery.q = searchQuery.value.trim()
-  const currentCategory = typeof route.query.category === 'string' ? route.query.category : undefined
-  const currentSearch = typeof route.query.q === 'string' ? route.query.q : undefined
-  if (currentCategory === nextQuery.category && currentSearch === nextQuery.q) return
+  if (brandFilter.value !== 'all') nextQuery.brand = brandFilter.value
+  if (stockFilter.value !== 'all') nextQuery.stock = stockFilter.value
+  if (priceFilter.value !== 'all') nextQuery.price = priceFilter.value
+  if (badgeFilter.value !== 'all') nextQuery.badge = badgeFilter.value
+  if (sortBy.value !== 'featured') nextQuery.sort = sortBy.value
+  const currentQuery = {
+    category: typeof route.query.category === 'string' ? route.query.category : undefined,
+    q: typeof route.query.q === 'string' ? route.query.q : undefined,
+    brand: typeof route.query.brand === 'string' ? route.query.brand : undefined,
+    stock: typeof route.query.stock === 'string' ? route.query.stock : undefined,
+    price: typeof route.query.price === 'string' ? route.query.price : undefined,
+    badge: typeof route.query.badge === 'string' ? route.query.badge : undefined,
+    sort: typeof route.query.sort === 'string' ? route.query.sort : undefined,
+  }
+  if (Object.keys(currentQuery).every(key => currentQuery[key] === nextQuery[key])) return
   router.replace({ name: 'catalog', query: nextQuery })
 }
 
@@ -246,6 +299,16 @@ function resetFilters() {
   priceFilter.value = 'all'
   badgeFilter.value = 'all'
   sortBy.value = 'featured'
+}
+
+function clearFilter(key) {
+  if (key === 'category') activeTab.value = 'todos'
+  if (key === 'q') searchQuery.value = ''
+  if (key === 'brand') brandFilter.value = 'all'
+  if (key === 'stock') stockFilter.value = 'all'
+  if (key === 'price') priceFilter.value = 'all'
+  if (key === 'badge') badgeFilter.value = 'all'
+  if (key === 'sort') sortBy.value = 'featured'
 }
 
 function normalizeCategory(category) {
@@ -420,6 +483,22 @@ function sortProducts(list, mode) {
   color: var(--dark-mid);
 }
 
+.active-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.filter-chip {
+  border: 1px solid rgba(196,100,122,.24);
+  background: #fff;
+  color: var(--rose-dark);
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 11px;
+}
+
 .clear-btn {
   border: 1px solid #dfbcc7;
   background: #fff;
@@ -453,9 +532,39 @@ function sortProducts(list, mode) {
 
 .no-results {
   text-align: center;
-  padding: 80px 0;
+  padding: 72px 20px;
   color: var(--text-muted);
   font-size: 14px;
+  border: 1px dashed #ead7dd;
+  border-radius: 28px;
+  background: #fff9fb;
+}
+
+.no-results strong {
+  display: block;
+  color: var(--dark);
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.no-results p {
+  margin: 0 auto;
+  max-width: 420px;
+  line-height: 1.7;
+}
+
+.no-results-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.whatsapp-empty {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 @media (max-width: 1180px) {

@@ -1,4 +1,4 @@
-const ANTOFAGASTA_ORIGIN_QUERY = 'Av. Pedro Aguirre Cerda 10578, Antofagasta, Chile';
+const ANTOFAGASTA_ORIGIN_QUERY = 'Oficina Lina 210, Antofagasta, Chile';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const GOOGLE_GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const BLUE_EXPRESS_FLAT_FEE = 3990;

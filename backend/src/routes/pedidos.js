@@ -1257,7 +1257,7 @@ router.post('/', requireClientAuth, async (req, res) => {
           provider: 'Bloomskin',
           fee_clp: 0,
           distance_km: null,
-          tier_label: 'Retiro en domicilio',
+          tier_label: 'Retiro en Oficina Lina 210',
         }
       : await quoteShipping({
           ciudad,
@@ -1284,7 +1284,7 @@ router.post('/', requireClientAuth, async (req, res) => {
       .input('metodo_envio', sql.NVarChar, shippingQuote.method)
       .input('region_envio', sql.NVarChar, deliveryMode === 'pickup' ? null : region)
       .input('ciudad_envio', sql.NVarChar, deliveryMode === 'pickup' ? 'Antofagasta' : ciudad)
-      .input('direccion_envio', sql.NVarChar, deliveryMode === 'pickup' ? 'Retiro coordinado en domicilio' : direccion)
+      .input('direccion_envio', sql.NVarChar, deliveryMode === 'pickup' ? 'Retiro en Oficina Lina 210' : direccion)
       .input('referencia_envio', sql.NVarChar, deliveryMode === 'pickup' ? null : (referencia || null))
       .input('distancia_envio_km', sql.Decimal(8, 2), shippingQuote.distance_km)
       .input('notas', sql.NVarChar, notas || null)

@@ -66,7 +66,7 @@ app.use('/api/descuentos', require('./routes/descuentos'));
 app.get('/api/health', (_req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));
 
 if (hasFrontendBuild) {
-  app.use(express.static(frontendDist));
+  app.use(express.static(frontendDist, { redirect: false }));
 
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {

@@ -35,6 +35,7 @@
       </div>
       <div v-if="producto.stock === 0" class="stock-out">Sin stock</div>
       <div v-else-if="producto.stock <= 5" class="stock-low">Solo {{ producto.stock }} disponibles</div>
+      <div v-if="hasToneOptions && producto.stock > 0" class="variant-note">Requiere elegir tipo</div>
       <button class="add-to-cart" :disabled="producto.stock === 0" @click.stop="agregar">
         {{ producto.stock === 0 ? 'Sin stock' : hasToneOptions ? 'Elegir tipo' : 'Agregar al carro' }}
       </button>
@@ -219,6 +220,7 @@ function goToProduct() {
 .price-old     { font-size: 12px; color: var(--text-muted); text-decoration: line-through; }
 .stock-low  { font-size: 10px; color: #B85A00; font-weight: 500; margin-top: 4px; }
 .stock-out  { font-size: 10px; color: #C4303A; font-weight: 500; margin-top: 4px; }
+.variant-note { margin-top: 6px; color: var(--text-muted); font-size: 11px; }
 .add-to-cart {
   width: 100%; margin-top: 12px;
   background: var(--blush-light); color: var(--rose-dark);
