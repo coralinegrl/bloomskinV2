@@ -94,10 +94,17 @@
         </div>
       </div>
       <div v-else class="products-grid">
-        <ProductCard v-for="product in filteredProducts" :key="product.id" :producto="product" />
+        <ProductCard
+          v-for="product in filteredProducts"
+          :key="product.id"
+          :producto="product"
+          quick-view
+          @quick-view="openQuickView"
+        />
       </div>
     </section>
 
+    <ProductQuickViewModal :product="quickViewProduct" @close="quickViewProduct = null" />
     <StoreFooter />
   </div>
 </template>
@@ -108,6 +115,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { productosApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
 import ProductCard from '../components/store/ProductCard.vue'
+import ProductQuickViewModal from '../components/store/ProductQuickViewModal.vue'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import StoreSelect from '../components/store/StoreSelect.vue'
 import AnnouncementBar from '../components/ui/AnnouncementBar.vue'
@@ -130,6 +138,7 @@ const stockFilter = ref('all')
 const priceFilter = ref('all')
 const badgeFilter = ref('all')
 const sortBy = ref('featured')
+const quickViewProduct = ref(null)
 
 const categoryOrder = ['Limpiadores', 'Tónicos', 'Esencias', 'Serums', 'Ampollas', 'Contorno de Ojos', 'Hidratantes', 'Protección Solar', 'Maquillaje', 'Extras']
 const categoryAliases = {
@@ -309,6 +318,10 @@ function clearFilter(key) {
   if (key === 'price') priceFilter.value = 'all'
   if (key === 'badge') badgeFilter.value = 'all'
   if (key === 'sort') sortBy.value = 'featured'
+}
+
+function openQuickView(product) {
+  quickViewProduct.value = product
 }
 
 function normalizeCategory(category) {

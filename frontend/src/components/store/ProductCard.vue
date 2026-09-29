@@ -1,5 +1,5 @@
 <template>
-  <div class="product-card" :class="{ 'out-of-stock': producto.stock === 0 }" @click="goToProduct">
+  <div class="product-card" :class="{ 'out-of-stock': producto.stock === 0 }" @click="openProduct">
     <div class="product-image" :class="producto.img_clase">
       <img
         v-if="hasRealImage"
@@ -52,7 +52,14 @@ import { useUiStore } from '../../stores/ui.js'
 import { useWishlistStore } from '../../stores/wishlist.js'
 import StarRating from './StarRating.vue'
 
-const props = defineProps({ producto: Object })
+const props = defineProps({
+  producto: Object,
+  quickView: {
+    type: Boolean,
+    default: false,
+  },
+})
+const emit = defineEmits(['quick-view'])
 const router = useRouter()
 const cart = useCartStore()
 const customerAuth = useCustomerAuthStore()
@@ -94,7 +101,7 @@ function toggleWishlist() {
 
 function agregar() {
   if (hasToneOptions.value) {
-    goToProduct()
+    openProduct()
     return
   }
   const existing = cart.items.find(item => item.id === props.producto.id)
@@ -105,7 +112,11 @@ function agregar() {
   cart.agregar(props.producto)
 }
 
-function goToProduct() {
+function openProduct() {
+  if (props.quickView) {
+    emit('quick-view', props.producto)
+    return
+  }
   router.push({ name: 'product-detail', params: { id: props.producto.id } })
 }
 </script>

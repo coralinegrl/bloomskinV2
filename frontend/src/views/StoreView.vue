@@ -114,6 +114,8 @@
             v-for="(product, index) in carouselBestSellers"
             :key="`best-seller-${product.id}-${index}`"
             :producto="product"
+            quick-view
+            @quick-view="openQuickView"
           />
           </div>
         </div>
@@ -161,7 +163,13 @@
       </div>
 
       <div class="showcase-grid compact">
-        <ProductCard v-for="product in newArrivals" :key="product.id" :producto="product" />
+        <ProductCard
+          v-for="product in newArrivals"
+          :key="product.id"
+          :producto="product"
+          quick-view
+          @quick-view="openQuickView"
+        />
       </div>
     </section>
 
@@ -280,6 +288,7 @@
     </section>
 
     <StoreFooter />
+    <ProductQuickViewModal :product="quickViewProduct" @close="quickViewProduct = null" />
   </div>
 </template>
 
@@ -289,6 +298,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { mensajesApi, newsApi, productosApi, resolveAssetUrl, reviewsApi, settingsApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
 import ProductCard from '../components/store/ProductCard.vue'
+import ProductQuickViewModal from '../components/store/ProductQuickViewModal.vue'
 import StarRating from '../components/store/StarRating.vue'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import AnnouncementBar from '../components/ui/AnnouncementBar.vue'
@@ -367,6 +377,7 @@ const homeReviews = ref([])
 const bestSellerIndex = ref(0)
 const renderedBestSellerIndex = ref(0)
 const bestSellerResetting = ref(false)
+const quickViewProduct = ref(null)
 const whatsappGroupUrl = 'https://chat.whatsapp.com/CM0Ba6ZMc9cAJwDoVnr4zi?mode=gi_t'
 let bestSellerTimer = null
 
@@ -570,6 +581,10 @@ function selectCategory(category) {
 
 function submitHeaderSearch() {
   goToCatalog()
+}
+
+function openQuickView(product) {
+  quickViewProduct.value = product
 }
 
 function handleAccountClick() {

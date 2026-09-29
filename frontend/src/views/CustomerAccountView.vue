@@ -123,7 +123,13 @@
       </div>
 
       <div v-else class="wishlist-grid">
-        <ProductCard v-for="product in wishlist.items" :key="`wishlist-${product.id}`" :producto="product" />
+        <ProductCard
+          v-for="product in wishlist.items"
+          :key="`wishlist-${product.id}`"
+          :producto="product"
+          quick-view
+          @quick-view="openQuickView"
+        />
       </div>
     </section>
 
@@ -299,6 +305,7 @@
     </section>
 
     <StoreFooter />
+    <ProductQuickViewModal :product="quickViewProduct" @close="quickViewProduct = null" />
   </div>
 </template>
 
@@ -307,6 +314,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { pedidosApi, resolveAssetUrl, reviewsApi } from '../api/index.js'
 import ProductCard from '../components/store/ProductCard.vue'
+import ProductQuickViewModal from '../components/store/ProductQuickViewModal.vue'
 import StarRating from '../components/store/StarRating.vue'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import { useCustomerAuthStore } from '../stores/customerAuth.js'
@@ -329,6 +337,7 @@ const reviewDrafts = reactive({})
 const proofFiles = reactive({})
 const proofErrors = reactive({})
 const proofUploadingOrderId = ref(null)
+const quickViewProduct = ref(null)
 const profileForm = reactive(buildProfileForm(customerAuth.user))
 const MAX_PROOF_FILE_BYTES = 5 * 1024 * 1024
 const ALLOWED_PROOF_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/bmp', 'image/tiff'])
@@ -396,6 +405,10 @@ async function loadReviews() {
 
 async function loadWishlist() {
   await wishlist.load(customerAuth.user?.id)
+}
+
+function openQuickView(product) {
+  quickViewProduct.value = product
 }
 
 function canUploadProof(order) {
