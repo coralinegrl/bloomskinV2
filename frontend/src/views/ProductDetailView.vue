@@ -1,7 +1,7 @@
 <template>
   <div class="detail-page">
     <div class="detail-shell">
-      <RouterLink to="/" class="back-link">← Volver al catálogo</RouterLink>
+      <RouterLink :to="{ name: 'catalog' }" class="back-link">← Volver al catálogo</RouterLink>
 
       <div v-if="loading" class="detail-loading">Cargando producto...</div>
       <div v-else-if="!producto" class="detail-empty">No pudimos encontrar este producto.</div>
