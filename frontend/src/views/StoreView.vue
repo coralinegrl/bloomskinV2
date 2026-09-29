@@ -28,6 +28,7 @@
         <div class="hero-btns">
           <a href="#mas-vendidos" class="btn-primary">{{ homeContent.hero.primary_cta_label }}</a>
           <RouterLink to="/catalogo" class="btn-outline">{{ homeContent.hero.secondary_cta_label }}</RouterLink>
+          <a class="btn-whatsapp-hero" :href="whatsappGroupUrl" target="_blank" rel="noreferrer">Grupo WhatsApp</a>
         </div>
       </div>
 
@@ -51,7 +52,14 @@
     </section>
 
     <div class="promo-band">
-      <div v-for="(promo, index) in homeContent.promoItems" :key="`promo-${index}`" class="promo-item">
+      <component
+        :is="promoIconKey(promo.icon) === 'whatsapp' ? 'a' : 'div'"
+        v-for="(promo, index) in homeContent.promoItems"
+        :key="`promo-${index}`"
+        class="promo-item"
+        :class="{ 'promo-link-item': promoIconKey(promo.icon) === 'whatsapp' }"
+        v-bind="promoIconKey(promo.icon) === 'whatsapp' ? { href: whatsappGroupUrl, target: '_blank', rel: 'noreferrer' } : {}"
+      >
         <div class="promo-icon" :class="{ 'promo-flag-icon': promoIconKey(promo.icon) === 'flag-kr' }" aria-hidden="true">
           <svg v-if="promoIconKey(promo.icon) === 'truck'" viewBox="0 0 24 24" class="promo-svg" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M3 7h11v8H3z" />
@@ -94,7 +102,7 @@
           <span v-else class="promo-fallback">{{ promo.title?.slice(0, 1) || 'B' }}</span>
         </div>
         <div class="promo-text"><strong>{{ promo.title }}</strong><span>{{ promo.copy }}</span></div>
-      </div>
+      </component>
     </div>
 
     <section class="showcase-section showcase-section-centered" id="mas-vendidos">
@@ -332,7 +340,7 @@ const siteSettings = ref({
       { icon: 'truck', title: 'Envío gratis', copy: 'Sobre $49.990 según cobertura vigente' },
       { icon: 'flag-kr', title: 'Originales de Corea', copy: 'Selección auténtica de K-Beauty' },
       { icon: 'gift', title: 'Stock real', copy: 'Compras con disponibilidad actualizada' },
-      { icon: 'whatsapp', title: 'Asesoría por WhatsApp', copy: 'Te ayudamos a elegir según tu piel' },
+      { icon: 'whatsapp', title: 'Grupo de ofertas', copy: 'Drops y descuentos secretos por WhatsApp' },
     ],
     bestSellers: {
       tag: 'Best Sellers',
@@ -679,9 +687,14 @@ nav { display: flex; gap: 24px; }
   text-transform: uppercase;
 }
 .hero-btns { display: flex; gap: 14px; margin-top: 32px; flex-wrap: wrap; }
-.btn-primary,.btn-outline { display: inline-flex; align-items: center; justify-content: center; border-radius: 2px; font-size: 12px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; padding: 13px 28px; }
+.btn-primary,.btn-outline,.btn-whatsapp-hero { display: inline-flex; align-items: center; justify-content: center; border-radius: 2px; font-size: 12px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; padding: 13px 28px; }
 .btn-primary { background: var(--rose-dark); color: #fff; border: none; }
 .btn-outline { background: transparent; color: var(--rose-dark); border: 1.5px solid var(--rose-dark); }
+.btn-whatsapp-hero {
+  background: #278b55;
+  color: #fff;
+  border: 1.5px solid #278b55;
+}
 
 .hero-right { background: #edd8df; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px; }
 .hero-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px 20px 24px; background: rgba(255,255,255,.25); border: none; text-align: center; }
@@ -702,6 +715,17 @@ nav { display: flex; gap: 24px; }
 .promo-band,.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,.whatsapp-club-section,footer { max-width: 1280px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 .promo-band { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-top: 28px; }
 .promo-item { background: var(--sage-light); border: 1px solid #c8dcc8; border-radius: 22px; padding: 18px 18px; display: flex; align-items: center; gap: 12px; }
+.promo-link-item {
+  color: inherit;
+  text-decoration: none;
+  background: linear-gradient(135deg, #eef9f0, #fff6f9);
+  border-color: rgba(72,151,107,.26);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.promo-link-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(39,139,85,.12);
+}
 .promo-icon { width: 40px; height: 40px; background: var(--sage); color: #335f4a; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .promo-flag-icon { padding: 0; overflow: hidden; }
 .promo-svg { width: 20px; height: 20px; display: block; }

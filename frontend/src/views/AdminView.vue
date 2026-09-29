@@ -1773,7 +1773,7 @@ const siteSettings = ref({
       { icon: 'truck', title: 'Envío gratis', copy: 'Sobre $49.990 según cobertura vigente' },
       { icon: 'flag-kr', title: 'Originales de Corea', copy: 'Selección auténtica de K-Beauty' },
       { icon: 'gift', title: 'Stock real', copy: 'Compras con disponibilidad actualizada' },
-      { icon: 'whatsapp', title: 'Asesoría por WhatsApp', copy: 'Te ayudamos a elegir según tu piel' },
+      { icon: 'whatsapp', title: 'Grupo de ofertas', copy: 'Drops y descuentos secretos por WhatsApp' },
     ],
     bestSellers: {
       tag: 'Best Sellers',

@@ -70,7 +70,7 @@ const defaultSettings = {
       { icon: 'truck', title: 'Env\\u00edo gratis', copy: 'Sobre $49.990 seg\\u00fan cobertura vigente' },
       { icon: 'flag-kr', title: 'Originales de Corea', copy: 'Selecci\\u00f3n aut\\u00e9ntica de K-Beauty' },
       { icon: 'gift', title: 'Stock real', copy: 'Compras con disponibilidad actualizada' },
-      { icon: 'whatsapp', title: 'Asesor\\u00eda por WhatsApp', copy: 'Te ayudamos a elegir seg\\u00fan tu piel' },
+      { icon: 'whatsapp', title: 'Grupo de ofertas', copy: 'Drops y descuentos secretos por WhatsApp' },
     ],
     bestSellers: {
       tag: 'Best Sellers',
