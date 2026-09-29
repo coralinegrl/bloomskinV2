@@ -20,6 +20,11 @@
         <p class="hero-desc">
           {{ homeContent.hero.description }}
         </p>
+        <div class="hero-trust-row" aria-label="Beneficios Bloomskin">
+          <span>Stock real</span>
+          <span>Productos originales</span>
+          <span>Asesoría por WhatsApp</span>
+        </div>
         <div class="hero-btns">
           <a href="#mas-vendidos" class="btn-primary">{{ homeContent.hero.primary_cta_label }}</a>
           <RouterLink to="/catalogo" class="btn-outline">{{ homeContent.hero.secondary_cta_label }}</RouterLink>
@@ -129,6 +134,64 @@
       </div>
     </section>
 
+    <div v-if="homeReviews.length" class="section-divider" aria-hidden="true"></div>
+
+    <section v-if="homeReviews.length" class="home-reviews-section home-reviews-priority">
+      <div class="section-header section-header-centered">
+        <div>
+          <div class="section-tag">Reseñas reales</div>
+          <h2 class="section-title">Lo que cuentan las clientas</h2>
+          <p class="section-copy section-copy-centered">
+            Opiniones verificadas de compras entregadas, para comprar con más confianza desde experiencias reales.
+          </p>
+        </div>
+      </div>
+
+      <div class="home-reviews-grid">
+        <RouterLink
+          v-for="review in homeReviews"
+          :key="review.id"
+          class="home-review-card"
+          :to="{ name: 'product-detail', params: { id: review.producto_id } }"
+        >
+          <div class="home-review-top">
+            <div>
+              <span>{{ review.producto_marca }}</span>
+              <strong>{{ review.producto_nombre }}</strong>
+            </div>
+            <StarRating :value="review.rating" />
+          </div>
+          <p>{{ review.contenido }}</p>
+          <small>{{ review.cliente_nombre }}</small>
+        </RouterLink>
+      </div>
+    </section>
+
+    <div class="section-divider" aria-hidden="true"></div>
+
+    <section class="whatsapp-club-section whatsapp-priority-section">
+      <div class="whatsapp-club-card">
+        <div class="whatsapp-club-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" class="whatsapp-club-svg whatsapp-mark" aria-hidden="true">
+            <path d="M12 3.5a8.5 8.5 0 0 0-7.2 13L3.9 20l3.6-1a8.5 8.5 0 1 0 4.5-15.5Zm0 1.8a6.7 6.7 0 1 1 0 13.4c-1.2 0-2.4-.3-3.4-.9l-.3-.2-1.9.5.5-1.8-.2-.3A6.7 6.7 0 0 1 12 5.3Z" />
+            <path d="M9.6 8.1c.2-.3.4-.4.7-.4h.5c.2 0 .4.1.5.4l.6 1.4c.1.3.1.5-.1.7l-.4.5c-.1.2-.1.3 0 .5.5.8 1.2 1.5 2 2 .2.1.3.1.5 0l.6-.4c.2-.2.4-.2.7-.1l1.4.6c.3.1.4.3.4.6v.5c0 .3-.1.5-.4.7-.5.3-1.1.5-1.8.4-1-.1-2.4-.7-3.7-2-1.3-1.3-1.9-2.7-2-3.7-.1-.7.1-1.3.4-1.8Z" />
+          </svg>
+        </div>
+        <div class="whatsapp-club-copy">
+          <div class="section-tag">Ofertas secretas</div>
+          <h2 class="section-title">Entra al círculo Bloomskin</h2>
+          <p class="section-copy left">
+            Únete al grupo de WhatsApp para recibir drops, preventas y descuentos sorpresa antes que aparezcan en la tienda.
+          </p>
+        </div>
+        <a class="btn-primary whatsapp-club-btn" :href="whatsappGroupUrl" target="_blank" rel="noreferrer">
+          Unirme al grupo
+        </a>
+      </div>
+    </section>
+
+    <div class="section-divider" aria-hidden="true"></div>
+
     <section class="editorial-section">
       <div class="section-header">
         <div class="section-tag">{{ homeContent.editorial.tag }}</div>
@@ -186,39 +249,6 @@
       </div>
     </section>
 
-    <div v-if="homeReviews.length" class="section-divider" aria-hidden="true"></div>
-
-    <section v-if="homeReviews.length" class="home-reviews-section">
-      <div class="section-header section-header-centered">
-        <div>
-          <div class="section-tag">Reseñas reales</div>
-          <h2 class="section-title">Lo que cuentan las clientas</h2>
-          <p class="section-copy section-copy-centered">
-            Opiniones verificadas de compras entregadas, mostradas al azar para descubrir favoritos desde experiencias reales.
-          </p>
-        </div>
-      </div>
-
-      <div class="home-reviews-grid">
-        <RouterLink
-          v-for="review in homeReviews"
-          :key="review.id"
-          class="home-review-card"
-          :to="{ name: 'product-detail', params: { id: review.producto_id } }"
-        >
-          <div class="home-review-top">
-            <div>
-              <span>{{ review.producto_marca }}</span>
-              <strong>{{ review.producto_nombre }}</strong>
-            </div>
-            <StarRating :value="review.rating" />
-          </div>
-          <p>{{ review.contenido }}</p>
-          <small>{{ review.cliente_nombre }}</small>
-        </RouterLink>
-      </div>
-    </section>
-
     <div v-if="newsItems.length || newsLoading" class="section-divider" aria-hidden="true"></div>
 
     <section v-if="newsItems.length" class="news-section">
@@ -249,31 +279,6 @@
     </section>
 
     <div v-else-if="newsLoading" class="news-loading">Cargando noticias de K-Beauty...</div>
-
-    <div class="section-divider" aria-hidden="true"></div>
-
-    <section class="whatsapp-club-section">
-      <div class="whatsapp-club-card">
-        <div class="whatsapp-club-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" class="whatsapp-club-svg whatsapp-mark" aria-hidden="true">
-            <path d="M12 3.5a8.5 8.5 0 0 0-7.2 13L3.9 20l3.6-1a8.5 8.5 0 1 0 4.5-15.5Zm0 1.8a6.7 6.7 0 1 1 0 13.4c-1.2 0-2.4-.3-3.4-.9l-.3-.2-1.9.5.5-1.8-.2-.3A6.7 6.7 0 0 1 12 5.3Z" />
-            <path d="M9.6 8.1c.2-.3.4-.4.7-.4h.5c.2 0 .4.1.5.4l.6 1.4c.1.3.1.5-.1.7l-.4.5c-.1.2-.1.3 0 .5.5.8 1.2 1.5 2 2 .2.1.3.1.5 0l.6-.4c.2-.2.4-.2.7-.1l1.4.6c.3.1.4.3.4.6v.5c0 .3-.1.5-.4.7-.5.3-1.1.5-1.8.4-1-.1-2.4-.7-3.7-2-1.3-1.3-1.9-2.7-2-3.7-.1-.7.1-1.3.4-1.8Z" />
-          </svg>
-        </div>
-        <div class="whatsapp-club-copy">
-          <div class="section-tag">Ofertas secretas</div>
-          <h2 class="section-title">Entra al círculo Bloomskin</h2>
-          <p class="section-copy left">
-            Únete al grupo de WhatsApp para recibir drops, preventas y descuentos sorpresa antes que aparezcan en la tienda.
-          </p>
-        </div>
-        <a class="btn-primary whatsapp-club-btn" :href="whatsappGroupUrl" target="_blank" rel="noreferrer">
-          Unirme al grupo
-        </a>
-      </div>
-    </section>
-
-    <div class="section-divider" aria-hidden="true"></div>
 
     <section class="newsletter-section">
       <div class="newsletter-tag">{{ homeContent.newsletter.tag }}</div>
@@ -315,30 +320,30 @@ const productos = ref([])
 const siteSettings = ref({
   home: {
     hero: {
-      tag: 'Glow diario, ritual coreano',
-      title: 'Descubre tu rutina de',
-      emphasis: 'skincare coreano',
-      description: 'Una selección curada de fórmulas coreanas para limpiar, hidratar, proteger y tratar tu piel con texturas ligeras, ingredientes nobles y resultados visibles.',
-      primary_cta_label: 'Explorar favoritos',
+      tag: 'K-Beauty original en Chile',
+      title: 'Skincare coreano',
+      emphasis: 'listo para tu rutina',
+      description: 'Productos originales, stock real y asesoría cercana para elegir limpiadores, serums, hidratantes y solares sin perderte entre mil opciones.',
+      primary_cta_label: 'Ver más vendidos',
       secondary_cta_label: 'Ver catálogo',
     },
     categoryTiles: [],
     promoItems: [
-      { icon: 'truck', title: 'Envío gratis', copy: 'Sobre $49.990 en compras seleccionadas' },
+      { icon: 'truck', title: 'Envío gratis', copy: 'Sobre $49.990 según cobertura vigente' },
       { icon: 'flag-kr', title: 'Originales de Corea', copy: 'Selección auténtica de K-Beauty' },
-      { icon: 'gift', title: 'Hallazgos y favoritos', copy: 'Curaduría pensada para cada rutina' },
+      { icon: 'gift', title: 'Stock real', copy: 'Compras con disponibilidad actualizada' },
       { icon: 'whatsapp', title: 'Asesoría por WhatsApp', copy: 'Te ayudamos a elegir según tu piel' },
     ],
     bestSellers: {
       tag: 'Best Sellers',
       title: 'Favoritos Bloomskin',
-      copy: 'Los esenciales que más buscan nuestras clientas para una rutina simple, efectiva y rica de usar.',
+      copy: 'Los productos que más se repiten en carritos y rutinas: una entrada rápida a lo que mejor se mueve en Bloomskin.',
       link_label: 'Ver catálogo',
     },
     editorial: {
       tag: 'Descubre por necesidad',
-      title: 'Explora la tienda como una rutina',
-      copy: 'Explora por necesidad y encuentra texturas, beneficios e ingredientes que sí hacen sentido para tu piel.',
+      title: 'Compra por necesidad',
+      copy: 'Elige según el momento de tu rutina y llega más rápido al tipo de producto que estás buscando.',
       cards: [
         { kicker: 'Rutina base', title: 'Empieza por una limpieza suave', copy: 'Espumas, geles y básicos suaves para empezar una rutina coreana sin complicarte.', link_label: 'Explorar limpiadores →', category: 'Limpiadores', tone: 'rose' },
         { kicker: 'Uso diario', title: 'Protección solar que sí vas a querer usar', copy: 'Filtros ligeros, cómodos y amables con el maquillaje para todos los días.', link_label: 'Ver solares →', category: 'Protección Solar', tone: 'sage' },
@@ -353,15 +358,15 @@ const siteSettings = ref({
     },
     catalogCta: {
       tag: 'Catálogo completo',
-      title: 'Explora todo el universo Bloomskin',
-      copy: 'Filtra por categoría, marca, precio, stock y promociones para encontrar lo que tu rutina necesita.',
+      title: '¿Quieres verlo todo?',
+      copy: 'Abre el catálogo completo con filtros por categoría, marca, precio, stock y promociones.',
       button_label: 'Abrir catálogo',
     },
     newsletter: {
-      tag: 'Únete a la comunidad',
-      title: 'Tips de K-Beauty y',
-      emphasis: 'novedades exclusivas',
-      copy: 'Suscríbete para recibir lanzamientos, rituales, favoritos coreanos y ofertas especiales.',
+      tag: 'Correo Bloomskin',
+      title: 'Lanzamientos, tips y',
+      emphasis: 'cupones especiales',
+      copy: 'Suscríbete para recibir novedades, favoritos coreanos y beneficios ocasionales sin depender de redes sociales.',
       placeholder: 'tu@email.com',
       button_label: 'Suscribirme',
     },
@@ -657,6 +662,22 @@ nav { display: flex; gap: 24px; }
 .hero-title em,.newsletter-title em { font-style: italic; color: var(--rose); }
 .hero-desc,.section-copy,.newsletter-sub,.footer-about { font-size: 14px; color: var(--dark-mid); line-height: 1.8; }
 .hero-desc { max-width: 380px; margin-top: 18px; }
+.hero-trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 22px;
+}
+.hero-trust-row span {
+  padding: 7px 11px;
+  border: 1px solid rgba(139,63,85,.12);
+  border-radius: 999px;
+  background: rgba(255,255,255,.42);
+  color: var(--rose-dark);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
 .hero-btns { display: flex; gap: 14px; margin-top: 32px; flex-wrap: wrap; }
 .btn-primary,.btn-outline { display: inline-flex; align-items: center; justify-content: center; border-radius: 2px; font-size: 12px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; padding: 13px 28px; }
 .btn-primary { background: var(--rose-dark); color: #fff; border: none; }
@@ -809,6 +830,10 @@ nav { display: flex; gap: 24px; }
 .whatsapp-club-copy .section-title { margin-top: 0; font-size: 42px; }
 .whatsapp-club-copy .section-copy { max-width: 620px; }
 .whatsapp-club-btn { white-space: nowrap; background: #278b55; }
+.home-reviews-priority,
+.whatsapp-priority-section {
+  padding-top: 46px;
+}
 
 .home-reviews-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
 .home-review-card {
@@ -921,6 +946,7 @@ footer { padding-top: 36px; padding-bottom: 42px; }
   .hero-left,.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,.whatsapp-club-section,footer,.newsletter-section,.news-section { padding-left: 20px; padding-right: 20px; }
   .hero-left { padding-top: 56px; padding-bottom: 56px; }
   .hero-title,.section-title,.newsletter-title { font-size: 42px; }
+  .hero-trust-row span { font-size: 10px; }
   .promo-band,.showcase-grid,.editorial-grid,.home-reviews-grid,.hero-right,.newsletter-form,.footer-top,.news-grid { grid-template-columns: 1fr; }
   .best-seller-viewport { --best-seller-visible: 1; }
   .whatsapp-club-card { padding: 24px; text-align: left; }
