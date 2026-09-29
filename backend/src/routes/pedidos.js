@@ -1431,7 +1431,7 @@ router.post('/manual', requireAdminAuth, async (req, res) => {
       const prod = await new sql.Request(transaction)
         .input('id', sql.Int, productoId)
         .query(`
-          SELECT id, nombre, stock, precio_clp, usa_tonos
+          SELECT id, nombre, stock, precio_clp, usa_tonos, tonos_json, tonos_stock_json
           FROM productos
           WHERE id = @id AND activo = 1
         `);
@@ -1443,22 +1443,38 @@ router.post('/manual', requireAdminAuth, async (req, res) => {
         return res.status(400).json({ error: `Producto ${productoId} no encontrado.` });
       }
 
-      if (producto.usa_tonos) {
+      const availableTones = normalizeToneOptions(producto.tonos_json);
+      let tonoSeleccionado = normalizeToneSelection(rawItem?.tono_seleccionado);
+
+      if (producto.usa_tonos && availableTones.length && !tonoSeleccionado) {
         await transaction.rollback();
         transactionClosed = true;
-        return res.status(400).json({ error: `La venta externa de ${producto.nombre} debe registrarse desde la tienda o agregando soporte de tipo en venta manual.` });
+        return res.status(400).json({ error: `Debes elegir un tipo para ${producto.nombre}.` });
       }
 
-      if (Number(producto.stock || 0) < cantidad) {
+      if (producto.usa_tonos && tonoSeleccionado && !availableTones.includes(tonoSeleccionado)) {
         await transaction.rollback();
         transactionClosed = true;
-        return res.status(400).json({ error: `Stock insuficiente para ${producto.nombre}.` });
+        return res.status(400).json({ error: `El tipo seleccionado para ${producto.nombre} ya no está disponible.` });
+      }
+
+      if (!producto.usa_tonos) {
+        tonoSeleccionado = null;
+      }
+
+      const toneStock = normalizeToneStock(producto.tonos_stock_json, availableTones, producto.stock);
+      const availableStock = producto.usa_tonos ? Number(toneStock[tonoSeleccionado] || 0) : Number(producto.stock || 0);
+      if (availableStock < cantidad) {
+        await transaction.rollback();
+        transactionClosed = true;
+        return res.status(400).json({ error: producto.usa_tonos ? `Stock insuficiente para ${producto.nombre} en ${tonoSeleccionado}.` : `Stock insuficiente para ${producto.nombre}.` });
       }
 
       itemsProcesados.push({
         producto_id: producto.id,
         cantidad,
         precio_unitario_clp: Number(producto.precio_clp || 0),
+        tono_seleccionado: tonoSeleccionado,
       });
       subtotal += Number(producto.precio_clp || 0) * cantidad;
     }
@@ -1514,24 +1530,22 @@ router.post('/manual', requireAdminAuth, async (req, res) => {
         .input('producto_id', sql.Int, item.producto_id)
         .input('cantidad', sql.Int, item.cantidad)
         .input('precio_unitario_clp', sql.Int, item.precio_unitario_clp)
+        .input('tono_seleccionado', sql.NVarChar, item.tono_seleccionado)
         .query(`
-          INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario_clp)
-          VALUES (@pedido_id, @producto_id, @cantidad, @precio_unitario_clp)
+          INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario_clp, tono_seleccionado)
+          VALUES (@pedido_id, @producto_id, @cantidad, @precio_unitario_clp, @tono_seleccionado)
         `);
 
-      const stockUpdate = await new sql.Request(transaction)
-        .input('producto_id', sql.Int, item.producto_id)
-        .input('cantidad', sql.Int, item.cantidad)
-        .query(`
-          UPDATE productos
-          SET stock = stock - @cantidad
-          WHERE id = @producto_id AND stock >= @cantidad
-        `);
-
-      if (stockUpdate.rowsAffected[0] !== 1) {
+      const stockUpdate = await adjustProductStock(transaction, {
+        productoId: item.producto_id,
+        cantidad: item.cantidad,
+        tonoSeleccionado: item.tono_seleccionado,
+        direction: -1,
+      });
+      if (!stockUpdate.ok) {
         await transaction.rollback();
         transactionClosed = true;
-        return res.status(409).json({ error: 'No se pudo descontar stock para la venta externa.' });
+        return res.status(409).json({ error: stockUpdate.error || 'No se pudo descontar stock para la venta externa.' });
       }
     }
 

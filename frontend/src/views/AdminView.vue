@@ -1541,22 +1541,64 @@
 
           <div class="form-group">
             <label>Productos</label>
-            <div v-for="(item, index) in manualSaleForm.items" :key="`manual-item-${index}`" class="form-row">
-              <div class="form-group">
-                <select v-model.number="item.producto_id">
-                  <option :value="0">Selecciona un producto</option>
-                  <option v-for="producto in productosDisponiblesVentaManual" :key="producto.id" :value="producto.id">
-                    {{ producto.marca }} - {{ producto.nombre }} (stock {{ producto.stock }})
-                  </option>
-                </select>
-              </div>
-              <div class="form-group">
-                <input v-model.number="item.cantidad" type="number" min="1" placeholder="Cantidad">
-              </div>
-              <div class="form-group">
+            <div v-for="(item, index) in manualSaleForm.items" :key="`manual-item-${index}`" class="manual-sale-item">
+              <div class="manual-sale-product-tools">
+                <input
+                  v-model.trim="item.producto_query"
+                  type="search"
+                  placeholder="Buscar por marca, producto o categoría"
+                >
                 <button class="btn-ghost" type="button" @click="removeManualSaleItem(index)">
                   Quitar
                 </button>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Producto</label>
+                  <select v-model.number="item.producto_id" @change="handleManualSaleProductChange(item)">
+                  <option :value="0">Selecciona un producto</option>
+                  <option
+                    v-for="producto in manualSaleProductOptions(item)"
+                    :key="producto.id"
+                    :value="producto.id"
+                    :disabled="Number(producto.stock || 0) <= 0"
+                  >
+                    {{ manualSaleProductLabel(producto) }}
+                  </option>
+                  </select>
+                </div>
+
+                <div v-if="manualSaleProductNeedsTone(item)" class="form-group">
+                  <label>Tipo</label>
+                  <select v-model="item.tono_seleccionado" @change="clampManualSaleQuantity(item)">
+                    <option value="">Selecciona el tipo</option>
+                    <option
+                      v-for="tone in manualSaleToneOptions(item)"
+                      :key="tone.name"
+                      :value="tone.name"
+                      :disabled="tone.stock <= 0"
+                    >
+                      {{ tone.name }} · stock {{ tone.stock }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label>Cantidad</label>
+                  <input
+                    v-model.number="item.cantidad"
+                    type="number"
+                    min="1"
+                    :max="manualSaleAvailableStock(item) || undefined"
+                    placeholder="Cantidad"
+                    @blur="clampManualSaleQuantity(item)"
+                  >
+                </div>
+              </div>
+
+              <div v-if="item.producto_id" class="manual-sale-stock-note">
+                {{ manualSaleItemStockText(item) }}
               </div>
             </div>
             <button class="btn-link" type="button" @click="addManualSaleItem">+ Agregar otro producto</button>
@@ -1925,7 +1967,7 @@ const manualSaleForm = ref({
   estado: 'delivered',
   fecha_venta: '',
   notas: '',
-  items: [{ producto_id: 0, cantidad: 1 }],
+  items: [{ producto_id: 0, tono_seleccionado: '', cantidad: 1, producto_query: '' }],
 })
 const uploadingHomeIndex = ref(null)
 const newsletterForm = ref({
@@ -1942,7 +1984,15 @@ const productosActivos = computed(() => productos.value.length)
 const productosSinImagen = computed(() => productos.value.filter(p => !p.imagen_url).length)
 const sinStock = computed(() => productos.value.filter(p => p.stock === 0).length)
 const productosStockBajo = computed(() => productos.value.filter(p => p.stock <= 5).sort((a, b) => a.stock - b.stock))
-const productosDisponiblesVentaManual = computed(() => productos.value.filter(producto => producto.activo !== false))
+const productosDisponiblesVentaManual = computed(() =>
+  productos.value
+    .filter(producto => producto.activo !== false)
+    .sort((a, b) => {
+      const brandCompare = String(a.marca || '').localeCompare(String(b.marca || ''), 'es', { sensitivity: 'base' })
+      if (brandCompare !== 0) return brandCompare
+      return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' })
+    })
+)
 const productoCategorias = computed(() => [...new Set(productos.value.map(p => p.categoria).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es')))
 const productBrandOptions = computed(() => uniqueProductBrands(productos.value))
 const productoMarcas = computed(() => productBrandOptions.value)
@@ -2102,7 +2152,7 @@ function resetManualSaleForm() {
     estado: 'delivered',
     fecha_venta: currentMonthValue() + `-${String(new Date().getDate()).padStart(2, '0')}`,
     notas: '',
-    items: [{ producto_id: 0, cantidad: 1 }],
+    items: [{ producto_id: 0, tono_seleccionado: '', cantidad: 1, producto_query: '' }],
   }
 }
 
@@ -2255,15 +2305,82 @@ function openManualSaleModal() {
 }
 
 function addManualSaleItem() {
-  manualSaleForm.value.items.push({ producto_id: 0, cantidad: 1 })
+  manualSaleForm.value.items.push({ producto_id: 0, tono_seleccionado: '', cantidad: 1, producto_query: '' })
 }
 
 function removeManualSaleItem(index) {
   if (manualSaleForm.value.items.length === 1) {
-    manualSaleForm.value.items[0] = { producto_id: 0, cantidad: 1 }
+    manualSaleForm.value.items[0] = { producto_id: 0, tono_seleccionado: '', cantidad: 1, producto_query: '' }
     return
   }
   manualSaleForm.value.items.splice(index, 1)
+}
+
+function getManualSaleProduct(item) {
+  return productos.value.find(producto => Number(producto.id) === Number(item?.producto_id)) || null
+}
+
+function manualSaleProductLabel(producto) {
+  const stock = Number(producto?.stock || 0)
+  const category = producto?.categoria ? ` · ${producto.categoria}` : ''
+  const toneCount = producto?.usa_tonos && producto?.tonos?.length ? ` · ${producto.tonos.length} tipos` : ''
+  return `${producto?.marca || 'Sin marca'} - ${producto?.nombre || 'Producto'}${category}${toneCount} · stock ${stock}`
+}
+
+function manualSaleProductOptions(item) {
+  const query = String(item?.producto_query || '').trim().toLowerCase()
+  if (!query) return productosDisponiblesVentaManual.value
+  return productosDisponiblesVentaManual.value.filter(producto =>
+    [producto.marca, producto.nombre, producto.categoria]
+      .filter(Boolean)
+      .some(value => String(value).toLowerCase().includes(query))
+  )
+}
+
+function manualSaleProductNeedsTone(item) {
+  const producto = getManualSaleProduct(item)
+  return Boolean(producto?.usa_tonos && producto?.tonos?.length)
+}
+
+function manualSaleToneOptions(item) {
+  const producto = getManualSaleProduct(item)
+  if (!producto?.usa_tonos || !Array.isArray(producto.tonos)) return []
+  const stockByTone = producto.tonos_stock || {}
+  return producto.tonos.map(name => ({
+    name,
+    stock: Math.max(0, Math.floor(Number(stockByTone[name] || 0))),
+  }))
+}
+
+function manualSaleAvailableStock(item) {
+  const producto = getManualSaleProduct(item)
+  if (!producto) return 0
+  if (!manualSaleProductNeedsTone(item)) return Math.max(0, Math.floor(Number(producto.stock || 0)))
+  if (!item.tono_seleccionado) return 0
+  const tone = manualSaleToneOptions(item).find(option => option.name === item.tono_seleccionado)
+  return tone ? tone.stock : 0
+}
+
+function manualSaleItemStockText(item) {
+  const producto = getManualSaleProduct(item)
+  if (!producto) return ''
+  if (manualSaleProductNeedsTone(item)) {
+    if (!item.tono_seleccionado) return 'Este producto tiene variantes. Elige un tipo para descontar el stock correcto.'
+    return `Stock disponible para ${item.tono_seleccionado}: ${manualSaleAvailableStock(item)}`
+  }
+  return `Stock disponible: ${manualSaleAvailableStock(item)}`
+}
+
+function handleManualSaleProductChange(item) {
+  item.tono_seleccionado = ''
+  if (!Number.isInteger(Number(item.cantidad)) || Number(item.cantidad) < 1) item.cantidad = 1
+  clampManualSaleQuantity(item)
+}
+
+function clampManualSaleQuantity(item) {
+  const available = manualSaleAvailableStock(item)
+  const quantity = Math.max(1, Math.floor(Number(item.cantidad || 1)))
+  item.cantidad = available > 0 ? Math.min(quantity, available) : quantity
 }
 
 function handleImageFileChange(event) {
@@ -2440,6 +2557,9 @@ async function guardarVentaManual() {
     .map(item => ({
       producto_id: Number(item.producto_id),
       cantidad: Number(item.cantidad),
+      tono_seleccionado: manualSaleProductNeedsTone(item) ? String(item.tono_seleccionado || '').trim() : null,
+      producto: getManualSaleProduct(item),
+      availableStock: manualSaleAvailableStock(item),
     }))
     .filter(item => item.producto_id && item.cantidad > 0)
 
@@ -2448,11 +2568,24 @@ async function guardarVentaManual() {
     return
   }
 
+  const missingTone = items.find(item => item.producto?.usa_tonos && !item.tono_seleccionado)
+  if (missingTone) {
+    showToast(`Elige un tipo para ${missingTone.producto.nombre}.`, 'error')
+    return
+  }
+
+  const insufficientStock = items.find(item => item.availableStock < item.cantidad)
+  if (insufficientStock) {
+    const suffix = insufficientStock.tono_seleccionado ? ` en ${insufficientStock.tono_seleccionado}` : ''
+    showToast(`Stock insuficiente para ${insufficientStock.producto?.nombre || 'el producto'}${suffix}.`, 'error')
+    return
+  }
+
   savingManualSale.value = true
   try {
     const { data } = await pedidosApi.crearManual({
       ...manualSaleForm.value,
-      items,
+      items: items.map(({ producto, availableStock, ...item }) => item),
     })
     await Promise.all([cargarPedidos(), cargarStats(), cargarProductos()])
     selectedOrderId.value = data.id
@@ -2981,6 +3114,39 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 .variant-stock-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .variant-stock-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 10px; align-items: center; }
 .variant-stock-row span { color: var(--ad-muted); font-size: 12px; overflow-wrap: anywhere; }
+.manual-sale-item {
+  border: 1px solid rgba(196,100,122,.16);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: rgba(255,255,255,.025);
+}
+.manual-sale-product-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.manual-sale-product-tools input {
+  width: 100%;
+  background: var(--ad-bg);
+  border: 1px solid var(--ad-border);
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: var(--ad-text);
+  font-size: 12px;
+  outline: none;
+}
+.manual-sale-product-tools input:focus {
+  border-color: var(--rose);
+}
+.manual-sale-stock-note {
+  margin-top: -4px;
+  color: var(--ad-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
 .stock-input {
   width: 72px;
   padding: 6px 8px;
