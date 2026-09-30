@@ -94,11 +94,7 @@ onMounted(async () => {
     radial-gradient(circle at top left, rgba(217, 109, 144, 0.08), transparent 20%),
     linear-gradient(180deg, #fff8fb, #f4e9ee);
   border-top: 1px solid rgba(191, 84, 122, 0.12);
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100vw;
-  max-width: 100vw;
+  width: 100%;
 }
 
 .footer-shell {

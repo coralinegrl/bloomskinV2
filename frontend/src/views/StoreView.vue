@@ -968,15 +968,100 @@ footer { padding-top: 36px; padding-bottom: 42px; }
   .search-link { order: 3; width: 100%; justify-content: center; }
   .account-btn { flex: 1; }
   .hero-left,.promo-band,.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,.whatsapp-club-section,footer,.newsletter-section,.news-section { padding-left: 20px; padding-right: 20px; }
-  .hero-left { padding-top: 56px; padding-bottom: 56px; }
+  .hero {
+    min-height: auto;
+  }
+  .hero-left {
+    padding-top: 48px;
+    padding-bottom: 44px;
+  }
+  .hero-desc {
+    max-width: none;
+  }
   .hero-title,.section-title,.newsletter-title { font-size: 42px; }
+  .hero-btns {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .btn-primary,
+  .btn-outline,
+  .btn-whatsapp-hero {
+    width: 100%;
+    min-height: 46px;
+    padding-left: 16px;
+    padding-right: 16px;
+    text-align: center;
+  }
   .hero-trust-row span { font-size: 10px; }
-  .promo-band,.showcase-grid,.editorial-grid,.home-reviews-grid,.hero-right,.newsletter-form,.footer-top,.news-grid { grid-template-columns: 1fr; }
+  .promo-band,.showcase-grid,.editorial-grid,.home-reviews-grid,.newsletter-form,.footer-top,.news-grid { grid-template-columns: 1fr; }
+  .hero-right {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: auto;
+    gap: 1px;
+  }
+  .hero-tile {
+    min-height: 150px;
+    padding: 18px 12px;
+  }
+  .tile-visual {
+    width: 92px;
+    height: 104px;
+    margin-bottom: 10px;
+  }
+  .promo-item {
+    min-height: 78px;
+  }
   .best-seller-viewport { --best-seller-visible: 1; }
   .whatsapp-club-card { padding: 24px; text-align: left; }
   .whatsapp-club-copy .section-title { font-size: 34px; }
   .whatsapp-club-btn { width: 100%; }
   .footer-bottom { flex-direction: column; }
+}
+
+@media (max-width: 420px) {
+  .hero-left,
+  .promo-band,
+  .showcase-section,
+  .editorial-section,
+  .catalog-cta-section,
+  .home-reviews-section,
+  .whatsapp-club-section,
+  footer,
+  .newsletter-section,
+  .news-section {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .hero-title,
+  .section-title,
+  .newsletter-title {
+    font-size: 36px;
+  }
+
+  .hero-tile {
+    min-height: 132px;
+    padding: 16px 10px;
+  }
+
+  .tile-visual {
+    width: 78px;
+    height: 88px;
+  }
+
+  .editorial-card,
+  .home-review-card,
+  .news-card,
+  .catalog-cta-card,
+  .whatsapp-club-card {
+    border-radius: 22px;
+    padding: 22px;
+  }
+
+  .newsletter-form button {
+    width: 100%;
+  }
 }
 </style>
 

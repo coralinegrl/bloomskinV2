@@ -540,4 +540,52 @@ function handleKeydown(event) {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 520px) {
+  .quick-view-backdrop {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .quick-view-modal {
+    width: 100%;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .quick-view-close {
+    top: 12px;
+    right: 12px;
+  }
+
+  .quick-view-media {
+    min-height: 260px;
+    max-height: 42dvh;
+  }
+
+  .quick-view-content {
+    padding: 24px 18px 22px;
+  }
+
+  .quick-view-content h2 {
+    font-size: 30px;
+    line-height: 1.05;
+  }
+
+  .quick-view-price strong {
+    font-size: 24px;
+  }
+
+  .quick-view-tone {
+    min-width: 0;
+    flex: 1 1 calc(50% - 10px);
+  }
+
+  .quick-view-cart,
+  .quick-view-detail {
+    min-height: 46px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
 </style>

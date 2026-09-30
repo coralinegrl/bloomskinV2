@@ -261,4 +261,23 @@ function openProduct() {
     font-size: 20px;
   }
 }
+
+@media (max-width: 520px) {
+  .product-image {
+    height: 220px;
+  }
+
+  .product-body {
+    padding: 14px 14px 16px;
+  }
+
+  .product-name {
+    font-size: 14px;
+  }
+
+  .add-to-cart {
+    min-height: 42px;
+    padding: 11px 8px;
+  }
+}
 </style>

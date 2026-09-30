@@ -662,7 +662,7 @@ function formatReviewDate(value) {
 
 @media (max-width: 640px) {
   .detail-shell {
-    width: min(100vw, calc(100vw - 24px));
+    width: min(100vw, calc(100vw - 20px));
     padding: 18px 0 40px;
   }
 
@@ -676,7 +676,7 @@ function formatReviewDate(value) {
   }
 
   .gallery-image {
-    min-height: 360px;
+    min-height: 320px;
   }
 
   .fallback-orb {
@@ -715,6 +715,38 @@ function formatReviewDate(value) {
   .reviews-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 420px) {
+  .detail-shell {
+    width: min(100vw, calc(100vw - 16px));
+  }
+
+  .gallery-image {
+    min-height: 280px;
+  }
+
+  .detail-card {
+    padding: 20px 16px;
+  }
+
+  .detail-card h1 {
+    font-size: 30px;
+  }
+
+  .tone-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reviews-head h2 {
+    font-size: 34px;
+  }
+
+  .review-card,
+  .reviews-state {
+    border-radius: 20px;
+    padding: 18px;
   }
 }
 </style>

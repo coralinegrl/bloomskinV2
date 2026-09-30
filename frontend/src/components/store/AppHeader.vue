@@ -443,6 +443,7 @@ function emitSearchSubmit() {
     margin-top: 14px;
     gap: 10px 14px;
     justify-content: flex-start;
+    width: 100%;
   }
 
   .header-right {
@@ -463,6 +464,42 @@ function emitSearchSubmit() {
 
   .account-btn {
     flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .header-inner {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .mobile-bar {
+    gap: 8px;
+  }
+
+  .logo-text {
+    font-size: 20px;
+  }
+
+  .mobile-actions {
+    gap: 6px;
+  }
+
+  .icon-btn,
+  .mobile-menu-btn {
+    min-width: 42px;
+    min-height: 42px;
+  }
+
+  .header-nav.open {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .nav-link {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
   }
 }
 </style>

@@ -612,5 +612,69 @@ function sortProducts(list, mode) {
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .catalog-hero {
+    padding-top: 34px;
+  }
+
+  .catalog-hero h1 {
+    max-width: 320px;
+    font-size: 31px;
+    line-height: 1.08;
+    overflow-wrap: normal;
+  }
+
+  .catalog-hero p {
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.75;
+  }
+
+  .products-tabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+  }
+
+  .filters-panel {
+    padding: 18px;
+  }
+
+  .clear-btn {
+    width: 100%;
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 420px) {
+  .catalog-hero,
+  .catalog-shell {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .catalog-hero h1 {
+    max-width: 292px;
+    font-size: 28px;
+  }
+
+  .catalog-hero p {
+    max-width: 292px;
+  }
+
+  .metric-card {
+    padding: 16px;
+  }
+
+  .no-results {
+    padding: 48px 16px;
+    border-radius: 22px;
+  }
 }
 </style>
