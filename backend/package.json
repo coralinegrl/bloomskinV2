@@ -9,7 +9,8 @@
     "migrate": "node src/scripts/migrate.js",
     "seed-admin": "node src/scripts/seed-admin.js",
     "seed-catalog": "node src/scripts/seed-catalog.js",
-    "check-db": "node src/scripts/check-db.js"
+    "check-db": "node src/scripts/check-db.js",
+    "test:settings": "node --test src/lib/siteSettings.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="quick-view">
       <div v-if="product" class="quick-view-backdrop" @click.self="close">
-        <article class="quick-view-modal" role="dialog" aria-modal="true" :aria-labelledby="titleId">
+        <article ref="modalElement" class="quick-view-modal" role="dialog" aria-modal="true" :aria-labelledby="titleId" tabindex="-1">
           <button class="quick-view-close" type="button" aria-label="Cerrar vista rápida" @click="close">×</button>
 
           <div class="quick-view-media" :class="product.img_clase">
@@ -105,6 +105,8 @@ const ui = useUiStore()
 const selectedTone = ref('')
 const qty = ref(1)
 const imageBroken = ref(false)
+const modalElement = ref(null)
+let returnFocus = null
 const titleId = `quick-view-title-${Math.random().toString(36).slice(2)}`
 
 const hasRealImage = computed(() => Boolean(props.product?.imagen_url) && !imageBroken.value)
@@ -150,11 +152,14 @@ watch(
     window.removeEventListener('keydown', handleKeydown)
     if (!product) {
       document.body.classList.remove('quick-view-lock')
+      if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true })
       return
     }
+    returnFocus = document.activeElement
     document.body.classList.add('quick-view-lock')
     window.addEventListener('keydown', handleKeydown)
     await nextTick()
+    modalElement.value?.querySelector('button')?.focus({ preventScroll: true })
   }
 )
 
@@ -214,6 +219,19 @@ function close() {
 
 function handleKeydown(event) {
   if (event.key === 'Escape') close()
+  if (event.key !== 'Tab') return
+  const controls = [...(modalElement.value?.querySelectorAll('button:not(:disabled), a[href], input, select, textarea, [tabindex="0"]') || [])]
+    .filter(element => element.getClientRects().length > 0)
+  const first = controls[0]
+  const last = controls[controls.length - 1]
+  if (!first) return
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
 }
 </script>
 
@@ -258,6 +276,8 @@ function handleKeydown(event) {
 }
 
 .quick-view-media {
+  overflow: hidden;
+  min-width: 0;
   min-height: 560px;
   position: relative;
   display: grid;
@@ -519,13 +539,18 @@ function handleKeydown(event) {
 
   .quick-view-modal {
     grid-template-columns: 1fr;
+    grid-template-rows: 280px auto;
+    align-content: start;
     max-height: calc(100vh - 28px);
     overflow: auto;
   }
 
   .quick-view-media {
-    min-height: 320px;
+    min-height: 0;
+    height: 100%;
   }
+
+  .quick-view-photo { position: absolute; inset: 0; object-fit: contain; }
 
   .quick-view-content {
     overflow: visible;
@@ -551,16 +576,18 @@ function handleKeydown(event) {
     width: 100%;
     max-height: 100dvh;
     border-radius: 0;
+    grid-template-rows: min(34dvh, 280px) auto;
   }
 
   .quick-view-close {
+    position: fixed;
     top: 12px;
     right: 12px;
   }
 
   .quick-view-media {
-    min-height: 260px;
-    max-height: 42dvh;
+    min-height: 0;
+    max-height: none;
   }
 
   .quick-view-content {

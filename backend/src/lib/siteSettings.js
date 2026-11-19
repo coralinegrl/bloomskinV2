@@ -52,6 +52,15 @@ function normalizePromoIcon(value, fallback = 'sparkle') {
 
 const defaultSettings = {
   home: {
+    sections: { reviews: true, editorial: true, newIn: true, news: true, newsletter: true },
+    whatsappClub: {
+      enabled: true,
+      tag: 'Ofertas secretas',
+      title: 'Entra al c\u00edrculo Bloomskin',
+      copy: '\u00danete al grupo de WhatsApp para recibir drops, preventas y descuentos sorpresa antes que aparezcan en la tienda.',
+      button_label: 'Unirme al grupo',
+      url: 'https://chat.whatsapp.com/CM0Ba6ZMc9cAJwDoVnr4zi?mode=gi_t',
+    },
     hero: {
       tag: 'K-Beauty original en Chile',
       title: 'Skincare coreano',
@@ -242,7 +251,29 @@ function sanitizeEditorialCards(cards) {
 }
 
 function sanitizeHomeSettings(home = {}) {
+  const club = home.whatsappClub || {};
+  const clubUrl = sanitizeString(club.url, defaultSettings.home.whatsappClub.url);
+  let validUrl = false;
+  try {
+    const url = new URL(clubUrl);
+    validUrl = url.protocol === 'https:' && url.hostname === 'chat.whatsapp.com'
+      && !url.username && !url.password && !url.port && /^\/[A-Za-z0-9]+\/?$/.test(url.pathname);
+  } catch (_) { /* Invalid URLs are rejected before saving settings. */ }
+  if (!validUrl) {
+    const error = new Error('El enlace del grupo debe ser una invitaci\u00f3n v\u00e1lida de https://chat.whatsapp.com/.');
+    error.code = 'INVALID_SITE_SETTINGS';
+    throw error;
+  }
   return {
+    whatsappClub: {
+      enabled: club.enabled !== false,
+      tag: sanitizeString(club.tag, defaultSettings.home.whatsappClub.tag).slice(0, 80),
+      title: sanitizeString(club.title, defaultSettings.home.whatsappClub.title).slice(0, 160),
+      copy: sanitizeString(club.copy, defaultSettings.home.whatsappClub.copy).slice(0, 600),
+      button_label: sanitizeString(club.button_label, defaultSettings.home.whatsappClub.button_label).slice(0, 80),
+      url: clubUrl,
+    },
+    sections: Object.fromEntries(Object.keys(defaultSettings.home.sections).map(key => [key, home.sections?.[key] !== false])),
     hero: {
       tag: sanitizeString(home.hero?.tag, defaultSettings.home.hero.tag),
       title: sanitizeString(home.hero?.title, defaultSettings.home.hero.title),

@@ -12,6 +12,7 @@
           :key="item.section"
           class="nav-item"
           :class="{ active: activeSection === item.section }"
+          :aria-current="activeSection === item.section ? 'page' : undefined"
           @click="activeSection = item.section"
         >
           <span class="nav-icon">{{ item.icon }}</span>
@@ -763,19 +764,36 @@
           </template>
 
           <template v-if="activeSection === 'home'">
-            <div class="section-actions">
+            <div class="section-actions content-actions">
               <div>
                 <h2 class="section-h2">Contenido del sitio</h2>
                 <p class="section-copy">Edita textos, botones, contacto y datos bancarios desde un solo lugar.</p>
               </div>
               <div class="actions-row">
-                <button class="btn-primary" type="button" :disabled="savingSiteSettings" @click="guardarSiteSettings">
+                <span class="save-status" role="status">{{ siteSettingsDirty ? 'Cambios sin guardar' : 'Sin cambios pendientes' }}</span>
+                <a href="/" target="_blank" rel="noopener" class="btn-ghost"><Eye :size="16" aria-hidden="true" /> Ver tienda</a>
+                <button class="btn-ghost" type="button" :disabled="!siteSettingsDirty || savingSiteSettings" @click="siteSettings = JSON.parse(savedSiteSettings)">Descartar</button>
+                <button class="btn-primary" type="button" :disabled="savingSiteSettings || !siteSettingsDirty" @click="guardarSiteSettings">
+                  <Save :size="16" aria-hidden="true" />
                   {{ savingSiteSettings ? 'Guardando...' : 'Guardar cambios' }}
                 </button>
               </div>
             </div>
 
             <div class="home-settings-grid">
+              <article class="ad-card home-tile-card">
+                <div class="ad-card-title">Secciones del inicio</div>
+                <label v-for="section in editableHomeSections" :key="section.key" class="club-toggle"><input v-model="siteSettings.home.sections[section.key]" type="checkbox"> {{ section.label }}</label>
+              </article>
+              <article class="ad-card home-tile-card">
+                <div class="ad-card-title">Comunidad WhatsApp</div>
+                <label class="club-toggle"><input v-model="siteSettings.home.whatsappClub.enabled" type="checkbox"> Mostrar grupo en la tienda</label>
+                <div class="form-group"><label for="club-url">Enlace de invitación</label><input id="club-url" v-model="siteSettings.home.whatsappClub.url" type="url" maxlength="500" placeholder="https://chat.whatsapp.com/..."></div>
+                <div class="form-group"><label for="club-tag">Etiqueta</label><input id="club-tag" v-model="siteSettings.home.whatsappClub.tag" maxlength="80"></div>
+                <div class="form-group"><label for="club-title">Título</label><input id="club-title" v-model="siteSettings.home.whatsappClub.title" maxlength="160"></div>
+                <div class="form-group"><label for="club-copy">Descripción</label><textarea id="club-copy" v-model="siteSettings.home.whatsappClub.copy" rows="3" maxlength="600"></textarea></div>
+                <div class="form-group"><label for="club-button">Texto del botón</label><input id="club-button" v-model="siteSettings.home.whatsappClub.button_label" maxlength="80"></div>
+              </article>
               <article class="ad-card home-tile-card">
                 <div class="ad-card-title">Hero principal</div>
                 <div class="form-group">
@@ -1702,8 +1720,10 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RouterLink, onBeforeRouteLeave, useRouter } from 'vue-router'
+import { Eye, Save } from 'lucide-vue-next'
+import { defaultHomeSections, defaultWhatsappClub } from '../constants/storeContent.js'
 import { clientesApi, descuentosApi, mensajesApi, pedidosApi, productosApi, settingsApi } from '../api/index.js'
 import { useAuthStore } from '../stores/auth.js'
 import { CHILE_REGIONS, buildApiCustomerPayload, buildProfileForm, formatPhoneInput, formatRutInput } from '../utils/customerFields.js'
@@ -1755,6 +1775,8 @@ const suscriptores = ref([])
 const stats = ref({})
 const siteSettings = ref({
   home: {
+    sections: { ...defaultHomeSections },
+    whatsappClub: { ...defaultWhatsappClub },
     hero: {
       tag: 'K-Beauty original en Chile',
       title: 'Skincare coreano',
@@ -1877,6 +1899,23 @@ const siteSettings = ref({
   },
 })
 const defaultSiteSettings = clonePlain(siteSettings.value)
+const editableHomeSections = [
+  { key: 'reviews', label: 'Reseñas de clientas' },
+  { key: 'editorial', label: 'Compra por necesidad' },
+  { key: 'newIn', label: 'Novedades' },
+  { key: 'news', label: 'Noticias K-Beauty' },
+  { key: 'newsletter', label: 'Suscripción por correo' },
+]
+const savedSiteSettings = ref('')
+const siteSettingsDirty = computed(() => Boolean(savedSiteSettings.value) && JSON.stringify(siteSettings.value) !== savedSiteSettings.value)
+function warnUnsavedContent(event) {
+  if (!siteSettingsDirty.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+onMounted(() => window.addEventListener('beforeunload', warnUnsavedContent))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnUnsavedContent))
+onBeforeRouteLeave(() => !siteSettingsDirty.value || window.confirm('Hay cambios de contenido sin guardar. ¿Quieres salir sin guardarlos?'))
 
 function clonePlain(value) {
   return JSON.parse(JSON.stringify(value))
@@ -2834,15 +2873,21 @@ async function enviarNewsletter() {
 }
 
 async function cargarHomeSettings() {
+  if (siteSettingsDirty.value) return
   const { data } = await settingsApi.site()
+  if (siteSettingsDirty.value) return
   siteSettings.value = normalizeSiteSettings(data)
+  savedSiteSettings.value = JSON.stringify(siteSettings.value)
 }
 
 async function guardarSiteSettings() {
   savingSiteSettings.value = true
+  const submittedSettings = JSON.stringify(siteSettings.value)
   try {
-    const { data } = await settingsApi.guardarSite(siteSettings.value)
-    siteSettings.value = normalizeSiteSettings(data.site)
+    const { data } = await settingsApi.guardarSite(JSON.parse(submittedSettings))
+    const storedSettings = normalizeSiteSettings(data.site)
+    savedSiteSettings.value = JSON.stringify(storedSettings)
+    if (JSON.stringify(siteSettings.value) === submittedSettings) siteSettings.value = storedSettings
     showToast('Contenido del sitio actualizado correctamente.')
   } catch (err) {
     showToast(err.response?.data?.error || 'No se pudo guardar el contenido del sitio.', 'error')
@@ -2981,6 +3026,12 @@ function stockLabel(stock) {
 </script>
 
 <style scoped>
+.content-actions { position: sticky; top: 0; z-index: 15; padding: 14px 0; background: var(--ad-bg); border-bottom: 1px solid var(--ad-border); }
+.save-status { font-size: 13px; color: var(--ad-text); }
+.content-actions .btn-primary, .content-actions .btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; }
+.club-toggle { display: flex; align-items: center; gap: 12px; color: var(--ad-text); font-size: 14px; min-height: 44px; }
+.club-toggle input { width: 20px; height: 20px; accent-color: var(--rose-dark); }
+.home-tile-card { min-width: 0; }
 .admin-layout { display: flex; min-height: 100vh; background: var(--ad-bg); font-family: 'DM Sans', sans-serif; }
 .sidebar { width: 232px; background: #09070f; border-right: 1px solid var(--ad-border); display: flex; flex-direction: column; flex-shrink: 0; }
 .sidebar-logo { padding: 28px 24px 24px; border-bottom: 1px solid var(--ad-border); }
@@ -3361,7 +3412,7 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
   .admin-layout { flex-direction: column; }
   .sidebar {
     width: 100%;
-    position: sticky;
+    position: static;
     top: 0;
     z-index: 40;
   }
@@ -3411,6 +3462,13 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 }
 
 @media (max-width: 640px) {
+  .sidebar-logo { padding: 12px 16px; }
+  .sidebar-footer { padding: 10px 16px; }
+  .home-settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .form-group input, .form-group textarea, .form-group select { font-size: 16px; min-width: 0; }
+  .content-actions .actions-row { width: 100%; flex-wrap: wrap; }
+  .content-actions .btn-primary { flex: 1; }
+  .content-actions .save-status { flex-basis: 100%; }
   .admin-content {
     padding: 16px;
   }

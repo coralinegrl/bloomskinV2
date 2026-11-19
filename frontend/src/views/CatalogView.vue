@@ -16,13 +16,8 @@
     <section class="catalog-hero">
       <div>
         <div class="section-tag">Catálogo Bloomskin</div>
-        <h1>Explora tu rutina con filtros útiles.</h1>
-        <p>Encuentra tu próximo favorito por marca, categoría, precio, stock y tipo de destaque.</p>
-      </div>
-      <div class="hero-metrics">
-        <div class="metric-card"><span>Productos</span><strong>{{ filteredProducts.length }}</strong></div>
-        <div class="metric-card"><span>Marcas</span><strong>{{ availableBrands.length }}</strong></div>
-        <div class="metric-card"><span>Categorías</span><strong>{{ tabs.length - 1 }}</strong></div>
+        <h1>Tu próximo favorito</h1>
+        <p>Skincare y maquillaje coreano para tu rutina.</p>
       </div>
     </section>
 
@@ -39,7 +34,19 @@
         </button>
       </div>
 
-      <div class="filters-panel">
+      <div class="catalog-toolbar">
+        <span role="status" aria-live="polite">{{ loading ? 'Cargando productos…' : `${filteredProducts.length} productos` }}</span>
+        <button class="filters-toggle" type="button" :aria-expanded="filtersOpen" aria-controls="catalog-filters" @click="toggleFilters">
+          <SlidersHorizontal :size="18" aria-hidden="true" /> Filtros y orden
+          <span v-if="activeFilterChips.length" class="filter-count">{{ activeFilterChips.length }}</span>
+        </button>
+      </div>
+      <div v-if="activeFilterChips.length" class="active-filter-chips applied-filters" aria-label="Filtros aplicados">
+        <button v-for="chip in activeFilterChips" :key="chip.key" class="filter-chip" type="button" :aria-label="`Quitar ${chip.label}`" @click="clearFilter(chip.key)">
+          {{ chip.label }} <X :size="14" aria-hidden="true" />
+        </button>
+      </div>
+      <div v-show="filtersOpen" id="catalog-filters" class="filters-panel">
         <div class="filters-grid">
           <label class="filter-field">
             <span>Marca</span>
@@ -65,18 +72,7 @@
 
         <div class="filters-footer">
           <div>
-            <div class="toolbar-meta">{{ filteredProducts.length }} productos</div>
-            <div v-if="activeFilterChips.length" class="active-filter-chips">
-              <button
-                v-for="chip in activeFilterChips"
-                :key="chip.key"
-                class="filter-chip"
-                type="button"
-                @click="clearFilter(chip.key)"
-              >
-                {{ chip.label }} ×
-              </button>
-            </div>
+            <button class="clear-btn show-results" type="button" @click="filtersOpen = false">Ver {{ filteredProducts.length }} productos</button>
           </div>
           <button class="clear-btn" type="button" @click="resetFilters">Limpiar filtros</button>
         </div>
@@ -84,6 +80,10 @@
 
       <div v-if="loading" class="loading-grid">
         <div v-for="n in 8" :key="n" class="skeleton-card"></div>
+      </div>
+      <div v-else-if="catalogError" class="no-results" role="alert">
+        <strong>No pudimos cargar los productos.</strong>
+        <button class="clear-btn" type="button" @click="loadCatalog">Reintentar</button>
       </div>
       <div v-else-if="filteredProducts.length === 0" class="no-results">
         <strong>No encontramos productos con esa combinación.</strong>
@@ -110,8 +110,9 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { SlidersHorizontal, X } from 'lucide-vue-next'
 import { productosApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
 import ProductCard from '../components/store/ProductCard.vue'
@@ -131,6 +132,8 @@ const customerAuth = useCustomerAuthStore()
 
 const productos = ref([])
 const loading = ref(true)
+const filtersOpen = ref(false)
+const catalogError = ref(false)
 const searchQuery = ref('')
 const activeTab = ref('todos')
 const brandFilter = ref('all')
@@ -219,12 +222,15 @@ onBeforeUnmount(() => {
 })
 
 async function loadCatalog() {
+  loading.value = true
+  catalogError.value = false
   try {
     await customerAuth.refreshProfile()
     const { data } = await productosApi.listar()
     productos.value = data.map(product => ({ ...product, categoria: normalizeCategory(product.categoria) }))
     applyRouteFilters()
   } catch (error) {
+    catalogError.value = true
     console.error(error)
     ui.error('No pudimos cargar el catálogo.')
   } finally {
@@ -310,6 +316,13 @@ function resetFilters() {
   sortBy.value = 'featured'
 }
 
+async function toggleFilters() {
+  filtersOpen.value = !filtersOpen.value
+  if (!filtersOpen.value) return
+  await nextTick()
+  document.getElementById('catalog-filters')?.scrollIntoView({ block: 'start' })
+}
+
 function clearFilter(key) {
   if (key === 'category') activeTab.value = 'todos'
   if (key === 'q') searchQuery.value = ''
@@ -353,6 +366,13 @@ function sortProducts(list, mode) {
 </script>
 
 <style scoped>
+.catalog-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; font-size: 14px; }
+.filters-toggle { display: none; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; background: white; color: var(--dark); border: 1px solid var(--line-soft); border-radius: 6px; font-size: 14px; }
+.filter-count { background: var(--rose-dark); color: white; border-radius: 50%; min-width: 22px; }
+.filter-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; }
+.applied-filters { margin-bottom: 16px; }
+.show-results { display: none; }
+@media (min-width: 721px) { .filters-panel { display: block !important; } }
 .catalog-page {
   min-height: 100vh;
   background: #fffdfd;
@@ -360,6 +380,8 @@ function sortProducts(list, mode) {
 
 .catalog-hero,
 .catalog-shell {
+  min-width: 0;
+  width: 100%;
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 32px;
@@ -368,7 +390,7 @@ function sortProducts(list, mode) {
 .catalog-hero {
   padding-top: 52px;
   display: grid;
-  grid-template-columns: 1.15fr .85fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   align-items: end;
 }
@@ -385,7 +407,7 @@ function sortProducts(list, mode) {
 .catalog-hero h1 {
   margin-top: 10px;
   font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(40px, 5vw, 60px);
+  font-size: 44px;
   line-height: 1;
 }
 
@@ -395,34 +417,6 @@ function sortProducts(list, mode) {
   font-size: 14px;
   line-height: 1.8;
   max-width: 620px;
-}
-
-.hero-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-}
-
-.metric-card {
-  padding: 22px;
-  border-radius: 24px;
-  background: linear-gradient(180deg, #fff8fa, #f8eef1);
-  border: 1px solid #ead7dd;
-}
-
-.metric-card span {
-  display: block;
-  font-size: 10px;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.metric-card strong {
-  display: block;
-  margin-top: 12px;
-  font-size: 30px;
-  color: var(--rose-dark);
 }
 
 .catalog-shell {
@@ -526,7 +520,7 @@ function sortProducts(list, mode) {
 .products-grid,
 .loading-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 24px;
 }
 
@@ -582,7 +576,6 @@ function sortProducts(list, mode) {
 
 @media (max-width: 1180px) {
   .catalog-hero,
-  .hero-metrics,
   .filters-grid,
   .products-grid,
   .loading-grid {
@@ -595,13 +588,17 @@ function sortProducts(list, mode) {
 }
 
 @media (max-width: 720px) {
+  .catalog-hero > *, .filters-grid > * { min-width: 0; }
+  .filters-toggle { display: inline-flex; }
+  .show-results { display: block; }
+  .catalog-toolbar { position: sticky; top: 136px; background: #fffdfd; z-index: 10; padding: 8px 0; }
+  .filters-panel { border-radius: 8px; scroll-margin-top: 200px; }
   .catalog-hero,
   .catalog-shell {
     padding-left: 20px;
     padding-right: 20px;
   }
 
-  .hero-metrics,
   .filters-grid,
   .products-grid,
   .loading-grid {
@@ -652,6 +649,10 @@ function sortProducts(list, mode) {
   }
 }
 
+@media (min-width: 360px) and (max-width: 720px) {
+  .products-grid, .loading-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+}
+
 @media (max-width: 420px) {
   .catalog-hero,
   .catalog-shell {
@@ -666,10 +667,6 @@ function sortProducts(list, mode) {
 
   .catalog-hero p {
     max-width: 292px;
-  }
-
-  .metric-card {
-    padding: 16px;
   }
 
   .no-results {

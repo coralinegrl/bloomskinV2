@@ -55,7 +55,7 @@
       </RouterLink>
 
       <div class="header-right" :class="{ open: mobileMenuOpen }">
-        <form class="search-bar" @submit.prevent="emitSearchSubmit">
+        <form class="search-bar" role="search" @submit.prevent="emitSearchSubmit">
           <button class="search-submit" type="submit" aria-label="Buscar">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8" />
@@ -64,7 +64,8 @@
           </button>
           <input
             :value="searchTerm"
-            type="text"
+            type="search"
+            aria-label="Buscar productos"
             :placeholder="searchPlaceholder"
             @input="$emit('update:searchTerm', $event.target.value)"
             @keydown.enter.prevent="emitSearchSubmit"
@@ -103,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 const props = defineProps({
@@ -128,10 +129,6 @@ const emit = defineEmits([
 
 const mobileMenuOpen = ref(false)
 
-watch(() => props.searchTerm, () => {
-  mobileMenuOpen.value = false
-})
-
 function closeMobileMenu() {
   mobileMenuOpen.value = false
 }
@@ -153,6 +150,8 @@ function emitSearchSubmit() {
 }
 
 .header-inner {
+  width: 100%;
+  min-width: 0;
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 32px;
@@ -429,10 +428,13 @@ function emitSearchSubmit() {
     letter-spacing: 0.22em;
   }
 
-  .header-nav,
-  .header-right {
+  .header-nav {
     display: none;
   }
+
+  .header-right { display: flex; }
+  .header-right > :not(.search-bar) { display: none; }
+  .header-right.open > .account-btn { display: block; }
 
   .header-nav.open,
   .header-right.open {
@@ -455,11 +457,26 @@ function emitSearchSubmit() {
   }
 
   .search-bar {
-    order: 4;
+    order: -1;
     width: 100%;
     min-width: 0;
     max-width: none;
     flex: 1 1 100%;
+    min-height: 44px;
+  }
+
+  .search-bar input { font-size: 16px; min-width: 0; }
+  .search-submit { min-width: 28px; min-height: 28px; }
+  .icon-btn { min-width: 44px; min-height: 44px; }
+  .header-nav { flex-wrap: wrap; }
+  .logo-lockup { gap: 6px; }
+  .mobile-actions { gap: 0; }
+  .logo-sub { letter-spacing: 0; }
+
+  @media (max-width: 360px) {
+    .logo-image { width: 30px; height: 30px; }
+    .logo-text { font-size: 18px; }
+    .mobile-bar { gap: 4px; }
   }
 
   .account-btn {

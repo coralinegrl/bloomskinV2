@@ -1,11 +1,13 @@
 <template>
-  <div class="product-card" :class="{ 'out-of-stock': producto.stock === 0 }" @click="openProduct">
+  <div class="product-card" :class="{ 'out-of-stock': producto.stock === 0 }" role="link" tabindex="0" :aria-label="`Ver ${producto.nombre}`" @click="openProduct" @keydown.enter.self="openProduct">
     <div class="product-image" :class="producto.img_clase">
       <img
         v-if="hasRealImage"
         :src="producto.imagen_url"
         :alt="producto.nombre"
         class="product-photo"
+        loading="lazy"
+        decoding="async"
         @error="imageBroken = true"
       >
       <div v-else class="product-placeholder">
@@ -19,7 +21,7 @@
       <span v-if="producto.badge" class="product-badge" :class="`badge-${producto.badge}`">
         {{ badgeLabel }}
       </span>
-      <button class="wishlist-btn" :aria-label="wishlisted ? 'Quitar de favoritos' : 'Agregar a favoritos'" @click.stop="toggleWishlist">{{ wishlisted ? '♥' : '♡' }}</button>
+      <button class="wishlist-btn" :aria-label="wishlisted ? 'Quitar de favoritos' : 'Agregar a favoritos'" :aria-pressed="wishlisted" @click.stop="toggleWishlist"><Heart :size="19" :fill="wishlisted ? 'currentColor' : 'none'" aria-hidden="true" /></button>
     </div>
 
     <div class="product-body">
@@ -45,6 +47,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import { Heart } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cart.js'
 import { useCustomerAuthStore } from '../../stores/customerAuth.js'
@@ -123,6 +126,9 @@ function openProduct() {
 
 <style scoped>
 .product-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   background: var(--white);
   border: 1px solid #EDD8DF;
   border-radius: 4px;
@@ -221,7 +227,7 @@ function openProduct() {
 .product-card:hover .wishlist-btn { opacity: 1; transform: translateY(-1px); }
 .wishlist-btn:active { transform: scale(.97); }
 .wishlist-btn:hover { box-shadow: 0 12px 22px rgba(139,63,85,.16); }
-.product-body { padding: 14px 16px 18px; }
+.product-body { padding: 14px 16px 18px; display: flex; flex-direction: column; flex: 1; }
 .product-brand { font-size: 10px; letter-spacing: .15em; text-transform: uppercase; color: var(--rose); font-weight: 500; margin-bottom: 5px; }
 .product-name  { font-size: 13px; color: var(--dark); line-height: 1.4; margin-bottom: 8px; }
 .product-stars { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
@@ -243,7 +249,8 @@ function openProduct() {
 .add-to-cart:disabled { opacity: .5; cursor: not-allowed; }
 
 @media (pointer: fine) {
-  .wishlist-btn {
+.wishlist-btn {
+  display: grid; place-items: center;
     opacity: 0;
   }
 
@@ -263,12 +270,16 @@ function openProduct() {
 }
 
 @media (max-width: 520px) {
+  .product-image { height: auto; aspect-ratio: 1 / 1; flex-shrink: 0; }
+  .product-name { min-height: 40px; overflow-wrap: anywhere; }
+  .product-badge { max-width: calc(100% - 66px); top: 8px; left: 8px; padding: 4px 6px; font-size: 10px; letter-spacing: 0; }
+  .wishlist-btn { top: 6px; right: 6px; }
   .product-image {
-    height: 220px;
+    height: auto;
   }
 
   .product-body {
-    padding: 14px 14px 16px;
+    padding: 12px 10px;
   }
 
   .product-name {
@@ -276,8 +287,13 @@ function openProduct() {
   }
 
   .add-to-cart {
+    margin-top: auto;
     min-height: 42px;
     padding: 11px 8px;
+    font-size: 11px;
+    letter-spacing: 0;
   }
+  .product-price { margin-bottom: 8px; flex-wrap: wrap; }
+  .variant-note, .stock-low, .stock-out { margin-bottom: 8px; font-size: 12px; }
 }
 </style>

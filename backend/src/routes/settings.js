@@ -17,6 +17,7 @@ router.put('/site', requireAdminAuth, (req, res) => {
     writeSettings(site);
     res.json({ ok: true, site });
   } catch (error) {
+    if (error.code === 'INVALID_SITE_SETTINGS') return res.status(400).json({ error: error.message });
     console.error(error);
     res.status(500).json({ error: 'No se pudo guardar la configuracion del sitio' });
   }
@@ -29,6 +30,7 @@ router.put('/home', requireAdminAuth, (req, res) => {
     writeSettings(settings);
     res.json({ ok: true, home: settings.home });
   } catch (error) {
+    if (error.code === 'INVALID_SITE_SETTINGS') return res.status(400).json({ error: error.message });
     console.error(error);
     res.status(500).json({ error: 'No se pudo guardar la configuracion del home' });
   }

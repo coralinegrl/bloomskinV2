@@ -1,13 +1,13 @@
 <template>
   <Transition name="drawer">
     <div v-if="cart.open" class="drawer-overlay" @click.self="closeDrawer">
-      <aside class="drawer">
+      <aside class="drawer" role="dialog" aria-modal="true" aria-label="Carrito de compras">
         <div class="drawer-header">
           <div>
             <div class="drawer-eyebrow">{{ currentStepLabel }}</div>
             <div class="drawer-title">{{ currentTitle }}</div>
           </div>
-          <button class="drawer-close" type="button" @click="closeDrawer">x</button>
+          <button class="drawer-close" type="button" aria-label="Cerrar carrito" @click="closeDrawer"><X :size="20" aria-hidden="true" /></button>
         </div>
 
         <div v-if="cart.items.length > 0" class="drawer-steps">
@@ -392,6 +392,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { X } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { descuentosApi, pedidosApi, settingsApi } from '../../api/index.js'
 import { useCartStore } from '../../stores/cart.js'
@@ -1067,6 +1068,10 @@ onBeforeUnmount(() => {
 }
 
 .drawer-close {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
   background: none;
   border: none;
   color: var(--text-muted);
@@ -1111,6 +1116,7 @@ onBeforeUnmount(() => {
 .drawer-empty {
   flex: 1;
   display: grid;
+  align-content: center;
   place-items: center;
   text-align: center;
   gap: 12px;

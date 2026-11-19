@@ -28,7 +28,7 @@
         <div class="hero-btns">
           <a href="#mas-vendidos" class="btn-primary">{{ homeContent.hero.primary_cta_label }}</a>
           <RouterLink to="/catalogo" class="btn-outline">{{ homeContent.hero.secondary_cta_label }}</RouterLink>
-          <a class="btn-whatsapp-hero" :href="whatsappGroupUrl" target="_blank" rel="noreferrer">Grupo WhatsApp</a>
+          <a v-if="whatsappClub.enabled" class="btn-whatsapp-hero" :href="whatsappGroupUrl" target="_blank" rel="noreferrer">Grupo WhatsApp</a>
         </div>
       </div>
 
@@ -54,7 +54,7 @@
     <div class="promo-band">
       <component
         :is="promoIconKey(promo.icon) === 'whatsapp' ? 'a' : 'div'"
-        v-for="(promo, index) in homeContent.promoItems"
+        v-for="(promo, index) in visiblePromoItems"
         :key="`promo-${index}`"
         class="promo-item"
         :class="{ 'promo-link-item': promoIconKey(promo.icon) === 'whatsapp' }"
@@ -142,9 +142,9 @@
       </div>
     </section>
 
-    <div v-if="homeReviews.length" class="section-divider" aria-hidden="true"></div>
+    <div v-if="sectionVisibility.reviews && homeReviews.length" class="section-divider" aria-hidden="true"></div>
 
-    <section v-if="homeReviews.length" class="home-reviews-section home-reviews-priority">
+    <section v-if="sectionVisibility.reviews && homeReviews.length" class="home-reviews-section home-reviews-priority">
       <div class="section-header section-header-centered">
         <div>
           <div class="section-tag">Reseñas reales</div>
@@ -175,9 +175,9 @@
       </div>
     </section>
 
-    <div class="section-divider" aria-hidden="true"></div>
+    <div v-if="whatsappClub.enabled" class="section-divider" aria-hidden="true"></div>
 
-    <section class="whatsapp-club-section whatsapp-priority-section">
+    <section v-if="whatsappClub.enabled" class="whatsapp-club-section whatsapp-priority-section">
       <div class="whatsapp-club-card">
         <div class="whatsapp-club-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" class="whatsapp-club-svg whatsapp-mark" aria-hidden="true">
@@ -186,21 +186,21 @@
           </svg>
         </div>
         <div class="whatsapp-club-copy">
-          <div class="section-tag">Ofertas secretas</div>
-          <h2 class="section-title">Entra al círculo Bloomskin</h2>
+          <div class="section-tag">{{ whatsappClub.tag }}</div>
+          <h2 class="section-title">{{ whatsappClub.title }}</h2>
           <p class="section-copy left">
-            Únete al grupo de WhatsApp para recibir drops, preventas y descuentos sorpresa antes que aparezcan en la tienda.
+            {{ whatsappClub.copy }}
           </p>
         </div>
         <a class="btn-primary whatsapp-club-btn" :href="whatsappGroupUrl" target="_blank" rel="noreferrer">
-          Unirme al grupo
+          {{ whatsappClub.button_label }}
         </a>
       </div>
     </section>
 
-    <div class="section-divider" aria-hidden="true"></div>
+    <div v-if="sectionVisibility.editorial" class="section-divider" aria-hidden="true"></div>
 
-    <section class="editorial-section">
+    <section v-if="sectionVisibility.editorial" class="editorial-section">
       <div class="section-header">
         <div class="section-tag">{{ homeContent.editorial.tag }}</div>
         <h2 class="section-title">{{ homeContent.editorial.title }}</h2>
@@ -223,7 +223,7 @@
       </div>
     </section>
 
-    <section class="showcase-section showcase-section-centered">
+    <section v-if="sectionVisibility.newIn" class="showcase-section showcase-section-centered">
       <div class="section-header section-header-centered">
         <div>
           <div class="section-tag">{{ homeContent.newIn.tag }}</div>
@@ -257,9 +257,9 @@
       </div>
     </section>
 
-    <div v-if="newsItems.length || newsLoading" class="section-divider" aria-hidden="true"></div>
+    <div v-if="sectionVisibility.news && (newsItems.length || newsLoading)" class="section-divider" aria-hidden="true"></div>
 
-    <section v-if="newsItems.length" class="news-section">
+    <section v-if="sectionVisibility.news && newsItems.length" class="news-section">
       <div class="section-header section-header-centered">
         <div>
           <div class="section-tag">K-Beauty News</div>
@@ -286,9 +286,9 @@
       </div>
     </section>
 
-    <div v-else-if="newsLoading" class="news-loading">Cargando noticias de K-Beauty...</div>
+    <div v-else-if="sectionVisibility.news && newsLoading" class="news-loading">Cargando noticias de K-Beauty...</div>
 
-    <section class="newsletter-section">
+    <section v-if="sectionVisibility.newsletter" class="newsletter-section">
       <div class="newsletter-tag">{{ homeContent.newsletter.tag }}</div>
       <h2 class="newsletter-title">{{ homeContent.newsletter.title }}<br /><em>{{ homeContent.newsletter.emphasis }}</em></h2>
       <p class="newsletter-sub">{{ homeContent.newsletter.copy }}</p>
@@ -307,6 +307,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { defaultHomeSections, defaultWhatsappClub } from '../constants/storeContent.js'
 import { RouterLink, useRouter } from 'vue-router'
 import { mensajesApi, newsApi, productosApi, resolveAssetUrl, reviewsApi, settingsApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
@@ -391,7 +392,10 @@ const bestSellerIndex = ref(0)
 const renderedBestSellerIndex = ref(0)
 const bestSellerResetting = ref(false)
 const quickViewProduct = ref(null)
-const whatsappGroupUrl = 'https://chat.whatsapp.com/CM0Ba6ZMc9cAJwDoVnr4zi?mode=gi_t'
+const whatsappClub = computed(() => ({ ...defaultWhatsappClub, ...siteSettings.value.home?.whatsappClub }))
+const sectionVisibility = computed(() => ({ ...defaultHomeSections, ...siteSettings.value.home?.sections }))
+const whatsappGroupUrl = computed(() => whatsappClub.value.url)
+const visiblePromoItems = computed(() => homeContent.value.promoItems.filter(promo => whatsappClub.value.enabled || promoIconKey(promo.icon) !== 'whatsapp'))
 let bestSellerTimer = null
 
 const categoryAliases = {
@@ -497,8 +501,9 @@ async function loadStoreData() {
       ...product,
       categoria: normalizeCategory(product.categoria),
     }))
-    await loadHomeReviews()
     siteSettings.value = settingsData || siteSettings.value
+    if (sectionVisibility.value.reviews) await loadHomeReviews()
+    if (!sectionVisibility.value.news) return
     newsLoading.value = true
     try {
       const { data: newsData } = await newsApi.kbeauty()
@@ -641,6 +646,9 @@ async function suscribir() {
 </script>
 
 <style scoped>
+.hero > *, .whatsapp-club-card > *, .promo-item > *, .catalog-cta-card > * { min-width: 0; }
+.hero, .hero-right { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hero-desc, .section-copy, .whatsapp-club-copy { overflow-wrap: anywhere; }
 header { background: var(--white); border-bottom: 1px solid #edd8df; position: sticky; top: 0; z-index: 50; }
 .header-inner { max-width: 1280px; margin: 0 auto; padding: 0 32px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 80px; gap: 20px; }
 .logo { text-align: center; display: inline-flex; justify-content: center; }
@@ -996,7 +1004,7 @@ footer { padding-top: 36px; padding-bottom: 42px; }
   .hero-trust-row span { font-size: 10px; }
   .promo-band,.showcase-grid,.editorial-grid,.home-reviews-grid,.newsletter-form,.footer-top,.news-grid { grid-template-columns: 1fr; }
   .hero-right {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: auto;
     gap: 1px;
   }
