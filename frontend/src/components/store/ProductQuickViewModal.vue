@@ -8,7 +8,7 @@
           <div class="quick-view-media" :class="product.img_clase">
             <img
               v-if="hasRealImage"
-              :src="product.imagen_url"
+              :src="displayProduct.imagen_url"
               :alt="product.nombre"
               class="quick-view-photo"
               @error="imageBroken = true"
@@ -32,7 +32,7 @@
             </div>
 
             <div class="quick-view-price">
-              <strong>{{ fmt(product.precio_clp) }}</strong>
+              <strong>{{ fmt(displayProduct.precio_clp) }}</strong>
               <span v-if="offerActive">{{ fmt(product.precio_oferta_clp) }}</span>
             </div>
 
@@ -90,6 +90,8 @@ import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cart.js'
 import { useUiStore } from '../../stores/ui.js'
 import StarRating from './StarRating.vue'
+import { variantDisplay } from '../../utils/productVariants.js'
+import { rememberProduct } from '../../utils/browserStorage.js'
 
 const props = defineProps({
   product: {
@@ -109,7 +111,9 @@ const modalElement = ref(null)
 let returnFocus = null
 const titleId = `quick-view-title-${Math.random().toString(36).slice(2)}`
 
-const hasRealImage = computed(() => Boolean(props.product?.imagen_url) && !imageBroken.value)
+const displayProduct = computed(() => variantDisplay(props.product, selectedTone.value))
+const hasRealImage = computed(() => Boolean(displayProduct.value?.imagen_url) && !imageBroken.value)
+watch(selectedTone, () => { imageBroken.value = false })
 const hasToneOptions = computed(() => Boolean(props.product?.usa_tonos && props.product?.tonos?.length))
 const selectedStock = computed(() => {
   if (!props.product) return 0
@@ -126,6 +130,7 @@ const availabilityLabel = computed(() => {
   return selectedStock.value > 0 ? `${selectedStock.value} en stock` : 'Sin stock'
 })
 const offerActive = computed(() => {
+  if (props.product?.variant_meta?.[selectedTone.value]?.precio_clp) return false
   if (!props.product?.precio_oferta_clp) return false
   if (!props.product?.oferta_hasta) return true
   const end = new Date(`${String(props.product.oferta_hasta).slice(0, 10)}T23:59:59`)
@@ -140,6 +145,7 @@ watch(
   () => props.product?.id,
   () => {
     imageBroken.value = false
+    rememberProduct(props.product)
     qty.value = 1
     selectedTone.value = firstAvailableTone(props.product)
   },
@@ -190,7 +196,7 @@ function selectTone(tone) {
 function addToCart() {
   if (!props.product || !canAddToCart.value) return
   const payload = hasToneOptions.value
-    ? { ...props.product, tono_seleccionado: selectedTone.value, stock: selectedStock.value }
+    ? { ...displayProduct.value, tono_seleccionado: selectedTone.value, stock: selectedStock.value }
     : props.product
 
   const cartKey = `${payload.id}::${String(payload.tono_seleccionado || '')}`
@@ -203,6 +209,7 @@ function addToCart() {
   for (let index = 0; index < qty.value; index += 1) {
     cart.agregar(payload)
   }
+  ui.pushToast({ title: 'Agregado al carrito', message: props.product.nombre, tone: 'success', duration: 5000, actionLabel: 'Ver carrito', action: () => cart.openDrawer() })
   close()
 }
 

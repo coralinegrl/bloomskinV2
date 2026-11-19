@@ -1,7 +1,6 @@
 const router = require('express').Router();
 const { getPool, sql } = require('../config/db');
 const { requireAdminAuth } = require('../middleware/auth');
-const nodemailer = require('nodemailer');
 
 // GET /api/mensajes — privado
 router.get('/', requireAdminAuth, async (req, res) => {
@@ -160,21 +159,31 @@ router.post('/newsletter/enviar', requireAdminAuth, async (req, res) => {
 });
 
 function createMailer() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user;
-
-  if (!host || !user || !pass || !from) return null;
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
+  return require('../lib/mail').createMailer();
 }
+
+router.get('/email/status', requireAdminAuth, async (_req, res) => {
+  const transporter = createMailer();
+  let connected = false;
+  if (transporter) { try { connected = await transporter.verify(); } catch (_) {} }
+  try {
+    const pool = await getPool();
+    const events = await pool.request().query('SELECT TOP 15 pedido_id, estado, enviado, intentos, ultimo_error, actualizado_en FROM order_mail_events ORDER BY actualizado_en DESC');
+    const reviews = await pool.request().query('SELECT pedido_id FROM flow_payments WHERE requiere_revision=1');
+    res.json({ configured: Boolean(transporter), connected, from: process.env.SMTP_FROM || '', events: events.recordset,
+      flow: { enabled: require('../lib/flow').flowConfig().ready, sandbox: require('../lib/flow').flowConfig().sandbox, review_orders: reviews.recordset.map(p => p.pedido_id) } });
+  } catch { res.status(503).json({ error: 'No pudimos revisar el estado de los correos.' }); }
+});
+
+router.post('/email/test', requireAdminAuth, async (req, res) => {
+  if (!isValidEmail(req.body?.email)) return res.status(400).json({ error: 'Ingresa un correo válido para la prueba.' });
+  try {
+    const sent = await require('../lib/mail').sendMessage({ to: normalizeEmail(req.body.email), subject: 'Prueba de correo · Bloomskin', title: 'Tu correo Bloomskin está funcionando',
+      paragraphs: ['Este es un mensaje de prueba enviado desde el panel de administración. No corresponde a una compra ni genera un pedido.'] });
+    if (!sent) return res.status(503).json({ error: 'El correo no fue aceptado por el servidor SMTP.' });
+    res.json({ ok: true });
+  } catch { res.status(503).json({ error: 'No se pudo enviar la prueba. Revisa el estado de la conexión SMTP.' }); }
+});
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();

@@ -300,6 +300,7 @@
       </div>
     </section>
 
+    <RecentlyViewed :catalog-products="productos" />
     <StoreFooter />
     <ProductQuickViewModal :product="quickViewProduct" @close="quickViewProduct = null" />
   </div>
@@ -308,6 +309,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { defaultHomeSections, defaultWhatsappClub } from '../constants/storeContent.js'
+import RecentlyViewed from '../components/store/RecentlyViewed.vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { mensajesApi, newsApi, productosApi, resolveAssetUrl, reviewsApi, settingsApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
@@ -620,7 +622,7 @@ function handleFavoritesClick() {
     return
   }
 
-  ui.openAuthModal('login')
+  router.push({ name: 'saved-products' })
 }
 
 async function suscribir() {

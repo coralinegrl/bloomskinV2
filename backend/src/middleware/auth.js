@@ -71,10 +71,10 @@ function requireClientAuth(req, res, next) {
       const pool = await getPool();
       const result = await pool.request()
         .input('id', sql.Int, req.user.id)
-        .query('SELECT id, activo FROM clientes WHERE id = @id');
+        .query('SELECT id, activo, es_invitado FROM clientes WHERE id = @id');
 
       const client = result.recordset[0];
-      if (!client || client.activo !== true) {
+      if (!client || client.activo !== true || client.es_invitado) {
         return res.status(401).json({ error: 'Tu cuenta ya no esta activa. Debes registrarte nuevamente.' });
       }
 

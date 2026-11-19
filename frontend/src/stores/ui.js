@@ -8,9 +8,9 @@ export const useUiStore = defineStore('ui', () => {
   const authModalOpen = ref(false)
   const authModalMode = ref('login')
 
-  function pushToast({ title, message, tone = 'info', duration = 3200 }) {
+  function pushToast({ title, message, tone = 'info', duration = 3200, actionLabel, action }) {
     const id = ++toastId
-    const toast = { id, title, message, tone }
+    const toast = { id, title, message, tone, actionLabel, action }
     toasts.value.push(toast)
 
     if (duration > 0) {

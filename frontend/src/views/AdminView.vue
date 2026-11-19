@@ -1,19 +1,20 @@
 ﻿<template>
   <div class="admin-layout">
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ 'mobile-nav-open': adminMenuOpen }">
+      <div class="mobile-admin-bar"><strong>Bloomskin · {{ currentTitle }}</strong><button type="button" :aria-expanded="adminMenuOpen" aria-controls="admin-navigation" @click="adminMenuOpen = !adminMenuOpen"><Menu :size="20" aria-hidden="true" /> Secciones</button></div>
       <div class="sidebar-logo">
         <span class="sidebar-logo-text">bloomskin</span>
         <span class="sidebar-badge">Gestión</span>
       </div>
 
-      <nav class="sidebar-nav">
+      <nav id="admin-navigation" class="sidebar-nav" aria-label="Secciones de administración">
         <button
           v-for="item in navItems"
           :key="item.section"
           class="nav-item"
           :class="{ active: activeSection === item.section }"
           :aria-current="activeSection === item.section ? 'page' : undefined"
-          @click="activeSection = item.section"
+          @click="activeSection = item.section; adminMenuOpen = false"
         >
           <span class="nav-icon">{{ item.icon }}</span>
           <span>{{ item.label }}</span>
@@ -190,7 +191,16 @@
               <div class="summary-pill">Sin foto: {{ productosSinImagen }}</div>
             </div>
 
-            <div class="ad-card table-card">
+            <div class="mobile-admin-list">
+              <article v-for="p in filteredProductos" :key="p.id" class="mobile-product-row">
+                <div class="mobile-product-head"><img v-if="p.imagen_url" :src="p.imagen_url" :alt="p.nombre" loading="lazy"><div><span>{{ p.marca }}</span><h3>{{ p.nombre }}</h3><p>{{ fmt(p.precio_clp) }} · {{ p.categoria }}</p></div></div>
+                <div v-if="p.usa_tonos" class="mobile-variant-list"><span v-for="tone in p.tonos" :key="tone">{{ tone }}: <strong>{{ p.tonos_stock?.[tone] || 0 }}</strong></span></div>
+                <div v-else class="mobile-stock-row"><label :for="`mobile-stock-${p.id}`">Stock</label><input :id="`mobile-stock-${p.id}`" v-model.number="stockDrafts[p.id]" type="number" inputmode="numeric" min="0"><button :disabled="savingStockId === p.id || Number(stockDrafts[p.id]) === Number(p.stock)" @click="guardarStockRapido(p)">Guardar stock</button></div>
+                <div class="mobile-row-actions"><button @click="openProductoModal(p)">{{ p.usa_tonos ? 'Editar producto y tipos' : 'Editar producto' }}</button><button @click="eliminarProducto(p.id)">Eliminar</button></div>
+              </article>
+              <p v-if="!filteredProductos.length" class="empty-state">No hay productos para ese filtro.</p>
+            </div>
+            <div class="ad-card table-card desktop-product-table">
               <table>
                 <thead>
                   <tr>
@@ -296,7 +306,18 @@
               <div class="summary-pill">Haz clic en un pedido para ver su detalle</div>
             </div>
 
-            <div class="ad-card table-card">
+            <div class="mobile-admin-list">
+              <article v-for="p in filteredPedidos" :key="p.id" class="mobile-order-row">
+                <div class="mobile-order-head"><button @click="openOrderDetails(p.id)">{{ p.codigo }}</button><strong>{{ fmt(p.total_clp) }}</strong></div>
+                <p>{{ p.cliente_nombre }}</p><span>{{ formatDate(p.creado_en) }} · {{ p.origen === 'manual' ? 'Venta externa' : 'Tienda web' }}</span>
+                <p class="mobile-state">{{ estadoLabel(p.estado) }}</p>
+                <label class="form-group"><span>Estado del pedido</span><select class="estado-select" :value="p.estado" @change="cambiarEstado(p.id, $event.target.value)"><option value="pending_payment">Esperando pago</option><option value="payment_submitted">Comprobante recibido</option><option value="paid">Pago validado</option><option value="shipped">Enviado / listo para retiro</option><option value="delivered">Entregado</option><option value="cancelled">Cancelado</option></select></label>
+                <button v-if="p.estado === 'cancelled'" class="btn-delete" type="button" @click="ocultarPedido(p)">Ocultar</button>
+                <div class="mobile-row-actions"><button @click="openOrderDetails(p.id)">Ver detalle</button><a v-if="p.comprobante_url" :href="p.comprobante_url" target="_blank" rel="noopener">Ver comprobante</a></div>
+              </article>
+              <p v-if="!filteredPedidos.length" class="empty-state">No hay pedidos para ese filtro.</p>
+            </div>
+            <div class="ad-card table-card desktop-order-table">
               <table>
                 <thead>
                   <tr>
@@ -435,7 +456,7 @@
           </template>
 
           <template v-if="(activeSection === 'dashboard' || activeSection === 'pedidos') && selectedOrder">
-            <div class="ad-card detail-card">
+            <div class="ad-card detail-card order-detail-anchor" style="scroll-margin-top: 140px">
               <div class="detail-header">
                 <div>
                   <div class="ad-card-title">Detalle del pedido {{ selectedOrder.codigo }}</div>
@@ -761,6 +782,17 @@
                 </table>
               </div>
             </div>
+          </template>
+
+          <template v-if="activeSection === 'integraciones'">
+            <p v-if="emailStatus?.flow?.review_orders?.length" class="error-msg" role="alert">Pagos Flow que requieren revisión manual: {{ emailStatus.flow.review_orders.map(id => `BS-${String(id).padStart(4, '0')}`).join(', ') }}. Verifica el pago en Flow antes de preparar el pedido o devolver el dinero.</p>
+            <div class="section-actions"><h2 class="section-h2">Correos y pagos</h2><button class="btn-primary" :disabled="checkingEmail" @click="loadEmailStatus">{{ checkingEmail ? 'Comprobando…' : 'Comprobar conexiones' }}</button></div>
+            <p v-if="emailStatusError" class="integration-error" role="alert">{{ emailStatusError }}</p>
+            <div class="home-settings-grid">
+              <article class="ad-card"><h3 class="ad-card-title">Correo transaccional</h3><template v-if="emailStatus"><p>SMTP: {{ emailStatus.connected ? 'Conectado' : emailStatus.configured ? 'Sin conexión' : 'No configurado' }}</p><p>{{ emailStatus.from }}</p></template><label class="form-group"><span>Enviar prueba a</span><input v-model.trim="testEmail" type="email" autocomplete="email"></label><button class="btn-primary" :disabled="checkingEmail || !testEmail" @click="sendTestEmail">Enviar correo de prueba</button><p v-if="emailTestResult" role="status">{{ emailTestResult }}</p></article>
+              <article class="ad-card"><h3 class="ad-card-title">Flow</h3><template v-if="emailStatus"><p>{{ emailStatus.flow?.enabled ? 'Credenciales configuradas' : 'Pendiente de configuración segura en servidor' }}</p><p>Entorno: {{ emailStatus.flow?.sandbox ? 'Pruebas (sandbox)' : 'Producción' }}</p></template><a class="btn-ghost" href="https://www.flow.cl/" target="_blank" rel="noopener">Abrir Flow</a></article>
+            </div>
+            <article class="ad-card mail-events"><h3 class="ad-card-title">Correos de pedidos recientes</h3><div v-for="event in emailStatus?.events || []" :key="`${event.pedido_id}-${event.estado}`" class="mail-event"><strong>BS-{{ String(event.pedido_id).padStart(4, '0') }}</strong><span>{{ estadoLabel(event.estado) }}</span><span>{{ event.enviado ? 'Aceptado por SMTP' : `Pendiente · ${event.intentos} intento(s)` }}</span><small v-if="event.ultimo_error">{{ event.ultimo_error }}</small></div></article>
           </template>
 
           <template v-if="activeSection === 'home'">
@@ -1391,7 +1423,10 @@
             <div class="variant-stock-grid">
               <label v-for="tone in formToneList" :key="`tone-stock-${tone}`" class="variant-stock-row">
                 <span>{{ tone }}</span>
-                <input v-model.number="form.tonos_stock[tone]" type="number" min="0" step="1">
+                <input v-model.number="form.tonos_stock[tone]" :aria-label="`Stock de ${tone}`" type="number" inputmode="numeric" min="0" step="1">
+                <input v-model="form.variant_meta[tone].precio_clp" :aria-label="`Precio de ${tone}`" type="number" inputmode="numeric" min="1" placeholder="Precio base">
+                <input v-model.trim="form.variant_meta[tone].imagen_url" :aria-label="`Foto de ${tone}`" type="url" placeholder="URL de foto (opcional)">
+                <input type="file" accept="image/jpeg,image/png,image/webp" :aria-label="`Subir foto de ${tone}`" @change="uploadVariantPhoto(tone, $event)">
               </label>
             </div>
             <div class="form-hint">Stock total por tipos: {{ formVariantStockTotal }}</div>
@@ -1720,9 +1755,9 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, onBeforeRouteLeave, useRouter } from 'vue-router'
-import { Eye, Save } from 'lucide-vue-next'
+import { Eye, Save, Menu } from 'lucide-vue-next'
 import { defaultHomeSections, defaultWhatsappClub } from '../constants/storeContent.js'
 import { clientesApi, descuentosApi, mensajesApi, pedidosApi, productosApi, settingsApi } from '../api/index.js'
 import { useAuthStore } from '../stores/auth.js'
@@ -1732,7 +1767,23 @@ import { validateCustomerProfile } from '../utils/validation.js'
 const auth = useAuthStore()
 const router = useRouter()
 
-const activeSection = ref('dashboard')
+const activeSection = ref(sessionStorage.getItem('bs_admin_section') || 'dashboard')
+const adminMenuOpen = ref(false)
+const emailStatus = ref(null), checkingEmail = ref(false), emailStatusError = ref(''), testEmail = ref(''), emailTestResult = ref('')
+watch(activeSection, value => { if (value === 'integraciones') void loadEmailStatus() })
+async function loadEmailStatus() {
+  checkingEmail.value = true; emailStatusError.value = ''
+  try { emailStatus.value = (await mensajesApi.emailStatus()).data }
+  catch (err) { emailStatusError.value = err.response?.data?.error || 'No pudimos revisar las conexiones.' }
+  finally { checkingEmail.value = false }
+}
+async function sendTestEmail() {
+  checkingEmail.value = true; emailTestResult.value = ''
+  try { await mensajesApi.testEmail(testEmail.value); emailTestResult.value = 'Prueba aceptada por el servidor. Revisa también la carpeta de spam.' }
+  catch (err) { emailTestResult.value = err.response?.data?.error || 'No se pudo enviar la prueba.' }
+  finally { checkingEmail.value = false }
+}
+watch(activeSection, value => sessionStorage.setItem('bs_admin_section', value))
 const navItems = [
   { section: 'dashboard', icon: 'R', label: 'Resumen' },
   { section: 'productos', icon: 'C', label: 'Catálogo' },
@@ -1764,6 +1815,9 @@ const titleMap = {
 navItems.push({ section: 'newsletter', icon: 'E', label: 'Campañas' })
 titleMap.newsletter = 'Campañas por correo'
 navItems.push({ section: 'home', icon: 'S', label: 'Contenido' })
+navItems.push({ section: 'integraciones', icon: '@', label: 'Correos y pagos' })
+titleMap.integraciones = 'Correos y pagos'
+if (!navItems.some(item => item.section === activeSection.value)) activeSection.value = 'dashboard'
 titleMap.home = 'Contenido del sitio'
 
 const productos = ref([])
@@ -2065,7 +2119,7 @@ const clientasNuevasMes = computed(() => {
 const ventasExternasCount = computed(() => pedidos.value.filter(pedido => pedido.origen === 'manual').length)
 const manualSaleSubtotal = computed(() => (manualSaleForm.value.items || []).reduce((sum, item) => {
   const producto = productos.value.find(p => p.id === Number(item.producto_id))
-  return sum + (producto ? Number(producto.precio_clp || 0) * Number(item.cantidad || 0) : 0)
+  return sum + (producto ? Number(producto.variant_meta?.[item.tono_seleccionado]?.precio_clp || producto.precio_clp || 0) * Number(item.cantidad || 0) : 0)
 }, 0))
 
 const lastSyncLabel = computed(() => {
@@ -2145,6 +2199,7 @@ watch(formToneList, tones => {
     nextStock[tone] = Math.max(0, Math.floor(Number(form.value.tonos_stock[tone] || 0)))
   }
   form.value.tonos_stock = nextStock
+  form.value.variant_meta = Object.fromEntries(tones.map(tone => [tone, form.value.variant_meta?.[tone] || { imagen_url: '', precio_clp: '' }]))
 })
 
 const filteredMensajes = computed(() => {
@@ -2212,6 +2267,7 @@ function resetForm() {
     usa_tonos: false,
     tonos_texto: '',
     tonos_stock: {},
+    variant_meta: {},
   }
   brandMode.value = ''
   selectedImageFile.value = null
@@ -2255,6 +2311,7 @@ function openProductoModal(producto = null) {
       usa_tonos: Boolean(producto.usa_tonos && producto.tonos?.length),
       tonos_texto: Array.isArray(producto.tonos) ? producto.tonos.join('\n') : '',
       tonos_stock: { ...(producto.tonos_stock || {}) },
+      variant_meta: Object.fromEntries((producto.tonos || []).map(tone => [tone, { ...(producto.variant_meta?.[tone] || {}), precio_clp: producto.variant_meta?.[tone]?.precio_clp ?? '' }])),
     }
     brandMode.value = existingBrand || (producto.marca ? '__new' : '')
     selectedImageFile.value = null
@@ -2508,6 +2565,7 @@ async function subirImagenProducto() {
 function openOrderDetails(id) {
   selectedOrderId.value = id
   activeSection.value = activeSection.value === 'dashboard' ? 'dashboard' : 'pedidos'
+  nextTick(() => document.querySelector('.order-detail-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
 }
 
 async function guardarProducto() {
@@ -2576,6 +2634,14 @@ async function cambiarEstado(id, estado) {
   } catch (err) {
     showToast(err.response?.data?.error || 'No se pudo actualizar el estado.', 'error')
   }
+}
+
+async function uploadVariantPhoto(tone, event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (file.size > 5 * 1024 * 1024) { showToast('La foto debe pesar hasta 5 MB.', 'error'); return }
+  try { const { data } = await productosApi.subirImagen(file); form.value.variant_meta[tone].imagen_url = data.image_url; showToast('Foto del tipo cargada. Guarda el producto para publicarla.') }
+  catch (err) { showToast(err.response?.data?.error || 'No pudimos cargar la foto del tipo.', 'error') }
 }
 
 async function ocultarPedido(pedido) {
@@ -2962,6 +3028,7 @@ async function refreshAll() {
 onMounted(async () => {
   resetForm()
   await refreshAll()
+  if (activeSection.value === 'integraciones') void loadEmailStatus()
 })
 
 function fmt(n) {
@@ -3026,6 +3093,12 @@ function stockLabel(stock) {
 </script>
 
 <style scoped>
+.admin-layout { color-scheme: dark; }
+select { background-color: var(--ad-bg); color: var(--ad-text); }
+.mobile-admin-bar, .mobile-admin-list { display: none; }
+.mail-events { margin-top: 20px; } .mail-event { display: flex; gap: 16px; flex-wrap: wrap; padding: 16px 0; border-top: 1px solid var(--ad-border); color: var(--ad-text); font-size: 14px; }
+.integration-error { color: #f1a2a2; } .mail-events small { flex-basis: 100%; }
+.home-settings-grid > .ad-card p { color: var(--ad-text); overflow-wrap: anywhere; margin-bottom: 16px; }
 .content-actions { position: sticky; top: 0; z-index: 15; padding: 14px 0; background: var(--ad-bg); border-bottom: 1px solid var(--ad-border); }
 .save-status { font-size: 13px; color: var(--ad-text); }
 .content-actions .btn-primary, .content-actions .btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; }
@@ -3163,7 +3236,9 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 .stock-zero { background: rgba(229,115,115,.15); color: #e57373; }
 .stock-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .variant-stock-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.variant-stock-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 10px; align-items: center; }
+.variant-stock-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 110px; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--ad-border); }
+.variant-stock-row > input[type=url], .variant-stock-row > input[type=file] { grid-column: 1 / -1; min-width: 0; max-width: 100%; }
+@media(max-width:640px) { .variant-stock-row { grid-template-columns: minmax(0,1fr) 80px; } .variant-stock-row > input { font-size: 16px; } .variant-stock-row > input[type=number]:nth-of-type(2) { grid-column: 1 / -1; } }
 .variant-stock-row span { color: var(--ad-muted); font-size: 12px; overflow-wrap: anywhere; }
 .manual-sale-item {
   border: 1px solid rgba(196,100,122,.16);
@@ -3462,6 +3537,33 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
 }
 
 @media (max-width: 640px) {
+  .sidebar { position: sticky; top: 0; }
+  .mobile-admin-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; color: var(--ad-text); min-height: 68px; font-size: 14px; }
+  .mobile-admin-bar button { display: flex; gap: 8px; align-items: center; min-height: 44px; padding: 8px 12px; color: var(--ad-text); background: var(--ad-surface); border: 1px solid var(--ad-border); border-radius: 6px; font-size: 14px; }
+  .sidebar-logo, .sidebar .sidebar-nav, .sidebar-footer { display: none; }
+  .mobile-nav-open .sidebar-nav { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); max-height: 60dvh; overflow: auto; }
+  .mobile-nav-open .sidebar-footer { display: flex; }
+  .sidebar-nav .nav-item { min-height: 44px; font-size: 14px; border-radius: 6px; padding: 10px; }
+  .admin-main, .admin-content { overflow: visible; }
+  .content-actions { top: 68px; }
+  .topbar-user, .topbar-right .avatar { display: none; }
+  .desktop-product-table, .desktop-order-table { display: none; }
+  .mobile-admin-list { display: grid; gap: 14px; }
+  .mobile-product-row, .mobile-order-row { padding: 16px; background: var(--ad-surface); border: 1px solid var(--ad-border); border-radius: 8px; color: var(--ad-text); min-width: 0; }
+  .mobile-product-head { display: flex; align-items: center; gap: 12px; }
+  .mobile-product-head img { width: 60px; height: 76px; object-fit: contain; border-radius: 4px; background: white; flex-shrink: 0; }
+  .mobile-product-head div { min-width: 0; } .mobile-product-head h3 { font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+  .mobile-product-head p, .mobile-product-head span, .mobile-order-row > span { font-size: 13px; color: var(--ad-muted); }
+  .mobile-stock-row { display: grid; grid-template-columns: auto 70px minmax(0,1fr); gap: 10px; align-items: center; margin-top: 16px; }
+  .mobile-stock-row input { width: 100%; padding: 10px; border: 1px solid var(--ad-border); background: var(--ad-bg); color: white; border-radius: 6px; font-size: 16px; }
+  .mobile-admin-list button, .mobile-admin-list a { min-height: 44px; padding: 10px; background: transparent; color: var(--ad-text); border: 1px solid var(--ad-border); border-radius: 6px; font-size: 14px; }
+  .mobile-admin-list button:disabled { opacity: .5; }
+  .mobile-row-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .mobile-variant-list { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; font-size: 14px; }
+  .mobile-order-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .mobile-state { color: var(--blush); margin-top: 10px; font-size: 14px; }
+  .modal-overlay { align-items: stretch; padding: 0; }
+  .modal { max-height: 100dvh; height: 100dvh; width: 100%; border-radius: 0; padding-bottom: max(24px,env(safe-area-inset-bottom)); }
   .sidebar-logo { padding: 12px 16px; }
   .sidebar-footer { padding: 10px 16px; }
   .home-settings-grid { grid-template-columns: minmax(0, 1fr); }
@@ -3485,13 +3587,15 @@ tbody tr:hover td { background: rgba(255,255,255,.015); }
     gap: 12px;
   }
   .modal-overlay {
-    padding: 12px;
-    align-items: flex-end;
+    padding: 0;
+    align-items: stretch;
   }
   .modal {
-    max-height: 92vh;
-    border-radius: 18px 18px 0 0;
+    max-height: 100dvh;
+    border-radius: 0;
   }
+  .mobile-admin-bar strong { min-width: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .modal-actions { position: sticky; bottom: 0; background: var(--ad-surface); padding: 16px 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; }
 }
 </style>
 

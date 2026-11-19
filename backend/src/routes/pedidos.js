@@ -2,11 +2,13 @@ const router = require('express').Router();
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const nodemailer = require('nodemailer');
 const ExcelJS = require('exceljs');
 const { getPool, sql } = require('../config/db');
 const { requireAdminAuth, requireClientAuth } = require('../middleware/auth');
 const { quoteShipping } = require('../lib/shipping');
+const { requireCheckoutAuth, requireOrderAccess, orderAccessToken, orderAccessUrl } = require('../lib/checkoutAccess');
+const { flowConfig } = require('../lib/flow');
+const { variantPrice } = require('../lib/variants');
 const { readSettings } = require('../lib/siteSettings');
 const { normalizeDiscountCode, validateDiscountRow, findDiscountByCode, ensureDiscountSchema } = require('../lib/discounts');
 const {
@@ -26,38 +28,6 @@ const uploadsRoot = process.env.UPLOADS_DIR
 const proofUploadsDir = path.join(uploadsRoot, 'comprobantes');
 fs.mkdirSync(proofUploadsDir, { recursive: true });
 
-const ORDER_STATUS_COPY = {
-  pending_payment: {
-    subject: 'Tu pedido Bloomskin está esperando transferencia',
-    title: 'Tu pedido está esperando transferencia',
-    body: 'Tu pedido ya fue creado y quedó a la espera de tu transferencia bancaria. Cuando subas el comprobante, nuestro equipo podrá revisarlo.',
-  },
-  payment_submitted: {
-    subject: 'Recibimos tu comprobante en Bloomskin',
-    title: 'Tu comprobante quedó en revisión',
-    body: 'Ya recibimos tu comprobante y tu pedido quedó a la espera de confirmación. Te avisaremos por correo apenas revisemos el pago.',
-  },
-  paid: {
-    subject: 'Tu pago fue confirmado en Bloomskin',
-    title: 'Tu pago ya fue validado',
-    body: 'Confirmamos tu transferencia y tu pedido ya sigue al siguiente paso de preparación y despacho.',
-  },
-  shipped: {
-    subject: 'Tu pedido Bloomskin va en camino',
-    title: 'Tu pedido ya fue despachado',
-    body: 'Tu pedido ya salió o está en preparación final para entrega. Puedes seguir revisando su estado desde tu cuenta.',
-  },
-  delivered: {
-    subject: 'Tu pedido Bloomskin fue entregado',
-    title: 'Tu pedido fue marcado como entregado',
-    body: 'Tu pedido ya aparece como entregado. Esperamos que disfrutes tu compra y tu rutina K-Beauty.',
-  },
-  cancelled: {
-    subject: 'Tu pedido Bloomskin fue cancelado',
-    title: 'Tu pedido fue cancelado',
-    body: 'Tu pedido fue cancelado. Si necesitas ayuda o quieres revisar una nueva compra, escríbenos y te acompañamos.',
-  },
-};
 
 const INVENTORY_COMMITTED_STATES = new Set(['paid', 'shipped', 'delivered']);
 const MANUAL_SALES_CLIENT_EMAIL = 'ventas-manuales@bloomskin.local';
@@ -102,7 +72,17 @@ const uploadProof = multer({
 });
 
 function handleProofUpload(req, res, next) {
-  uploadProof.single('comprobante')(req, res, err => {
+  uploadProof.single('comprobante')(req, res, async err => {
+    if (!err && req.file) {
+      try {
+        const { fileTypeFromFile } = await import('file-type');
+        const detected = await fileTypeFromFile(req.file.path);
+        if (!detected || !ALLOWED_PROOF_MIME_TYPES.has(detected.mime)) throw new Error('Unsupported image');
+      } catch (_) {
+        fs.unlink(req.file.path, () => {});
+        return res.status(400).json({ error: 'El archivo no es una imagen compatible. No se permiten GIF ni videos.' });
+      }
+    }
     if (!err) return next();
 
     if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
@@ -313,6 +293,8 @@ async function ensurePedidosSchema(pool) {
 
     IF COL_LENGTH('productos', 'tonos_stock_json') IS NULL
       ALTER TABLE productos ADD tonos_stock_json NVARCHAR(MAX) NULL;
+    IF COL_LENGTH('productos', 'variant_meta_json') IS NULL
+      ALTER TABLE productos ADD variant_meta_json NVARCHAR(MAX) NULL;
   `);
 }
 
@@ -459,7 +441,7 @@ async function cleanupExpiredPendingOrders(pool) {
   try {
     const expiredOrders = await new sql.Request(transaction).query(`
       SELECT id, cliente_nombre, cliente_email, total_clp
-      FROM pedidos
+      FROM pedidos WITH (UPDLOCK, HOLDLOCK)
       WHERE estado = 'pending_payment'
         AND stock_comprometido = 1
         AND comprobante_url IS NULL
@@ -513,7 +495,7 @@ async function runOrderMaintenance() {
 
   for (const order of cancelledOrders) {
     try {
-      await sendOrderStatusEmail({
+      void sendOrderStatusEmail({
         pedidoId: Number(order.id),
         codigo: orderCodeFromId(order.id),
         clienteNombre: order.cliente_nombre,
@@ -545,80 +527,11 @@ function excelDate(value) {
   return new Date(value);
 }
 
-function createMailer() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user;
 
-  if (!host || !user || !pass || !from) return null;
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
-}
-
-function getStoreBaseUrl() {
-  return String(
-    process.env.STORE_BASE_URL
-    || process.env.PUBLIC_APP_URL
-    || 'https://www.bloomskin.cl'
-  ).replace(/\/$/, '');
-}
-
-async function sendOrderStatusEmail({ pedidoId, codigo, clienteNombre, clienteEmail, estado, totalClp }) {
-  const mailer = createMailer();
-  const copy = ORDER_STATUS_COPY[estado];
-  const email = normalizeEmail(clienteEmail);
-  if (!mailer || !copy || !isValidEmail(email)) return false;
-
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-  const accountUrl = `${getStoreBaseUrl()}/mi-cuenta#mis-pedidos`;
-  const safeName = cleanString(clienteNombre) || 'clienta';
-  const amount = '$' + Number(totalClp || 0).toLocaleString('es-CL');
-
-  await mailer.sendMail({
-    from,
-    to: email,
-    subject: copy.subject,
-    text: [
-      `Hola ${safeName},`,
-      '',
-      `${copy.title}.`,
-      copy.body,
-      '',
-      `Pedido: ${codigo || orderCodeFromId(pedidoId)}`,
-      `Total: ${amount}`,
-      `Revisa tu cuenta aquí: ${accountUrl}`,
-    ].join('\n'),
-    html: `
-      <div style="margin:0;padding:28px 14px;background:#f8eef2;">
-        <div style="max-width:620px;margin:0 auto;background:#fffafc;border:1px solid rgba(191,84,122,.14);border-radius:26px;overflow:hidden;font-family:Arial,sans-serif;color:#4a3240;">
-          <div style="padding:28px 30px;background:linear-gradient(135deg,#fff3f7 0%,#f7e9ef 55%,#f0dde4 100%);border-bottom:1px solid rgba(191,84,122,.12);">
-            <div style="font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:#bf547a;font-weight:700;">Bloomskin</div>
-            <h1 style="margin:12px 0 8px;font-family:Georgia,serif;font-size:38px;line-height:1;color:#3d2833;font-weight:500;">${copy.title}</h1>
-            <p style="margin:0;font-size:15px;line-height:1.8;color:#6e5560;">Hola ${safeName}, ${copy.body}</p>
-          </div>
-          <div style="padding:26px 30px 30px;">
-            <div style="display:grid;gap:10px;padding:18px;border-radius:20px;background:#fff;border:1px solid rgba(191,84,122,.1);">
-              <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#bf547a;font-weight:700;">Resumen del pedido</div>
-              <div style="font-size:15px;color:#4a3240;"><strong>Código:</strong> ${codigo || orderCodeFromId(pedidoId)}</div>
-              <div style="font-size:15px;color:#4a3240;"><strong>Total:</strong> ${amount}</div>
-            </div>
-            <div style="margin-top:22px;text-align:center;">
-              <a href="${accountUrl}" style="display:inline-block;padding:14px 22px;border-radius:999px;background:#bf547a;color:#fff;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;">Ver mis pedidos</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    `,
-  });
-
-  return true;
+async function sendOrderStatusEmail(event) {
+  try { return await require('../lib/orderMail').sendOrderMail(event); }
+  catch (error) { console.error('No se pudo registrar el correo:', error.code || error.name); return false; }
 }
 
 router.get('/', requireAdminAuth, async (_req, res) => {
@@ -901,7 +814,7 @@ router.get('/mine', requireClientAuth, async (req, res) => {
   }
 });
 
-router.get('/reservation/current', requireClientAuth, async (req, res) => {
+router.get('/reservation/current', requireCheckoutAuth, async (req, res) => {
   try {
     const pool = await getPool();
     await ensurePedidosSchema(pool);
@@ -928,7 +841,7 @@ router.get('/reservation/current', requireClientAuth, async (req, res) => {
   }
 });
 
-router.post('/reservation', requireClientAuth, async (req, res) => {
+router.post('/reservation', requireCheckoutAuth, async (req, res) => {
   const items = normalizeReservationItems(req.body?.items);
   if (!items.length) {
     return res.status(400).json({ error: 'Debes indicar al menos un producto para reservar.' });
@@ -1042,7 +955,7 @@ router.post('/reservation', requireClientAuth, async (req, res) => {
   }
 });
 
-router.delete('/reservation/current', requireClientAuth, async (req, res) => {
+router.delete('/reservation/current', requireCheckoutAuth, async (req, res) => {
   try {
     const pool = await getPool();
     await ensurePedidosSchema(pool);
@@ -1089,7 +1002,7 @@ router.post('/shipping-quote', async (req, res) => {
   }
 });
 
-router.post('/', requireClientAuth, async (req, res) => {
+router.post('/', requireCheckoutAuth, async (req, res) => {
   const {
     items,
     notas,
@@ -1111,8 +1024,9 @@ router.post('/', requireClientAuth, async (req, res) => {
   if (!resolvedClienteId || !items?.length) {
     return res.status(400).json({ error: 'Items requeridos' });
   }
-  if ((metodo_pago || 'bank_transfer') !== 'bank_transfer') {
-    return res.status(400).json({ error: 'Por ahora solo aceptamos transferencia bancaria' });
+  const paymentMethod = metodo_pago || 'bank_transfer';
+  if (!['bank_transfer', 'flow'].includes(paymentMethod) || (paymentMethod === 'flow' && (!flowConfig().ready || (flowConfig().sandbox && process.env.NODE_ENV === 'production')))) {
+    return res.status(400).json({ error: 'El método de pago seleccionado no está disponible.' });
   }
   if (deliveryMode === 'delivery') {
     const regionError = validateRequiredText(region, 'Región', 2);
@@ -1135,7 +1049,7 @@ router.post('/', requireClientAuth, async (req, res) => {
     const clienteResult = await new sql.Request(transaction)
       .input('cliente_id', sql.Int, resolvedClienteId)
       .query(`
-        SELECT id, nombre, email, rut, telefono, direccion, ciudad, region
+        SELECT id, nombre, CASE WHEN es_invitado=1 THEN invitado_email ELSE email END AS email, rut, telefono, direccion, ciudad, region
         FROM clientes
         WHERE id = @cliente_id
       `);
@@ -1167,7 +1081,7 @@ router.post('/', requireClientAuth, async (req, res) => {
       transactionClosed = true;
       return res.status(400).json({ error: customerValidationError });
     }
-    if (!transferConfig.is_complete) {
+    if (paymentMethod === 'bank_transfer' && !transferConfig.is_complete) {
       await transaction.rollback();
       transactionClosed = true;
       return res.status(400).json({ error: 'La configuracion de transferencia esta incompleta. Completa los datos bancarios en admin antes de recibir pedidos.' });
@@ -1201,7 +1115,7 @@ router.post('/', requireClientAuth, async (req, res) => {
       const prod = await new sql.Request(transaction)
         .input('id', sql.Int, item.producto_id)
         .query(`
-          SELECT nombre, precio_clp, stock, usa_tonos, tonos_json
+          SELECT nombre, precio_clp, stock, usa_tonos, tonos_json, variant_meta_json
           FROM productos
           WHERE id = @id AND activo = 1
         `);
@@ -1225,7 +1139,7 @@ router.post('/', requireClientAuth, async (req, res) => {
         return res.status(400).json({ error: `El tipo seleccionado para ${product.nombre} ya no está disponible.` });
       }
 
-      const precioUnitario = product.precio_clp;
+      const precioUnitario = variantPrice(product, item.tono_seleccionado);
       itemsProcesados.push({
         producto_id: item.producto_id,
         cantidad: item.cantidad,
@@ -1280,7 +1194,7 @@ router.post('/', requireClientAuth, async (req, res) => {
       .input('descuento_clp', sql.Int, appliedDiscount?.discount_clp || 0)
       .input('envio_clp', sql.Int, envioClp)
       .input('total_clp', sql.Int, total)
-      .input('metodo_pago', sql.NVarChar, 'bank_transfer')
+      .input('metodo_pago', sql.NVarChar, paymentMethod)
       .input('metodo_envio', sql.NVarChar, shippingQuote.method)
       .input('region_envio', sql.NVarChar, deliveryMode === 'pickup' ? null : region)
       .input('ciudad_envio', sql.NVarChar, deliveryMode === 'pickup' ? 'Antofagasta' : ciudad)
@@ -1350,8 +1264,12 @@ router.post('/', requireClientAuth, async (req, res) => {
 
     await transaction.commit();
     transactionClosed = true;
+    void sendOrderStatusEmail({ pedidoId, clienteNombre, clienteEmail, estado: 'pending_payment', totalClp: total })
+      .catch(error => console.error('No se pudo registrar el correo del pedido:', error.message));
     res.status(201).json({
       id: pedidoId,
+      access_token: orderAccessToken(pedidoId),
+      access_url: orderAccessUrl(pedidoId),
       codigo: orderCodeFromId(pedidoId),
       subtotal_clp: subtotal,
       subtotal_pagado_clp: subtotalPagado,
@@ -1360,7 +1278,7 @@ router.post('/', requireClientAuth, async (req, res) => {
       descuento_clp: appliedDiscount?.discount_clp || 0,
       envio_clp: envioClp,
       total_clp: total,
-      metodo_pago: 'bank_transfer',
+      metodo_pago: paymentMethod,
       metodo_envio: shippingQuote.method,
       comprobante_limite_en: new Date(Date.now() + (PAYMENT_PROOF_WINDOW_MINUTES * 60 * 1000)),
       shipping_quote: shippingQuote,
@@ -1431,7 +1349,7 @@ router.post('/manual', requireAdminAuth, async (req, res) => {
       const prod = await new sql.Request(transaction)
         .input('id', sql.Int, productoId)
         .query(`
-          SELECT id, nombre, stock, precio_clp, usa_tonos, tonos_json, tonos_stock_json
+          SELECT id, nombre, stock, precio_clp, usa_tonos, tonos_json, tonos_stock_json, variant_meta_json
           FROM productos
           WHERE id = @id AND activo = 1
         `);
@@ -1473,10 +1391,10 @@ router.post('/manual', requireAdminAuth, async (req, res) => {
       itemsProcesados.push({
         producto_id: producto.id,
         cantidad,
-        precio_unitario_clp: Number(producto.precio_clp || 0),
+        precio_unitario_clp: variantPrice(producto, tonoSeleccionado),
         tono_seleccionado: tonoSeleccionado,
       });
-      subtotal += Number(producto.precio_clp || 0) * cantidad;
+      subtotal += variantPrice(producto, tonoSeleccionado) * cantidad;
     }
 
     const pedResult = await new sql.Request(transaction)
@@ -1572,7 +1490,28 @@ router.post('/manual', requireAdminAuth, async (req, res) => {
   }
 });
 
-router.post('/:id/comprobante', requireClientAuth, handleProofUpload, async (req, res) => {
+router.get('/:id/access', requireOrderAccess, async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.request().input('id', sql.Int, Number(req.params.id)).query(`
+      SELECT id, cliente_id, cliente_nombre, estado, total_clp, subtotal_clp, descuento_clp,
+             envio_clp, metodo_pago, metodo_envio, direccion_envio, comprobante_limite_en,
+             CASE WHEN comprobante_url IS NULL THEN 0 ELSE 1 END AS comprobante_recibido, creado_en
+      FROM pedidos WHERE id=@id AND eliminado_en IS NULL
+    `);
+    const order = result.recordset[0];
+    if (!order || (!req.orderAccess && order.cliente_id !== req.user?.id)) return res.status(404).json({ error: 'Pedido no encontrado o enlace sin acceso.' });
+    delete order.cliente_id;
+    const items = await pool.request().input('id', sql.Int, order.id).query(`
+      SELECT p.nombre, p.marca, p.imagen_url, i.cantidad, i.tono_seleccionado, i.precio_unitario_clp
+      FROM pedido_items i JOIN productos p ON p.id=i.producto_id WHERE i.pedido_id=@id
+    `);
+    res.set('Cache-Control', 'no-store');
+    res.json({ ...order, codigo: orderCodeFromId(order.id), items: items.recordset, transfer: getTransferConfig() });
+  } catch (error) { res.status(503).json({ error: 'No pudimos cargar el pedido. Intenta nuevamente.' }); }
+});
+
+router.post('/:id/comprobante', requireOrderAccess, handleProofUpload, async (req, res) => {
   const pedidoId = Number(req.params.id);
 
   if (!req.file) {
@@ -1580,6 +1519,7 @@ router.post('/:id/comprobante', requireClientAuth, handleProofUpload, async (req
   }
 
   if (!pedidoId) {
+    fs.unlink(req.file.path, () => {});
     return res.status(400).json({ error: 'Pedido invalido' });
   }
 
@@ -1588,7 +1528,7 @@ router.post('/:id/comprobante', requireClientAuth, handleProofUpload, async (req
     const lookup = await pool.request()
       .input('id', sql.Int, pedidoId)
       .query(`
-        SELECT p.id, p.cliente_id, p.total_clp, p.cliente_nombre, c.email
+        SELECT p.id, p.cliente_id, p.total_clp, p.cliente_nombre, p.cliente_email AS email, p.estado, p.comprobante_limite_en, p.metodo_pago
         FROM pedidos p
         JOIN clientes c ON c.id = p.cliente_id
         WHERE p.id = @id
@@ -1596,17 +1536,24 @@ router.post('/:id/comprobante', requireClientAuth, handleProofUpload, async (req
 
     const pedido = lookup.recordset[0];
     if (!pedido) {
+      fs.unlink(req.file.path, () => {});
       return res.status(404).json({ error: 'Pedido no encontrado' });
     }
 
-    const requesterMatchesClient = req.user.id === pedido.cliente_id;
+    const requesterMatchesClient = req.orderAccess?.pedido_id === pedido.id || req.user?.id === pedido.cliente_id;
 
     if (!requesterMatchesClient) {
+      fs.unlink(req.file.path, () => {});
       return res.status(403).json({ error: 'No pudimos validar ese pedido para subir el comprobante' });
     }
 
+    if (pedido.metodo_pago !== 'bank_transfer') {
+      fs.unlink(req.file.path, () => {});
+      return res.status(409).json({ error: 'Este pedido no se paga por transferencia.' });
+    }
+
     const fileUrl = `/uploads/comprobantes/${req.file.filename}`;
-    await pool.request()
+    const updated = await pool.request()
       .input('id', sql.Int, pedidoId)
       .input('comprobante_url', sql.NVarChar, fileUrl)
       .query(`
@@ -1618,11 +1565,17 @@ router.post('/:id/comprobante', requireClientAuth, handleProofUpload, async (req
             END,
             comprobante_limite_en = NULL,
             actualizado_en = GETDATE()
-        WHERE id = @id
+        WHERE id = @id AND estado = 'pending_payment'
+          AND comprobante_limite_en > SYSUTCDATETIME() AND eliminado_en IS NULL
       `);
 
+    if (!updated.rowsAffected[0]) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(409).json({ error: 'El pedido ya no admite comprobantes. Revisa su estado antes de continuar.' });
+    }
+
     try {
-      await sendOrderStatusEmail({
+      void sendOrderStatusEmail({
         pedidoId,
         codigo: orderCodeFromId(pedidoId),
         clienteNombre: pedido.cliente_nombre,
@@ -1637,6 +1590,7 @@ router.post('/:id/comprobante', requireClientAuth, handleProofUpload, async (req
     res.status(201).json({ ok: true, comprobante_url: fileUrl });
   } catch (err) {
     console.error(err);
+    fs.unlink(req.file.path, () => {});
     res.status(500).json({ error: 'No se pudo subir el comprobante' });
   }
 });
@@ -1737,7 +1691,7 @@ router.patch('/:id/estado', requireAdminAuth, async (req, res) => {
     await transaction.commit();
 
     try {
-      await sendOrderStatusEmail({
+      void sendOrderStatusEmail({
         pedidoId: Number(req.params.id),
         codigo: orderCodeFromId(req.params.id),
         clienteNombre: pedido.cliente_nombre,

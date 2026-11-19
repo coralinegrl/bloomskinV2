@@ -113,6 +113,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { SlidersHorizontal, X } from 'lucide-vue-next'
+import { normalizeSearch } from '../utils/browserStorage.js'
 import { productosApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
 import ProductCard from '../components/store/ProductCard.vue'
@@ -193,11 +194,9 @@ const filteredProducts = computed(() => {
   let list = [...productos.value]
   if (activeTab.value !== 'todos') list = list.filter(product => normalizeCategory(product.categoria) === activeTab.value)
   if (searchQuery.value.trim()) {
-    const query = searchQuery.value.trim().toLowerCase()
+    const query = normalizeSearch(searchQuery.value)
     list = list.filter(product =>
-      product.nombre.toLowerCase().includes(query) ||
-      String(product.marca || '').toLowerCase().includes(query) ||
-      normalizeCategory(product.categoria).toLowerCase().includes(query)
+      query.split(/\s+/).every(term => normalizeSearch([product.nombre, product.marca, product.categoria, product.descripcion].join(' ')).includes(term))
     )
   }
   if (brandFilter.value !== 'all') list = list.filter(product => product.marca === brandFilter.value)
@@ -303,7 +302,7 @@ function handleFavoritesClick() {
     router.push({ name: 'customer-account', hash: '#favoritos' })
     return
   }
-  ui.openAuthModal('login')
+  router.push({ name: 'saved-products' })
 }
 
 function resetFilters() {

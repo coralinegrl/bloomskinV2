@@ -5,6 +5,7 @@ const multer = require('multer');
 const { readCatalogFile, writeCatalogFile, sanitizeProduct } = require('../lib/catalog');
 const { getPool, sql } = require('../config/db');
 const { requireAdminAuth } = require('../middleware/auth');
+const { normalizeVariantMeta } = require('../lib/variants');
 
 const uploadsRoot = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
@@ -215,6 +216,7 @@ function serializeToneOptions(product) {
     tonos_json: JSON.stringify(tones),
     tonos_stock: toneStock,
     tonos_stock_json: usesTones ? JSON.stringify(toneStock) : null,
+    variant_meta_json: JSON.stringify(normalizeVariantMeta(product.variant_meta, tones)),
     stock: usesTones ? sumToneStock(toneStock) : Math.max(0, Math.floor(Number(product?.stock || 0))),
   };
 }
@@ -228,12 +230,14 @@ function hydrateProduct(product) {
     usa_tonos: usesTones,
     tonos: tones,
     tonos_stock: toneStock,
+    variant_meta: normalizeVariantMeta(product.variant_meta_json, tones),
     stock: usesTones ? sumToneStock(toneStock) : product.stock,
   };
 }
 
 async function ensureProductSchema(pool) {
   await pool.request().batch(`
+    IF COL_LENGTH('productos', 'variant_meta_json') IS NULL ALTER TABLE productos ADD variant_meta_json NVARCHAR(MAX) NULL;
     IF COL_LENGTH('productos', 'usa_tonos') IS NULL
     BEGIN
       ALTER TABLE productos
@@ -262,7 +266,7 @@ router.get('/', async (req, res) => {
     const result = await pool.request().query(`
       SELECT id, marca, nombre, descripcion, categoria, precio_clp, precio_oferta_clp,
              oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url,
-             usa_tonos, tonos_json, tonos_stock_json
+             usa_tonos, tonos_json, tonos_stock_json, variant_meta_json
       FROM productos
       WHERE activo = 1
       ORDER BY creado_en DESC
@@ -459,7 +463,7 @@ router.post('/', requireAdminAuth, async (req, res) => {
     res.status(201).json(hydrateProduct(result.recordset[0]));
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error al crear producto' });
+    res.status(err.code === 'INVALID_VARIANT' ? 400 : 500).json({ error: err.code === 'INVALID_VARIANT' ? err.message : 'Error al crear producto' });
   }
 });
 
@@ -495,6 +499,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       .input('usa_tonos', sql.Bit, toneConfig.usa_tonos)
       .input('tonos_json', sql.NVarChar(sql.MAX), toneConfig.tonos_json)
       .input('tonos_stock_json', sql.NVarChar(sql.MAX), toneConfig.tonos_stock_json)
+      .input('variant_meta_json', sql.NVarChar(sql.MAX), toneConfig.variant_meta_json)
       .input('activo', sql.Bit, req.body.activo !== undefined ? req.body.activo : 1)
       .query(`
         UPDATE productos SET
@@ -515,6 +520,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
           usa_tonos=@usa_tonos,
           tonos_json=@tonos_json,
           tonos_stock_json=@tonos_stock_json,
+          variant_meta_json=@variant_meta_json,
           activo=@activo,
           actualizado_en=GETDATE()
         OUTPUT INSERTED.*
@@ -528,7 +534,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
     res.json(hydrateProduct(result.recordset[0]));
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error al actualizar producto' });
+    res.status(err.code === 'INVALID_VARIANT' ? 400 : 500).json({ error: err.code === 'INVALID_VARIANT' ? err.message : 'Error al actualizar producto' });
   }
 });
 
@@ -630,12 +636,13 @@ async function insertProduct(request, product, index = 0) {
     .input('usa_tonos', sql.Bit, toneConfig.usa_tonos)
     .input('tonos_json', sql.NVarChar(sql.MAX), toneConfig.tonos_json)
     .input('tonos_stock_json', sql.NVarChar(sql.MAX), toneConfig.tonos_stock_json)
+    .input('variant_meta_json', sql.NVarChar(sql.MAX), toneConfig.variant_meta_json)
     .query(`
       INSERT INTO productos
-      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url, usa_tonos, tonos_json, tonos_stock_json)
+      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url, usa_tonos, tonos_json, tonos_stock_json, variant_meta_json)
       OUTPUT INSERTED.*
       VALUES
-      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url, @usa_tonos, @tonos_json, @tonos_stock_json)
+      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url, @usa_tonos, @tonos_json, @tonos_stock_json, @variant_meta_json)
     `);
 }
 

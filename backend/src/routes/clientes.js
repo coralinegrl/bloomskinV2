@@ -43,7 +43,7 @@ async function fetchWishlistByClientId(clienteId) {
         pr.id, pr.marca, pr.nombre, pr.descripcion, pr.categoria,
         pr.precio_usd, pr.precio_clp, pr.precio_oferta_clp, pr.oferta_hasta, pr.stock,
         pr.badge, pr.estrellas, pr.resenas, pr.img_clase, pr.imagen_url,
-        pr.usa_tonos, pr.tonos_json, pr.tonos_stock_json,
+        pr.usa_tonos, pr.tonos_json, pr.tonos_stock_json, pr.variant_meta_json,
         cw.creado_en AS wishlisted_en
       FROM cliente_wishlist cw
       JOIN productos pr ON pr.id = cw.producto_id
@@ -60,6 +60,7 @@ async function fetchWishlistByClientId(clienteId) {
       usa_tonos: usesTones,
       tonos: tones,
       tonos_stock: toneStock,
+      variant_meta: require('../lib/variants').normalizeVariantMeta(product.variant_meta_json, tones),
       stock: usesTones ? Object.values(toneStock).reduce((sum, value) => sum + Number(value || 0), 0) : product.stock,
     };
   });
@@ -74,6 +75,7 @@ router.get('/', requireAdminAuth, async (_req, res) => {
         COALESCE(SUM(CASE WHEN p.estado IN ('paid', 'shipped', 'delivered') THEN p.total_clp ELSE 0 END), 0) AS total_comprado
       FROM clientes c
       LEFT JOIN pedidos p ON p.cliente_id = c.id AND p.eliminado_en IS NULL
+      WHERE c.es_invitado=0
       GROUP BY c.id, c.nombre, c.email, c.rut, c.telefono, c.direccion, c.ciudad, c.region, c.tipo_piel, c.notas, c.activo, c.creado_en
       ORDER BY c.activo DESC, c.creado_en DESC, total_comprado DESC
     `);

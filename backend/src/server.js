@@ -3,8 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const { rateLimit } = require('express-rate-limit');
 const { getPool } = require('./config/db');
 const { ensureDiscountSchema } = require('./lib/discounts');
+const { ensureCheckoutSchema, createGuestSession } = require('./lib/checkoutAccess');
 const pedidosRouter = require('./routes/pedidos');
 const resenasRouter = require('./routes/resenas');
 
@@ -13,6 +15,7 @@ if (!process.env.JWT_SECRET) {
 }
 
 const app = express();
+app.set('trust proxy', 'loopback');
 const uploadsRoot = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
   : path.resolve(__dirname, '../uploads');
@@ -51,11 +54,16 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.post('/api/checkout/session', rateLimit({ windowMs: 15 * 60 * 1000, limit: 30,
+  standardHeaders: 'draft-7', legacyHeaders: false,
+  message: { error: 'Demasiados intentos. Espera unos minutos antes de continuar.' },
+}), createGuestSession);
 app.use('/uploads', express.static(uploadsRoot));
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/productos', require('./routes/productos'));
 app.use('/api/pedidos', pedidosRouter);
+app.use('/api/flow', require('./routes/flow'));
 app.use('/api/resenas', resenasRouter);
 app.use('/api/clientes', require('./routes/clientes'));
 app.use('/api/mensajes', require('./routes/mensajes'));
@@ -86,14 +94,18 @@ app.use((err, _req, res, _next) => {
 const PORT = process.env.PORT || 3000;
 getPool()
   .then(async pool => {
+    await ensureCheckoutSchema(pool);
     await ensureDiscountSchema(pool);
     await pedidosRouter.ensurePedidosSchema(pool);
+    await require('./routes/flow').ensureFlowSchema(pool);
+    await require('./lib/orderMail').ensureMailSchema(pool);
     await resenasRouter.ensureReviewsSchema(pool);
     await pedidosRouter.runOrderMaintenance();
     setInterval(() => {
       pedidosRouter.runOrderMaintenance().catch(err => {
         console.error('No se pudo ejecutar el mantenimiento de pedidos:', err.message);
       });
+      require('./lib/orderMail').retryOrderMail(pool).catch(err => console.error('No se pudieron reintentar correos:', err.message));
     }, 60 * 1000);
     app.listen(PORT, () => {
       console.log(`Bloomskin API corriendo en http://localhost:${PORT}`);

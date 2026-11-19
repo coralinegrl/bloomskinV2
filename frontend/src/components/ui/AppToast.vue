@@ -11,6 +11,7 @@
           <div class="toast-copy">
             <strong>{{ toast.title }}</strong>
             <p>{{ toast.message }}</p>
+            <button v-if="toast.action" class="toast-action" type="button" @click="toast.action(); ui.removeToast(toast.id)">{{ toast.actionLabel }}</button>
           </div>
           <button class="toast-close" @click="ui.removeToast(toast.id)" aria-label="Cerrar mensaje">
             x
@@ -45,7 +46,7 @@ const ui = useUiStore()
   align-items: flex-start;
   justify-content: space-between;
   padding: 14px 14px 14px 16px;
-  border-radius: 16px;
+  border-radius: 8px;
   border: 1px solid rgba(42, 24, 32, 0.08);
   box-shadow: 0 12px 30px rgba(42, 24, 32, 0.16);
   backdrop-filter: blur(16px);
@@ -65,6 +66,7 @@ const ui = useUiStore()
   line-height: 1.5;
   color: var(--dark-mid);
 }
+.toast-action { border: 0; background: transparent; padding: 10px 0; color: #9b315e; text-decoration: underline; min-height: 44px; }
 
 .toast-success {
   border-left: 4px solid #5d8d6a;

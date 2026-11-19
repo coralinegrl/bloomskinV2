@@ -1,8 +1,13 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { readStoredList, writeStoredList } from '../utils/browserStorage.js'
 
 export const useCartStore = defineStore('cart', () => {
-  const items = ref([])
+  const items = ref(readStoredList('bs_cart', 60).map(item => ({
+    ...item, cantidad: Math.max(1, Math.min(99, Math.floor(Number(item.cantidad) || 1))),
+    cart_key: `${item.id}::${String(item.tono_seleccionado || '')}`,
+  })))
+  watch(items, value => writeStoredList('bs_cart', value), { deep: true })
   const open  = ref(false)
   const view = ref('cart')
 
@@ -34,7 +39,7 @@ export const useCartStore = defineStore('cart', () => {
       items.value.push({ ...producto, cart_key: cartKey, cantidad: 1 })
     }
     view.value = 'cart'
-    open.value = true
+    // Adding a product should not interrupt browsing; the bag remains available in the header.
   }
 
   function quitar(cartKey) {

@@ -10,6 +10,18 @@ const apiOrigin = apiBaseUrl.startsWith('http')
 const publicApi = axios.create({ baseURL: apiBaseUrl, timeout: 10000 })
 const adminApi = axios.create({ baseURL: apiBaseUrl, timeout: 10000 })
 const clientApi = axios.create({ baseURL: apiBaseUrl, timeout: 10000 })
+const checkoutApi = axios.create({ baseURL: apiBaseUrl, timeout: 15000 })
+checkoutApi.interceptors.request.use(config => {
+  const token = localStorage.getItem('bs_client_token') || sessionStorage.getItem('bs_checkout_token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+export const checkoutSessionApi = {
+  config: () => publicApi.get('/flow/config'),
+  crear: data => checkoutApi.post('/checkout/session', data),
+  pedido: (id, token) => publicApi.get(`/pedidos/${id}/access`, { headers: { Authorization: `Bearer ${token}` } }),
+  pagarFlow: (id, token) => publicApi.post(`/flow/${id}/create`, {}, { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 }),
+}
 
 adminApi.interceptors.request.use(config => {
   const token = localStorage.getItem('bs_admin_token')
@@ -53,7 +65,7 @@ export const adminAuthApi = {
 export const clientAuthApi = {
   register: (payload) => publicApi.post('/auth/client/register', payload),
   login: (email, password) => publicApi.post('/auth/client/login', { email, password }),
-  requestPasswordReset: email => publicApi.post('/auth/client/request-password-reset', { email }),
+  requestPasswordReset: email => publicApi.post('/auth/client/request-password-reset', { email }, { timeout: 20000 }),
   resetPassword: payload => publicApi.post('/auth/client/reset-password', payload),
   me: () => clientApi.get('/auth/client/me'),
 }
@@ -93,18 +105,18 @@ export const pedidosApi = {
   exportarMensual: month => adminApi.get(`/pedidos/export/monthly?month=${encodeURIComponent(month)}`, { responseType: 'blob' }),
   crearManual: data => adminApi.post('/pedidos/manual', data),
   mine: () => clientApi.get('/pedidos/mine'),
-  reservaActual: () => clientApi.get('/pedidos/reservation/current'),
-  reservarCheckout: items => clientApi.post('/pedidos/reservation', { items }),
-  liberarReserva: () => clientApi.delete('/pedidos/reservation/current'),
+  reservaActual: () => checkoutApi.get('/pedidos/reservation/current'),
+  reservarCheckout: items => checkoutApi.post('/pedidos/reservation', { items }),
+  liberarReserva: () => checkoutApi.delete('/pedidos/reservation/current'),
   paymentConfig: () => publicApi.get('/pedidos/payment-config'),
   quoteShipping: payload => publicApi.post('/pedidos/shipping-quote', payload),
-  crearCliente: data => clientApi.post('/pedidos', data),
+  crearCliente: data => checkoutApi.post('/pedidos', data),
   subirComprobante: ({ pedidoId, file, email, codigo, token }) => {
     const formData = new FormData()
     formData.append('comprobante', file)
     if (email) formData.append('email', email)
     if (codigo) formData.append('codigo', codigo)
-    return (token ? clientApi : publicApi).post(`/pedidos/${pedidoId}/comprobante`, formData, {
+    return publicApi.post(`/pedidos/${pedidoId}/comprobante`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -148,6 +160,8 @@ export const settingsApi = {
 }
 
 export const mensajesApi = {
+  emailStatus: () => adminApi.get('/mensajes/email/status', { timeout: 15000 }),
+  testEmail: email => adminApi.post('/mensajes/email/test', { email }, { timeout: 20000 }),
   listar: () => adminApi.get('/mensajes'),
   listarSuscriptores: () => adminApi.get('/mensajes/suscriptores'),
   enviar: data => publicApi.post('/mensajes', data),

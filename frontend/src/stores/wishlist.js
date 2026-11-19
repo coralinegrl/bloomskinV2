@@ -2,9 +2,10 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { clientesApi } from '../api/index.js'
 import { useUiStore } from './ui.js'
+import { readStoredList, writeStoredList } from '../utils/browserStorage.js'
 
 export const useWishlistStore = defineStore('wishlist', () => {
-  const items = ref([])
+  const items = ref(readStoredList('bs_guest_wishlist'))
   const loading = ref(false)
   const loadedForUserId = ref(null)
 
@@ -17,7 +18,8 @@ export const useWishlistStore = defineStore('wishlist', () => {
 
   async function load(userId, { silent = false } = {}) {
     if (!userId) {
-      clear()
+      items.value = readStoredList('bs_guest_wishlist')
+      loadedForUserId.value = null
       return
     }
 
@@ -38,6 +40,12 @@ export const useWishlistStore = defineStore('wishlist', () => {
 
     loading.value = true
     try {
+      if (!localStorage.getItem('bs_client_token')) {
+        items.value = isWishlisted(productId) ? items.value.filter(item => Number(item.id) !== productId) : [product, ...items.value].slice(0, 40)
+        writeStoredList('bs_guest_wishlist', items.value)
+        ui.success(isWishlisted(productId) ? 'Guardado en tus favoritos de este dispositivo.' : 'Producto quitado de favoritos.')
+        return true
+      }
       const response = isWishlisted(productId)
         ? await clientesApi.quitarWishlist(productId)
         : await clientesApi.agregarWishlist(productId)
@@ -63,7 +71,7 @@ export const useWishlistStore = defineStore('wishlist', () => {
   }
 
   function clear() {
-    items.value = []
+    items.value = readStoredList('bs_guest_wishlist')
     loadedForUserId.value = null
     loading.value = false
   }

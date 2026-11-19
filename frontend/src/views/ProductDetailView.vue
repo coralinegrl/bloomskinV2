@@ -1,5 +1,6 @@
 <template>
   <div class="detail-page">
+    <AppHeader v-model:search-term="headerSearch" :cart-count="cart.count" :is-authenticated="customerAuth.isAuthenticated" @search-submit="router.push({ name: 'catalog', query: { q: headerSearch } })" @category-select="category => router.push({ name: 'catalog', query: { category } })" @cart-click="cart.openDrawer()" @favorites-click="router.push('/favoritos')" @account-click="customerAuth.isAuthenticated ? router.push('/mi-cuenta') : ui.openAuthModal()" />
     <div class="detail-shell">
       <RouterLink :to="{ name: 'catalog' }" class="back-link">← Volver al catálogo</RouterLink>
 
@@ -12,7 +13,7 @@
             <div class="gallery-image" :class="producto.img_clase">
               <img
                 v-if="hasRealImage"
-                :src="producto.imagen_url"
+                :src="displayProduct.imagen_url"
                 :alt="producto.nombre"
                 class="gallery-photo"
                 @error="imageBroken = true"
@@ -39,7 +40,7 @@
             </div>
 
             <div class="detail-price-row">
-              <strong>{{ fmt(producto.precio_clp) }}</strong>
+              <strong>{{ fmt(displayProduct.precio_clp) }}</strong>
               <span v-if="offerActive" class="detail-price-old">{{ fmt(producto.precio_oferta_clp) }}</span>
             </div>
 
@@ -83,7 +84,7 @@
 
             <div class="detail-notes">
               <div>Envío gratis sobre $49.990</div>
-              <div>Compra con tu cuenta Bloomskin</div>
+              <div>Compra con tu cuenta o como invitada</div>
               <div>Selección original de K-Beauty</div>
             </div>
           </div>
@@ -128,6 +129,7 @@
           </div>
         </section>
 
+        <div class="mobile-purchase-bar"><strong>{{ fmt(displayProduct.precio_clp) }}</strong><button type="button" :disabled="Number(producto.stock) === 0 || (Boolean(selectedTone) && selectedStock === 0)" @click="mobileBuy">{{ hasToneOptions && !selectedTone ? 'Elegir tipo' : 'Agregar al carrito' }}</button></div>
         <StoreFooter />
       </template>
     </div>
@@ -136,15 +138,25 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import AppHeader from '../components/store/AppHeader.vue'
 import StoreFooter from '../components/store/StoreFooter.vue'
 import ProductCard from '../components/store/ProductCard.vue'
 import StarRating from '../components/store/StarRating.vue'
 import { productosApi, reviewsApi } from '../api/index.js'
 import { useCartStore } from '../stores/cart.js'
 import { useUiStore } from '../stores/ui.js'
+import { useCustomerAuthStore } from '../stores/customerAuth.js'
+import { variantDisplay } from '../utils/productVariants.js'
+import { rememberProduct } from '../utils/browserStorage.js'
 
 const route = useRoute()
+const router = useRouter()
+const customerAuth = useCustomerAuthStore(), headerSearch = ref('')
+function mobileBuy() {
+  if (hasToneOptions.value && !selectedTone.value) document.querySelector('.tone-block')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  else addToCart()
+}
 const cart = useCartStore()
 const ui = useUiStore()
 
@@ -158,7 +170,9 @@ const imageBroken = ref(false)
 const selectedTone = ref('')
 let productLoadToken = 0
 
-const hasRealImage = computed(() => Boolean(producto.value?.imagen_url) && !imageBroken.value)
+const displayProduct = computed(() => variantDisplay(producto.value, selectedTone.value))
+const hasRealImage = computed(() => Boolean(displayProduct.value?.imagen_url) && !imageBroken.value)
+watch(selectedTone, () => { imageBroken.value = false })
 const hasToneOptions = computed(() => Boolean(producto.value?.usa_tonos && producto.value?.tonos?.length))
 const selectedStock = computed(() => {
   if (!producto.value) return 0
@@ -174,6 +188,7 @@ const availabilityLabel = computed(() => {
   return Number(producto.value.stock || 0) > 0 ? `${producto.value.stock} en stock` : 'Sin stock'
 })
 const offerActive = computed(() => {
+  if (producto.value?.variant_meta?.[selectedTone.value]?.precio_clp) return false
   if (!producto.value?.precio_oferta_clp) return false
   if (!producto.value?.oferta_hasta) return true
   const end = new Date(`${String(producto.value.oferta_hasta).slice(0, 10)}T23:59:59`)
@@ -229,6 +244,7 @@ async function loadProductData(productId = route.params.id, options = {}) {
     ])
     if (token !== productLoadToken) return
     producto.value = detail
+    rememberProduct(detail)
     allProducts.value = listing
     selectedTone.value = firstAvailableTone(detail)
     await loadProductReviews(productId, token)
@@ -303,12 +319,12 @@ function addToCart() {
   }
   for (let i = 0; i < qty.value; i += 1) {
     cart.agregar({
-      ...producto.value,
+      ...displayProduct.value,
       stock: availableStock,
       tono_seleccionado: hasToneOptions.value ? selectedTone.value : null,
     })
   }
-  ui.success(`${producto.value.nombre}${selectedTone.value ? ` · ${selectedTone.value}` : ''} se agregó al carrito.`)
+  ui.pushToast({ title: 'Agregado al carrito', message: producto.value.nombre, tone: 'success', duration: 5000, actionLabel: 'Ver carrito', action: () => cart.openDrawer() })
 }
 
 function fmt(n) {
@@ -331,6 +347,14 @@ function formatReviewDate(value) {
 </script>
 
 <style scoped>
+.mobile-purchase-bar { display: none; }
+@media(max-width:640px) {
+  .detail-page { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .mobile-purchase-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 80; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: white; border-top: 1px solid #f1cddd; }
+  .mobile-purchase-bar strong { font-size: 18px; white-space: nowrap; }
+  .mobile-purchase-bar button { min-height: 44px; padding: 8px 16px; background: #bd4f7a; color: white; border: 0; border-radius: 6px; }
+  .mobile-purchase-bar button:disabled { opacity: .5; }
+}
 .detail-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #fffafc 0%, #f7f1f3 100%);

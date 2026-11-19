@@ -32,7 +32,7 @@
         <span class="review-count">({{ producto.resenas }})</span>
       </div>
       <div class="product-price">
-        <span class="price-current">{{ fmt(producto.precio_clp) }}</span>
+        <span class="price-current">{{ hasDifferentPrices ? 'Desde ' : '' }}{{ fmt(listingPrice) }}</span>
         <span v-if="offerActive" class="price-old">{{ fmt(producto.precio_oferta_clp) }}</span>
       </div>
       <div v-if="producto.stock === 0" class="stock-out">Sin stock</div>
@@ -48,9 +48,9 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { Heart } from 'lucide-vue-next'
+import { variantDisplay } from '../../utils/productVariants.js'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cart.js'
-import { useCustomerAuthStore } from '../../stores/customerAuth.js'
 import { useUiStore } from '../../stores/ui.js'
 import { useWishlistStore } from '../../stores/wishlist.js'
 import StarRating from './StarRating.vue'
@@ -65,7 +65,6 @@ const props = defineProps({
 const emit = defineEmits(['quick-view'])
 const router = useRouter()
 const cart = useCartStore()
-const customerAuth = useCustomerAuthStore()
 const wishlist = useWishlistStore()
 const ui = useUiStore()
 const imageBroken = ref(false)
@@ -73,7 +72,11 @@ const imageBroken = ref(false)
 const hasRealImage = computed(() => Boolean(props.producto.imagen_url) && !imageBroken.value)
 const wishlisted = computed(() => wishlist.isWishlisted(props.producto.id))
 const hasToneOptions = computed(() => Boolean(props.producto.usa_tonos && props.producto.tonos?.length))
+const variantPrices = computed(() => hasToneOptions.value ? props.producto.tonos.map(tone => Number(variantDisplay(props.producto, tone).precio_clp)) : [Number(props.producto.precio_clp)])
+const listingPrice = computed(() => Math.min(...variantPrices.value))
+const hasDifferentPrices = computed(() => new Set(variantPrices.value).size > 1)
 const offerActive = computed(() => {
+  if (hasToneOptions.value && variantPrices.value.some(price => price !== Number(props.producto.precio_clp))) return false
   if (!props.producto.precio_oferta_clp) return false
   if (!props.producto.oferta_hasta) return true
   const end = new Date(`${String(props.producto.oferta_hasta).slice(0, 10)}T23:59:59`)
@@ -95,10 +98,6 @@ function fmt(n) {
 }
 
 function toggleWishlist() {
-  if (!customerAuth.isAuthenticated) {
-    ui.openAuthModal('login')
-    return
-  }
   void wishlist.toggle(props.producto)
 }
 
@@ -113,6 +112,7 @@ function agregar() {
     return
   }
   cart.agregar(props.producto)
+  ui.pushToast({ title: 'Agregado al carrito', message: props.producto.nombre, tone: 'success', duration: 5000, actionLabel: 'Ver carrito', action: () => cart.openDrawer() })
 }
 
 function openProduct() {

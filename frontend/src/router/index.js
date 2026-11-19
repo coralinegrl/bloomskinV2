@@ -3,6 +3,8 @@ import { useAuthStore } from '../stores/auth.js'
 import { useCustomerAuthStore } from '../stores/customerAuth.js'
 
 const routes = [
+  { path: '/favoritos', name: 'saved-products', component: () => import('../views/SavedProductsView.vue') },
+  { path: '/pedido/:id', name: 'order-access', component: () => import('../views/OrderAccessView.vue') },
   {
     path: '/',
     name: 'store',

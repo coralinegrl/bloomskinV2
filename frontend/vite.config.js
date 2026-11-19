@@ -9,8 +9,8 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': { target: 'http://localhost:3000', changeOrigin: true },
-      '/uploads': { target: 'http://localhost:3000', changeOrigin: true }
+      '/api': { target: process.env.DEV_API_TARGET || 'http://localhost:3000', changeOrigin: true },
+      '/uploads': { target: process.env.DEV_API_TARGET || 'http://localhost:3000', changeOrigin: true }
     }
   }
 })

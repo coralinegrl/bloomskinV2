@@ -16,7 +16,7 @@
           </button>
           <button
             class="step-chip"
-            :class="{ active: cart.view === 'checkout', locked: !customerAuth.isAuthenticated }"
+            :class="{ active: cart.view === 'checkout' }"
             type="button"
             @click="openCheckoutStep"
           >
@@ -28,6 +28,7 @@
           <strong>Tu carrito está vacío</strong>
           <p>Agrega productos desde la tienda o el catálogo para empezar tu compra.</p>
           <button class="ghost-btn" type="button" @click="closeDrawer">Seguir comprando</button>
+          <a v-if="lastOrder" class="ghost-btn" :href="`/pedido/${lastOrder.id}`" @click="closeDrawer">Ver mi último pedido {{ lastOrder.codigo }}</a>
         </div>
 
         <template v-else>
@@ -57,6 +58,20 @@
             </div>
 
             <div class="summary-card">
+              <details class="shipping-estimator">
+                <summary>Calcular despacho o elegir retiro</summary>
+                <div class="payment-options"><label><input v-model="deliveryMode" type="radio" value="delivery"> Despacho a domicilio</label><label><input v-model="deliveryMode" type="radio" value="pickup"> Retiro sin costo</label></div>
+                <div v-if="deliveryMode === 'delivery'" class="form-grid">
+                  <label class="field-block"><span>Región</span><select v-model="shippingForm.region"><option value="">Selecciona una región</option><option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option></select></label>
+                  <label class="field-block"><span>Comuna / ciudad</span><input v-model.trim="shippingForm.city" autocomplete="address-level2"></label>
+                  <label class="field-block"><span>Calle</span><input v-model.trim="shippingForm.street" autocomplete="address-line1"></label>
+                  <label class="field-block"><span>Número</span><input v-model.trim="shippingForm.number" inputmode="numeric"></label>
+                  <button class="ghost-btn" :disabled="shippingLoading" type="button" @click="calculateShipping">{{ shippingLoading ? 'Calculando…' : 'Calcular despacho' }}</button>
+                </div>
+                <p v-else class="panel-copy">Retiro coordinado en Oficina Lina 210, Antofagasta.</p>
+                <p v-if="shippingError" role="alert" class="panel-error">{{ shippingError }}</p>
+                <p v-if="shippingQuote" class="panel-ok">{{ shippingQuote.provider }} · {{ shippingQuote.tier_label }}</p>
+              </details>
               <div class="summary-row">
                 <span>Subtotal</span>
                 <strong>{{ fmt(cart.total) }}</strong>
@@ -67,8 +82,9 @@
               </div>
               <div class="summary-row muted">
                 <span>Envío</span>
-                <span>Se calcula en checkout</span>
+                <span>{{ shippingValueLabel }}</span>
               </div>
+              <div class="summary-row total"><span>Total {{ shippingQuote || deliveryMode === 'pickup' ? '' : 'sin despacho' }}</span><strong>{{ fmt(orderTotal) }}</strong></div>
               <div class="summary-banner">
                 <strong>{{ cart.total >= 49990 ? 'Ya tienes envío gratis.' : `Te faltan ${fmt(49990 - cart.total)} para envío gratis.` }}</strong>
                 <span>Antofagasta se calcula por distancia. Fuera de Antofagasta usamos Blue Express.</span>
@@ -80,7 +96,7 @@
           </div>
 
           <div v-else class="drawer-body checkout-body">
-            <div v-if="customerAuth.isAuthenticated && cart.items.length > 0 && !checkoutOk" class="checkout-panel reservation-panel">
+            <div v-if="reservationInfo && cart.items.length > 0 && !checkoutOk" class="checkout-panel reservation-panel">
               <strong>Tu carrito está reservado por {{ reservationCountdownLabel }}</strong>
               <p class="panel-copy">Tienes 20 minutos para terminar la compra antes de que el stock vuelva a liberarse automáticamente.</p>
               <p v-if="reservationLoading" class="panel-copy">Actualizando reserva...</p>
@@ -114,16 +130,15 @@
               </div>
             </div>
 
-            <div v-if="!customerAuth.isAuthenticated" class="checkout-panel login-panel">
-              <strong>Necesitas iniciar sesión para continuar</strong>
-              <p>Tu carrito ya está listo. Abre el acceso en el modal y vuelves aquí al terminar.</p>
+            <div v-if="!customerAuth.isAuthenticated && !checkoutOk" class="checkout-panel login-panel">
+              <strong>Compra como invitada</strong>
+              <p>No necesitas crear una cuenta. Te enviaremos un enlace seguro para seguir tu pedido.</p>
               <div class="login-actions">
-                <button class="primary-btn" type="button" @click="ui.openAuthModal('login')">Iniciar sesión</button>
-                <button class="ghost-btn" type="button" @click="ui.openAuthModal('register')">Crear cuenta</button>
+                <button class="text-btn" type="button" @click="ui.openAuthModal('login')">¿Ya tienes cuenta? Iniciar sesión</button>
               </div>
             </div>
 
-            <template v-else-if="!checkoutOk">
+            <template v-if="!checkoutOk">
               <div class="checkout-panel">
                 <div class="panel-head">
                   <strong>Cómo quieres recibir tu pedido</strong>
@@ -238,7 +253,7 @@
 
                   <label class="field-block">
                     <span>Email</span>
-                    <input :value="customerAuth.user?.email || ''" type="email" disabled />
+                    <input v-model.trim="guestEmail" type="email" autocomplete="email" :disabled="customerAuth.isAuthenticated || submitting" />
                   </label>
 
                   <label class="field-block">
@@ -251,37 +266,6 @@
                     <span>Teléfono</span>
                     <input :value="profileForm.telefono" type="text" placeholder="+56 9 1234 5678" :disabled="submitting" @input="profileForm.telefono = formatPhoneInput($event.target.value)" />
                     <small v-if="profileErrors.telefono" class="field-error">{{ profileErrors.telefono }}</small>
-                  </label>
-
-                  <label class="field-block">
-                    <span>Calle</span>
-                    <input v-model.trim="profileForm.street" type="text" placeholder="Av. Grecia" :disabled="submitting" />
-                    <small v-if="profileErrors.direccion" class="field-error">{{ profileErrors.direccion }}</small>
-                  </label>
-
-                  <label class="field-block">
-                    <span>Número</span>
-                    <input v-model.trim="profileForm.number" type="text" placeholder="860" :disabled="submitting" />
-                  </label>
-
-                  <label class="field-block">
-                    <span>Depto / Oficina</span>
-                    <input v-model.trim="profileForm.apartment" type="text" placeholder="Depto 402" :disabled="submitting" />
-                  </label>
-
-                  <label class="field-block">
-                    <span>Comuna / Ciudad</span>
-                    <input v-model.trim="profileForm.city" type="text" placeholder="Antofagasta" :disabled="submitting" />
-                    <small v-if="profileErrors.ciudad" class="field-error">{{ profileErrors.ciudad }}</small>
-                  </label>
-
-                  <label class="field-block full-span">
-                    <span>Región</span>
-                    <select v-model="profileForm.region" :disabled="submitting">
-                      <option value="">Selecciona una región</option>
-                      <option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option>
-                    </select>
-                    <small v-if="profileErrors.region" class="field-error">{{ profileErrors.region }}</small>
                   </label>
 
                   <label class="field-block full-span">
@@ -320,13 +304,14 @@
               </div>
 
               <div class="checkout-panel">
-                <strong>Pago por transferencia</strong>
-                <p class="panel-copy">Creas el pedido, transfieres el total exacto y luego subes tu comprobante.</p>
-                <p v-if="transferConfigWarning" class="panel-error">{{ transferConfigWarning }}</p>
+                <strong>Forma de pago</strong>
+                <div class="payment-options"><label><input v-model="paymentMethod" type="radio" value="bank_transfer"> Transferencia bancaria</label><label v-if="flowEnabled"><input v-model="paymentMethod" type="radio" value="flow"> Pago online con Flow</label></div>
+                <p class="panel-copy">{{ paymentMethod === 'flow' ? 'Te llevaremos al pago seguro de Flow. No necesitamos los datos de tu tarjeta.' : 'Creas el pedido, transfieres el total exacto y luego subes tu comprobante.' }}</p>
+                <p v-if="paymentMethod === 'bank_transfer' && transferConfigWarning" class="panel-error">{{ transferConfigWarning }}</p>
                 <p v-else-if="checkoutError" class="panel-error">{{ checkoutError }}</p>
                 <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Ayuda por WhatsApp</a>
-                <button class="primary-btn" type="button" :disabled="submitting || shippingLoading || !isTransferReady" @click="handleCheckout">
-                  {{ submitting ? 'Creando pedido...' : 'Crear pedido por transferencia' }}
+                <button class="primary-btn" type="button" :disabled="submitting || shippingLoading || (paymentMethod === 'bank_transfer' && !isTransferReady)" @click="handleCheckout">
+                  {{ submitting ? 'Creando pedido...' : paymentMethod === 'flow' ? 'Continuar a Flow' : 'Crear pedido por transferencia' }}
                 </button>
               </div>
             </template>
@@ -334,7 +319,8 @@
             <template v-else>
               <div class="checkout-panel success-panel">
                 <strong>Pedido {{ checkoutOk.codigo }} creado</strong>
-                <p>Transfiere {{ fmt(checkoutOk.total_clp) }} y luego sube tu comprobante.</p>
+                <p>{{ checkoutOk.metodo_pago === 'flow' ? 'Continúa el pago seguro desde el enlace de tu pedido.' : `Transfiere ${fmt(checkoutOk.total_clp)} y luego sube tu comprobante.` }}</p>
+                <a class="primary-btn" :href="checkoutOk.access_url">Ver y continuar mi pedido</a>
                 <p class="panel-copy">Usa <strong>{{ checkoutOk.codigo }}</strong> como asunto o referencia de la transferencia.</p>
                 <p class="panel-copy" v-if="checkoutOk.comprobante_limite_en">
                   Tienes <strong>{{ uploadProofCountdownLabel }}</strong> para subir tu comprobante antes de que el pedido se cancele automáticamente.
@@ -342,7 +328,7 @@
                 <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Enviar dudas por WhatsApp</a>
               </div>
 
-              <div class="checkout-panel">
+              <div v-if="checkoutOk.metodo_pago !== 'flow'" class="checkout-panel">
                 <div class="panel-head">
                   <strong>Datos de transferencia</strong>
                   <button class="text-btn" type="button" @click="copyAllTransferData">Copiar todo</button>
@@ -360,7 +346,7 @@
                 <p class="panel-copy">{{ paymentConfig?.transfer?.instructions }}</p>
               </div>
 
-              <div class="checkout-panel">
+              <div v-if="checkoutOk.metodo_pago !== 'flow'" class="checkout-panel">
                 <strong>Sube tu comprobante</strong>
                 <input class="proof-input" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/bmp,image/tiff" @change="handleProofSelected" :disabled="proofUploading" />
                 <p class="panel-copy">Aceptamos imágenes JPG, PNG, WebP, HEIC, BMP o TIFF de hasta 5 MB.</p>
@@ -393,8 +379,10 @@
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { X } from 'lucide-vue-next'
+import { checkoutSessionApi } from '../../api/index.js'
 import { useRouter } from 'vue-router'
-import { descuentosApi, pedidosApi, settingsApi } from '../../api/index.js'
+import { descuentosApi, pedidosApi, productosApi, settingsApi } from '../../api/index.js'
+import { variantDisplay } from '../../utils/productVariants.js'
 import { useCartStore } from '../../stores/cart.js'
 import { useCustomerAuthStore } from '../../stores/customerAuth.js'
 import { useUiStore } from '../../stores/ui.js'
@@ -446,6 +434,11 @@ const timerInterval = window.setInterval(() => {
 }, 1000)
 
 const profileForm = reactive(buildProfileForm(customerAuth.user))
+const guestEmail = ref(customerAuth.user?.email || '')
+const lastOrder = ref(readLastOrder())
+function readLastOrder() { try { const value = JSON.parse(sessionStorage.getItem('bs_last_order') || 'null'); return Number.isSafeInteger(value?.id) && value.id > 0 ? value : null } catch { return null } }
+const paymentMethod = ref('bank_transfer')
+const flowEnabled = ref(false)
 const shippingForm = reactive({
   street: '',
   number: '',
@@ -495,7 +488,7 @@ const shippingValueLabel = computed(() => {
   if (shippingQuote.value.fee_clp === 0) return 'Gratis'
   return fmt(shippingQuote.value.fee_clp)
 })
-const isTransferReady = computed(() => paymentConfig.value?.transfer?.is_complete !== false)
+const isTransferReady = computed(() => paymentConfig.value?.transfer?.is_complete === true)
 const transferConfigWarning = computed(() => {
   if (isTransferReady.value) return ''
   return 'La tienda aún no tiene completos los datos bancarios para recibir transferencias. Configúralos en admin antes de crear pedidos.'
@@ -512,6 +505,7 @@ function resetShippingErrors() {
 watch(
   () => customerAuth.user,
   user => {
+    guestEmail.value = user?.email || guestEmail.value
     Object.assign(profileForm, buildProfileForm(user))
     if (!shippingForm.region) shippingForm.region = user?.region || ''
     if (!shippingForm.city) shippingForm.city = user?.ciudad || ''
@@ -542,7 +536,6 @@ watch(
     shippingError.value = ''
     if (checkoutOk.value || cart.view !== 'checkout' || deliveryMode.value !== 'delivery') return
     clearTimeout(shippingDebounce)
-    if (!customerAuth.isAuthenticated) return
     shippingDebounce = setTimeout(() => {
       calculateShipping()
     }, 600)
@@ -579,7 +572,8 @@ watch(
 watch(
   () => cart.items.map(item => `${item.id}:${item.cantidad}:${item.tono_seleccionado || ''}`).join('|'),
   () => {
-    if (checkoutOk.value || cart.view !== 'checkout' || !customerAuth.isAuthenticated || cart.items.length === 0) return
+    if (checkoutOk.value && cart.items.length) checkoutOk.value = null
+    if (checkoutOk.value || cart.view !== 'checkout' || (!customerAuth.isAuthenticated && !sessionStorage.getItem('bs_checkout_token')) || cart.items.length === 0) return
     clearTimeout(reservationSyncDebounce)
     reservationSyncDebounce = setTimeout(() => {
       void syncCheckoutReservation()
@@ -641,11 +635,13 @@ watch(
 
     if (!paymentConfig.value) {
       try {
-        const [{ data }, { data: siteData }] = await Promise.all([
+        const [{ data }, { data: siteData }, { data: flowData }] = await Promise.all([
           pedidosApi.paymentConfig(),
           settingsApi.site(),
+          checkoutSessionApi.config().catch(() => ({ data: { enabled: false } })),
         ])
         paymentConfig.value = data
+        flowEnabled.value = flowData.enabled === true
         if (siteData?.footer?.whatsapp_url) whatsappUrl.value = siteData.footer.whatsapp_url
       } catch (error) {
         console.error(error)
@@ -676,7 +672,7 @@ function cartReservationKey(items) {
 }
 
 async function releaseCheckoutReservation() {
-  if (!customerAuth.isAuthenticated || !reservationInfo.value) return
+  if ((!customerAuth.isAuthenticated && !sessionStorage.getItem('bs_checkout_token')) || !reservationInfo.value) return
   try {
     await pedidosApi.liberarReserva()
   } catch (error) {
@@ -688,7 +684,7 @@ async function releaseCheckoutReservation() {
 }
 
 async function syncCheckoutReservation() {
-  if (!customerAuth.isAuthenticated || checkoutOk.value || cart.items.length === 0) return
+  if ((!customerAuth.isAuthenticated && !sessionStorage.getItem('bs_checkout_token')) || checkoutOk.value || cart.items.length === 0) return
   reservationLoading.value = true
   reservationError.value = ''
   try {
@@ -709,11 +705,26 @@ async function syncCheckoutReservation() {
   }
 }
 
-function openCheckoutStep() {
-  if (!customerAuth.isAuthenticated) {
-    ui.openAuthModal('login')
-    return
-  }
+async function openCheckoutStep() {
+  if (checkoutOk.value) { cart.view = 'checkout'; return }
+  try {
+    if (!reservationInfo.value && (customerAuth.isAuthenticated || sessionStorage.getItem('bs_checkout_token'))) {
+      const { data } = await pedidosApi.reservaActual()
+      reservationInfo.value = data.reservation || null
+      reservationCartKey.value = data.reservation ? cartReservationKey(data.reservation.items) : ''
+    }
+    const { data } = await productosApi.listar()
+    const refreshed = cart.items.map(item => {
+      const product = data.find(p => Number(p.id) === Number(item.id))
+      if (!product) throw new Error(`${item.nombre} ya no está disponible. Quítalo del carrito para continuar.`)
+      const tone = item.tono_seleccionado
+      const held = reservationInfo.value?.items?.find(i => i.producto_id === item.id && String(i.tono_seleccionado || '') === String(tone || ''))?.cantidad || 0
+      const stock = (tone ? Number(product.tonos_stock?.[tone] || 0) : Number(product.stock)) + held
+      if (stock < item.cantidad) throw new Error(`Revisa ${item.nombre}: quedan ${stock} unidades de ese tipo.`)
+      return { ...variantDisplay(product, tone), tono_seleccionado: tone, stock, cantidad: item.cantidad, cart_key: item.cart_key }
+    })
+    cart.items = refreshed
+  } catch (error) { ui.error(error.response?.data?.error || error.message || 'No pudimos revisar el carrito. Intenta nuevamente.'); return }
   cart.view = 'checkout'
   void syncCheckoutReservation()
   if (deliveryMode.value === 'delivery' && !shippingQuote.value && !shippingLoading.value) {
@@ -774,7 +785,7 @@ function clearDiscountCode() {
 }
 
 async function calculateShipping() {
-  if (!customerAuth.isAuthenticated || checkoutOk.value) return
+  if (checkoutOk.value) return
   if (deliveryMode.value !== 'delivery') {
     shippingQuote.value = null
     shippingError.value = ''
@@ -822,11 +833,11 @@ async function handleCheckout() {
 
     const profilePayload = buildApiCustomerPayload({
       ...profileForm,
-      email: customerAuth.user?.email || '',
+      email: customerAuth.user?.email || guestEmail.value,
     })
     const profileValidation = validateCustomerProfile(profilePayload, {
       requirePassword: false,
-      requireAddress: deliveryMode.value === 'delivery',
+      requireAddress: false,
     })
     if (profileValidation.errors.length) {
       profileErrors.nombre = profileValidation.errors.find(msg => msg.startsWith('Nombre')) || ''
@@ -858,9 +869,13 @@ async function handleCheckout() {
         return
       }
     }
-    if (!isTransferReady.value) {
+    if (paymentMethod.value === 'bank_transfer' && !isTransferReady.value) {
       checkoutError.value = transferConfigWarning.value
       return
+    }
+    if (!customerAuth.isAuthenticated) {
+      const { data } = await checkoutSessionApi.crear(profileValidation.normalized)
+      sessionStorage.setItem('bs_checkout_token', data.token)
     }
     if (!reservationInfo.value) {
       await syncCheckoutReservation()
@@ -870,9 +885,9 @@ async function handleCheckout() {
       return
     }
 
-    const profileUpdated = await customerAuth.updateProfile({
+    const profileUpdated = !customerAuth.isAuthenticated || await customerAuth.updateProfile({
       ...profileValidation.normalized,
-      skip_address_validation: deliveryMode.value !== 'delivery',
+      skip_address_validation: true,
     })
     if (!profileUpdated) {
       checkoutError.value = customerAuth.error || 'No se pudo actualizar tu perfil antes de comprar.'
@@ -886,7 +901,7 @@ async function handleCheckout() {
         tono_seleccionado: item.tono_seleccionado || null,
       })),
       notas: checkoutNotas.value || null,
-      metodo_pago: 'bank_transfer',
+      metodo_pago: paymentMethod.value,
       delivery_mode: deliveryMode.value,
       discount_code: appliedDiscount.value?.code || null,
       region_envio: shippingValidation.normalized.region,
@@ -896,11 +911,18 @@ async function handleCheckout() {
     })
 
     checkoutOk.value = pedido
+    sessionStorage.setItem(`bs_order_${pedido.id}`, pedido.access_token)
+    sessionStorage.setItem('bs_last_order', JSON.stringify({ id: pedido.id, codigo: pedido.codigo, url: pedido.access_url }))
+    lastOrder.value = { id: pedido.id, codigo: pedido.codigo }
     reservationInfo.value = null
     reservationCartKey.value = ''
     cart.vaciar()
     checkoutNotas.value = ''
-    ui.success(`Tu pedido ${checkoutOk.value.codigo} fue creado. Ahora transfiere y sube tu comprobante.`)
+    ui.success(pedido.metodo_pago === 'flow' ? `Tu pedido ${pedido.codigo} fue creado. Continúa con Flow.` : `Tu pedido ${pedido.codigo} fue creado. Ahora transfiere y sube tu comprobante.`)
+    if (pedido.metodo_pago === 'flow') {
+      const { data } = await checkoutSessionApi.pagarFlow(pedido.id, pedido.access_token)
+      window.location.assign(data.url)
+    }
   } catch (err) {
     const message = apiErrorMessage(err, 'No se pudo crear el pedido.')
     if (isDiscountErrorMessage(message)) {
@@ -973,7 +995,7 @@ async function uploadProof() {
       file: proofFile.value,
       email: null,
       codigo: checkoutOk.value.codigo,
-      token: customerAuth.token,
+      token: checkoutOk.value.access_token || customerAuth.token,
     })
     proofUploadedUrl.value = data.comprobante_url
     ui.success('Comprobante subido correctamente.')
@@ -1012,7 +1034,8 @@ async function copyAllTransferData() {
 function goToOrdersFromProofModal() {
   proofSuccessModalOpen.value = false
   cart.open = false
-  router.push({ name: 'customer-account', hash: '#mis-pedidos' })
+  if (customerAuth.isAuthenticated) router.push({ name: 'customer-account', hash: '#mis-pedidos' })
+  else router.push({ name: 'order-access', params: { id: checkoutOk.value.id } })
 }
 
 onBeforeUnmount(() => {
@@ -1023,6 +1046,12 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.shipping-estimator { margin-bottom: 18px; }
+.shipping-estimator summary { cursor: pointer; min-height: 44px; font-weight: 600; }
+.shipping-estimator .form-grid { margin: 16px 0; }
+.payment-options { display: grid; gap: 12px; margin: 16px 0; }
+.payment-options label { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; }
+.payment-options input { width: 20px; height: 20px; accent-color: var(--rose-dark); }
 .drawer-overlay {
   position: fixed;
   inset: 0;
