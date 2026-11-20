@@ -2,9 +2,10 @@
 
 ## Estado de Flow
 
-La integracion esta preparada, pero NO debe activarse en produccion hasta
-configurar las credenciales y completar una prueba real de sandbox.
-La transferencia bancaria sigue disponible mientras tanto.
+Flow fue habilitado en produccion el 19 de noviembre de 2026, despues de
+verificar las credenciales y completar las pruebas reales de Sandbox.
+La transferencia bancaria sigue disponible como alternativa.
+Queda pendiente la primera compra real controlada por el comercio.
 
 1. Entra a tu cuenta de Flow y verifica que tu comercio este habilitado.
 2. Consulta la documentacion oficial: https://developers.flow.cl/api.
@@ -120,8 +121,8 @@ Se completo el simulador real de Flow Sandbox, no solo respuestas mock:
   alerta de conciliacion en admin y sin inflar el resumen de ventas.
 - Credenciales productivas verificadas mediante una consulta sin cobro.
 
-Flow en produccion permanece desactivado. Falta autorizar la activacion
-y efectuar una primera compra real controlada; Sandbox no prueba la
+Flow en produccion esta habilitado. Falta efectuar una primera compra
+real controlada por el comercio; Sandbox no prueba la
 liquidacion bancaria real ni garantiza entrega de correos a la bandeja.
 
 ## Mantenimiento pendiente
