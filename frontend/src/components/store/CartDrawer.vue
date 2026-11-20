@@ -306,7 +306,7 @@
               <div class="checkout-panel">
                 <strong>Forma de pago</strong>
                 <div class="payment-options"><label><input v-model="paymentMethod" type="radio" value="bank_transfer"> Transferencia bancaria</label><label v-if="flowEnabled"><input v-model="paymentMethod" type="radio" value="flow"> Pago online con Flow</label></div>
-                <p class="panel-copy">{{ paymentMethod === 'flow' ? 'Te llevaremos al pago seguro de Flow. No necesitamos los datos de tu tarjeta.' : 'Creas el pedido, transfieres el total exacto y luego subes tu comprobante.' }}</p>
+                <p class="panel-copy">{{ paymentMethod === 'flow' ? 'Abriremos el pago seguro de Flow en otra pestaña. Tu pedido seguirá disponible aquí.' : 'Creas el pedido, transfieres el total exacto y luego subes tu comprobante.' }}</p>
                 <p v-if="paymentMethod === 'bank_transfer' && transferConfigWarning" class="panel-error">{{ transferConfigWarning }}</p>
                 <p v-else-if="checkoutError" class="panel-error">{{ checkoutError }}</p>
                 <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Ayuda por WhatsApp</a>
@@ -383,6 +383,7 @@ import { checkoutSessionApi } from '../../api/index.js'
 import { useRouter } from 'vue-router'
 import { descuentosApi, pedidosApi, productosApi, settingsApi } from '../../api/index.js'
 import { variantDisplay } from '../../utils/productVariants.js'
+import { reserveFlowTab, navigateFlowTab, closeFlowTab } from '../../utils/flowPayment.mjs'
 import { useCartStore } from '../../stores/cart.js'
 import { useCustomerAuthStore } from '../../stores/customerAuth.js'
 import { useUiStore } from '../../stores/ui.js'
@@ -821,6 +822,9 @@ async function calculateShipping() {
 }
 
 async function handleCheckout() {
+  if (submitting.value) return
+  let paymentTab = null
+  let flowOpened = false
   checkoutError.value = ''
   checkoutOk.value = null
   proofFile.value = null
@@ -861,6 +865,8 @@ async function handleCheckout() {
       checkoutError.value = shippingValidation.errors[0]
       return
     }
+
+    if (paymentMethod.value === 'flow') paymentTab = reserveFlowTab()
 
     if (deliveryMode.value === 'delivery' && !shippingQuote.value) {
       await calculateShipping()
@@ -919,9 +925,10 @@ async function handleCheckout() {
     cart.vaciar()
     checkoutNotas.value = ''
     ui.success(pedido.metodo_pago === 'flow' ? `Tu pedido ${pedido.codigo} fue creado. Continúa con Flow.` : `Tu pedido ${pedido.codigo} fue creado. Ahora transfiere y sube tu comprobante.`)
-    if (pedido.metodo_pago === 'flow') {
+    if (pedido.metodo_pago === 'flow' && paymentTab) {
       const { data } = await checkoutSessionApi.pagarFlow(pedido.id, pedido.access_token)
-      window.location.assign(data.url)
+      flowOpened = navigateFlowTab(paymentTab, data.url)
+      if (flowOpened) paymentTab = null
     }
   } catch (err) {
     const message = apiErrorMessage(err, 'No se pudo crear el pedido.')
@@ -934,7 +941,12 @@ async function handleCheckout() {
     }
     ui.error(checkoutError.value)
   } finally {
+    closeFlowTab(paymentTab)
     submitting.value = false
+    if (checkoutOk.value?.metodo_pago === 'flow') {
+      cart.open = false
+      router.push({ name: 'order-access', params: { id: checkoutOk.value.id }, query: { flow: flowOpened ? 'opened' : 'pending' } })
+    }
   }
 }
 

@@ -39,6 +39,14 @@ La aplicacion envia ambas URLs al crear el pago. No marques un pedido
 como pagado solo porque la compradora regreso del proveedor: el backend
 consulta el estado firmado y verifica moneda, monto y numero de pedido.
 
+Flow se abre en otra pestana desde el checkout y desde el enlace privado
+del pedido. La pestana original conserva el resumen y consulta el estado
+al recuperar el foco y cada 15 segundos mientras permanece visible y
+pendiente de pago. Si el navegador bloquea la apertura, se puede continuar
+desde el mismo pedido; no se crea otro pedido para volver a abrir Flow.
+Las pestanas preparatorias se cierran si falla la operacion y la pagina
+externa no conserva acceso a la ventana de origen.
+
 Si Flow informa un pago cuando el pedido ya estaba cancelado, no se vuelve
 a descontar stock ni a preparar el pedido automaticamente. Aparece en
 "Correos y pagos" para conciliar el pago y coordinar entrega o devolucion.
@@ -72,6 +80,13 @@ cuenta, a otros pedidos o al panel de administracion.
 ## Verificacion tecnica
 
 Desde `backend`: `node --test src/lib/commerce.test.js src/lib/siteSettings.test.js`.
+Desde la raiz: `node --test frontend/tests/flowPayment.test.mjs`.
+Con el frontend local en el puerto 4185 y Playwright disponible,
+`node frontend/tests/flowTabs.browser.cjs` verifica Chrome, Edge y WebKit
+en movil y escritorio. `PLAYWRIGHT_MODULE_PATH` admite una instalacion
+externa y `QA_BASE_URL` otro servidor. Todas las llamadas API y paginas
+de Flow de esa prueba se simulan: no crea pedidos ni cobros reales.
+
 `node src/scripts/qa-commerce.js` crea una base `bloomskin_qa_<fecha>`,
 sin modificar pedidos ni existencias de produccion. Simula Flow y desactiva
 SMTP; no genera cargos ni correos reales. Usa el puerto 3001, que debe

@@ -12,7 +12,11 @@
       <section v-if="canPay" class="payment-section">
         <h2>{{ order.metodo_pago === 'flow' ? 'Completa tu pago con Flow' : 'Pago por transferencia' }}</h2>
         <p>Plazo para completar el pago: {{ deadline }}. Después de ese plazo se libera la reserva.</p>
-        <template v-if="order.metodo_pago === 'flow'"><button :disabled="busy" @click="payFlow">{{ busy ? 'Preparando…' : 'Pagar con Flow' }}</button></template>
+        <template v-if="order.metodo_pago === 'flow'">
+          <p>El pago se abre en otra pestaña. Este pedido se actualiza al volver.</p>
+          <a v-if="flowUrl" :href="flowUrl" target="_blank" rel="noopener noreferrer" class="flow-link" @click="feedback = 'Completa el pago en la pestaña de Flow. No vuelvas a pagar si ya recibiste un cargo.'">Abrir Flow en otra pestaña</a>
+          <button v-else :disabled="busy" @click="payFlow">{{ busy ? 'Preparando…' : 'Pagar con Flow' }}</button>
+        </template>
         <template v-else>
           <dl><dt>Banco</dt><dd>{{ order.transfer.bank_name }}</dd><dt>Tipo</dt><dd>{{ order.transfer.account_type }}</dd><dt>Cuenta</dt><dd>{{ order.transfer.account_number }}</dd><dt>Titular</dt><dd>{{ order.transfer.account_holder }}</dd><dt>RUT</dt><dd>{{ order.transfer.account_rut }}</dd><dt>Referencia</dt><dd>{{ order.codigo }}</dd></dl>
           <button @click="copyTransfer">Copiar datos de transferencia</button>
@@ -28,28 +32,38 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { checkoutSessionApi, pedidosApi } from '../api/index.js'
 import { useUiStore } from '../stores/ui.js'
 import { useCustomerAuthStore } from '../stores/customerAuth.js'
+import { reserveFlowTab, navigateFlowTab, closeFlowTab, flowPaymentUrl } from '../utils/flowPayment.mjs'
 const route = useRoute(), ui = useUiStore(), customerAuth = useCustomerAuthStore()
 const order = ref(null), loading = ref(true), error = ref(''), busy = ref(false), proof = ref(null), feedback = ref('')
+const flowUrl = ref(''), now = ref(Date.now())
+let refreshTimer = null, loadInProgress = false
+if (route.query.flow === 'opened') feedback.value = 'Flow se abrió en otra pestaña. Completa el pago allí; tu pedido seguirá disponible aquí.'
+if (route.query.flow === 'pending') feedback.value = 'Tu pedido ya está creado. Pulsa Pagar con Flow para abrir el pago en otra pestaña.'
 const token = ref('')
 const statusLabels = { pending_payment: 'Pendiente de pago', payment_submitted: 'Comprobante en revisión', paid: 'Pago confirmado', shipped: 'Despachado / listo para retiro', delivered: 'Entregado', cancelled: 'Cancelado' }
-const canPay = computed(() => order.value?.estado === 'pending_payment' && new Date(order.value.comprobante_limite_en).getTime() > Date.now())
+const canPay = computed(() => order.value?.estado === 'pending_payment' && new Date(order.value.comprobante_limite_en).getTime() > now.value)
 const deadline = computed(() => new Date(order.value.comprobante_limite_en).toLocaleString('es-CL'))
 const money = value => '$' + Number(value || 0).toLocaleString('es-CL')
-async function loadOrder() {
-  loading.value = true; error.value = ''
+async function loadOrder(options = {}) {
+  if (loadInProgress) return
+  const silent = options.silent === true
+  loadInProgress = true
+  if (!silent) { loading.value = true; error.value = '' }
   try {
     const fromLink = new URLSearchParams(route.hash.slice(1)).get('access')
     if (fromLink) { token.value = fromLink; sessionStorage.setItem(`bs_order_${route.params.id}`, fromLink); history.replaceState(history.state, '', route.path) }
     token.value ||= sessionStorage.getItem(`bs_order_${route.params.id}`) || customerAuth.token || ''
     if (!token.value) throw new Error('Abre el enlace privado del correo de confirmación o inicia sesión con la cuenta de tu compra.')
     order.value = (await checkoutSessionApi.pedido(route.params.id, token.value)).data
-  } catch (err) { error.value = err.response?.data?.error || err.message || 'El enlace no es válido o venció.' }
-  finally { loading.value = false }
+    now.value = Date.now()
+    if (order.value.metodo_pago === 'flow' && order.value.estado !== 'pending_payment') { flowUrl.value = ''; feedback.value = '' }
+  } catch (err) { if (!silent) error.value = err.response?.data?.error || err.message || 'El enlace no es válido o venció.' }
+  finally { loading.value = false; loadInProgress = false }
 }
 function selectProof(event) {
   feedback.value = ''; proof.value = null
@@ -65,15 +79,41 @@ async function uploadProof() {
   finally { busy.value = false }
 }
 async function payFlow() {
+  if (busy.value) return
+  const tab = reserveFlowTab()
+  let opened = false
   busy.value = true
-  try { const { data } = await checkoutSessionApi.pagarFlow(order.value.id, token.value); window.location.assign(data.url) }
-  catch (err) { feedback.value = err.response?.data?.error || 'No pudimos abrir Flow. No vuelvas a pagar si ya recibiste un cargo.'; busy.value = false }
+  feedback.value = ''
+  try {
+    const { data } = await checkoutSessionApi.pagarFlow(order.value.id, token.value)
+    flowUrl.value = flowPaymentUrl(data.url)
+    opened = navigateFlowTab(tab, flowUrl.value)
+    feedback.value = opened
+      ? 'Flow se abrió en otra pestaña. No vuelvas a pagar si ya recibiste un cargo.'
+      : 'No pudimos abrir la pestaña. Usa el enlace Abrir Flow en otra pestaña para continuar con este mismo pedido.'
+  }
+  catch (err) { feedback.value = err.response?.data?.error || 'No pudimos abrir Flow. No vuelvas a pagar si ya recibiste un cargo.' }
+  finally { if (!opened) closeFlowTab(tab); busy.value = false }
 }
 async function copyTransfer() {
   try { await navigator.clipboard.writeText([order.value.transfer.bank_name, order.value.transfer.account_type, order.value.transfer.account_number, order.value.transfer.account_holder, order.value.transfer.account_rut, order.value.codigo, money(order.value.total_clp)].join('\n')); feedback.value = 'Datos copiados.' }
   catch { feedback.value = 'No pudimos copiar los datos. Puedes seleccionarlos en el resumen.' }
 }
-onMounted(loadOrder)
+function refreshOrder() {
+  now.value = Date.now()
+  if (document.visibilityState === 'visible' && order.value?.estado === 'pending_payment' && !busy.value) loadOrder({ silent: true })
+}
+onMounted(() => {
+  loadOrder()
+  window.addEventListener('focus', refreshOrder)
+  document.addEventListener('visibilitychange', refreshOrder)
+  refreshTimer = window.setInterval(refreshOrder, 15000)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', refreshOrder)
+  document.removeEventListener('visibilitychange', refreshOrder)
+  window.clearInterval(refreshTimer)
+})
 </script>
 
 <style scoped>
@@ -86,7 +126,8 @@ header { padding: 28px 0 12px; } h1 { font-size: 32px; } h2 { font-size: 22px; m
 .order-item strong { display: block; margin-bottom: 6px; }
 .order-item span { display: block; font-size: 14px; }
 dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin: 24px 0; } dd { text-align: right; overflow-wrap: anywhere; }
-button, .order-actions a { min-height: 44px; padding: 12px 16px; background: white; border: 1px solid var(--line-soft); border-radius: 6px; color: var(--dark); font-size: 16px; }
+button, .order-actions a, .flow-link { min-height: 44px; padding: 12px 16px; background: white; border: 1px solid var(--line-soft); border-radius: 6px; color: var(--dark); font-size: 16px; }
+.flow-link { display: inline-flex; align-items: center; }
 button:disabled { opacity: .5; } .payment-section { border-top: 1px solid var(--line-soft); padding-top: 24px; }
 .proof-label { display: grid; gap: 12px; margin: 24px 0; } input { width: 100%; font-size: 16px; }
 .order-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
