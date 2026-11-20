@@ -78,27 +78,8 @@
             <path d="M12 3.5a8.5 8.5 0 0 0-7.2 13L3.9 20l3.6-1a8.5 8.5 0 1 0 4.5-15.5Zm0 1.8a6.7 6.7 0 1 1 0 13.4c-1.2 0-2.4-.3-3.4-.9l-.3-.2-1.9.5.5-1.8-.2-.3A6.7 6.7 0 0 1 12 5.3Z" />
             <path d="M9.6 8.1c.2-.3.4-.4.7-.4h.5c.2 0 .4.1.5.4l.6 1.4c.1.3.1.5-.1.7l-.4.5c-.1.2-.1.3 0 .5.5.8 1.2 1.5 2 2 .2.1.3.1.5 0l.6-.4c.2-.2.4-.2.7-.1l1.4.6c.3.1.4.3.4.6v.5c0 .3-.1.5-.4.7-.5.3-1.1.5-1.8.4-1-.1-2.4-.7-3.7-2-1.3-1.3-1.9-2.7-2-3.7-.1-.7.1-1.3.4-1.8Z" />
           </svg>
-          <svg v-else-if="promoIconKey(promo.icon) === 'flag-kr'" viewBox="0 0 64 64" class="flag-svg">
-            <circle cx="32" cy="32" r="30" fill="#fff" />
-            <path d="M32 18a14 14 0 0 1 0 28c-7.732 0-14-6.268-14-14s6.268-14 14-14Z" fill="#cd2e3a" />
-            <path d="M32 46a14 14 0 0 1 0-28c7.732 0 14 6.268 14 14s-6.268 14-14 14Z" fill="#0047a0" />
-            <path d="M26 25a7 7 0 0 0 12 7a7 7 0 0 1-12-7Z" fill="#0047a0" />
-            <path d="M38 39a7 7 0 0 0-12-7a7 7 0 0 1 12 7Z" fill="#cd2e3a" />
-            <g fill="#111">
-              <rect x="11" y="16" width="10" height="2" rx="1" transform="rotate(-28 16 17)" />
-              <rect x="12" y="20" width="10" height="2" rx="1" transform="rotate(-28 17 21)" />
-              <rect x="13" y="24" width="10" height="2" rx="1" transform="rotate(-28 18 25)" />
-              <rect x="41" y="39" width="10" height="2" rx="1" transform="rotate(-28 46 40)" />
-              <rect x="42" y="43" width="10" height="2" rx="1" transform="rotate(-28 47 44)" />
-              <rect x="43" y="47" width="10" height="2" rx="1" transform="rotate(-28 48 48)" />
-              <rect x="41" y="16" width="10" height="2" rx="1" transform="rotate(28 46 17)" />
-              <rect x="42" y="20" width="10" height="2" rx="1" transform="rotate(28 47 21)" />
-              <rect x="43" y="24" width="10" height="2" rx="1" transform="rotate(28 48 25)" />
-              <rect x="11" y="39" width="10" height="2" rx="1" transform="rotate(28 16 40)" />
-              <rect x="12" y="43" width="10" height="2" rx="1" transform="rotate(28 17 44)" />
-              <rect x="13" y="47" width="10" height="2" rx="1" transform="rotate(28 18 48)" />
-            </g>
-          </svg>
+          <!-- Public-domain source: commons.wikimedia.org/wiki/File:Flag_of_South_Korea.svg -->
+          <img v-else-if="promoIconKey(promo.icon) === 'flag-kr'" src="/brand/flag-south-korea.png" class="promo-flag" width="36" height="24" alt="" />
           <span v-else class="promo-fallback">{{ promo.title?.slice(0, 1) || 'B' }}</span>
         </div>
         <div class="promo-text"><strong>{{ promo.title }}</strong><span>{{ promo.copy }}</span></div>
@@ -292,12 +273,12 @@
       <div class="newsletter-tag">{{ homeContent.newsletter.tag }}</div>
       <h2 class="newsletter-title">{{ homeContent.newsletter.title }}<br /><em>{{ homeContent.newsletter.emphasis }}</em></h2>
       <p class="newsletter-sub">{{ homeContent.newsletter.copy }}</p>
-      <div class="newsletter-form">
-        <input v-model.trim="newsletterEmail" type="email" :placeholder="homeContent.newsletter.placeholder" />
-        <button @click="suscribir" :disabled="newsletterLoading || suscritoOk">
+      <form class="newsletter-form" @submit.prevent="suscribir" :aria-busy="newsletterLoading">
+        <input v-model.trim="newsletterEmail" type="email" name="email" autocomplete="email" aria-label="Correo electrónico" required :placeholder="homeContent.newsletter.placeholder" />
+        <button type="submit" :disabled="newsletterLoading || suscritoOk">
           {{ suscritoOk ? 'Suscripción lista' : newsletterLoading ? 'Enviando...' : homeContent.newsletter.button_label }}
         </button>
-      </div>
+      </form>
     </section>
 
     <RecentlyViewed :catalog-products="productos" />
@@ -626,6 +607,7 @@ function handleFavoritesClick() {
 }
 
 async function suscribir() {
+  if (newsletterLoading.value || suscritoOk.value) return
   if (!newsletterEmail.value) {
     ui.info('Ingresa tu email para suscribirte.')
     return
@@ -674,7 +656,6 @@ nav { display: flex; gap: 24px; }
 .cart-badge { position: absolute; top: -6px; right: -6px; background: var(--rose); color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: 500; }
 .hero { display: grid; grid-template-columns: 1.08fr .92fr; min-height: 560px; overflow: hidden; border-bottom: 1px solid rgba(139,63,85,.08); }
 .hero-left { background: linear-gradient(135deg,#f9eaed,#f2d6de 50%,#e8c3cd); display: flex; flex-direction: column; justify-content: center; padding: 80px 72px; position: relative; overflow: hidden; }
-.hero-left::before { content: ''; position: absolute; width: 320px; height: 320px; border-radius: 50%; background: rgba(196,100,122,.08); top: -80px; right: -80px; }
 .hero-tag,.section-tag,.newsletter-tag { display: inline-block; font-size: 10px; letter-spacing: .25em; text-transform: uppercase; color: var(--rose); background: rgba(196,100,122,.12); padding: 5px 14px; border-radius: 20px; width: fit-content; font-weight: 500; }
 .hero-title,.section-title,.newsletter-title { font-family: 'Cormorant Garamond', serif; font-size: 58px; font-weight: 300; line-height: 1.06; color: var(--dark); }
 .hero-title em,.newsletter-title em { font-style: italic; color: var(--rose); }
@@ -712,15 +693,14 @@ nav { display: flex; gap: 24px; }
 .hero-tile:nth-child(2) { background: #e8d0d8; }
 .hero-tile:nth-child(3) { background: #d8c8cf; }
 .hero-tile:nth-child(4) { background: #c8b8c0; }
-.tile-visual { width: 150px; height: 190px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.tile-photo { width: 177%; height: 177%; object-fit: contain; filter: drop-shadow(0 22px 34px rgba(139,63,85,.2)); }
-.tile-hidratantes .tile-photo { width: 142%; height: 142%; transform: translateY(8px); }
+.tile-visual { width: 150px; max-width: 100%; height: 190px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.tile-photo { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 18px rgba(139,63,85,.16)); }
 .bottle1 { width: 50px; height: 110px; background: linear-gradient(180deg,#faf0f3,#f0d8e0); border-radius: 25px 25px 8px 8px; border: 1px solid rgba(196,100,122,.2); }
 .bottle2 { width: 70px; height: 90px; background: linear-gradient(180deg,#fff,#f4ebe2); border-radius: 8px; border: 1px solid rgba(196,100,122,.15); }
 .bottle3 { width: 55px; height: 100px; background: linear-gradient(180deg,#9db8a3,#7a9e83); border-radius: 6px 6px 10px 10px; }
 .bottle4 { width: 80px; height: 80px; background: linear-gradient(135deg,#f9eaed,#f0d4da); border-radius: 50%; }
-.tile-name { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dark-mid); font-weight: 500; }
-.tile-count { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+.tile-name { font-size: 14px; letter-spacing: 0; color: var(--dark-mid); font-weight: 500; overflow-wrap: anywhere; }
+.tile-count { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
 
 .promo-band,.showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,.whatsapp-club-section,footer { max-width: 1280px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 .promo-band { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-top: 28px; }
@@ -737,13 +717,15 @@ nav { display: flex; gap: 24px; }
   box-shadow: 0 14px 28px rgba(39,139,85,.12);
 }
 .promo-icon { width: 40px; height: 40px; background: var(--sage); color: #335f4a; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.promo-flag-icon { padding: 0; overflow: hidden; }
+.promo-flag-icon { padding: 0; background: transparent; border-radius: 0; }
 .promo-svg { width: 20px; height: 20px; display: block; }
 .whatsapp-mark { fill: currentColor; }
 .promo-fallback { font-size: 13px; font-weight: 700; }
-.flag-svg { width: 24px; height: 24px; display: block; }
-.promo-text strong { display: block; font-size: 12px; }
-.promo-text span { font-size: 12px; color: var(--text-muted); }
+.promo-flag { width: 36px; height: 24px; object-fit: contain; display: block; box-shadow: 0 0 0 1px rgba(51,95,74,.12); }
+.promo-text { overflow-wrap: anywhere; }
+.promo-text strong { display: block; font-size: 14px; line-height: 1.4; }
+.promo-text span { display: block; margin-top: 4px; font-size: 13px; line-height: 1.5; color: var(--dark-mid); }
+#mas-vendidos { scroll-margin-top: 180px; }
 
 .showcase-section,.editorial-section,.catalog-cta-section,.home-reviews-section,.whatsapp-club-section,.newsletter-section { padding-top: 58px; }
 .section-header { text-align: center; }
@@ -950,7 +932,8 @@ nav { display: flex; gap: 24px; }
 
 .newsletter-section { max-width: 920px; margin: 0 auto; padding-left: 32px; padding-right: 32px; padding-bottom: 72px; text-align: center; }
 .newsletter-form { display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-top: 22px; }
-.newsletter-form input { border: 1px solid #ead7dd; border-radius: 999px; padding: 15px 18px; font-size: 13px; outline: none; }
+.newsletter-form input { min-width: 0; border: 1px solid #ead7dd; border-radius: 999px; padding: 15px 18px; font-size: 16px; }
+.newsletter-form button:disabled { opacity: .65; cursor: default; }
 .newsletter-form button { border: none; border-radius: 999px; padding: 15px 22px; background: var(--rose-dark); color: #fff; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
 
 footer { padding-top: 36px; padding-bottom: 42px; }

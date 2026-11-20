@@ -27,22 +27,22 @@
           </div>
         </div>
 
-        <div class="footer-col">
+        <nav class="footer-col" aria-label="Tienda">
           <h4>Tienda</h4>
           <RouterLink to="/">Inicio</RouterLink>
           <RouterLink to="/catalogo">Catálogo</RouterLink>
           <RouterLink to="/contacto">Contáctanos</RouterLink>
           <RouterLink to="/quienes-somos">Quiénes somos</RouterLink>
-        </div>
+        </nav>
 
-        <div class="footer-col">
+        <nav class="footer-col" aria-label="Información">
           <h4>Información</h4>
           <RouterLink to="/envios">Envíos</RouterLink>
           <RouterLink to="/cambios-y-devoluciones">Cambios y devoluciones</RouterLink>
           <RouterLink to="/condiciones-de-envio">Condiciones de envío</RouterLink>
           <RouterLink to="/terminos-y-condiciones">Términos y condiciones</RouterLink>
           <RouterLink to="/contacto">Ayuda y contacto</RouterLink>
-        </div>
+        </nav>
 
         <div class="footer-col">
           <h4>Contacto</h4>
@@ -107,7 +107,7 @@ onMounted(async () => {
   max-width: 1280px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
   gap: 20px;
 }
 
@@ -153,8 +153,8 @@ onMounted(async () => {
 }
 
 .social-link {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -173,20 +173,32 @@ onMounted(async () => {
 .footer-col {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .footer-col h4 {
   margin-bottom: 4px;
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-size: 14px;
+  letter-spacing: 0;
   text-transform: uppercase;
-  color: var(--rose);
+  color: var(--rose-dark);
 }
 
 .footer-col a {
-  font-size: 13px;
+  font-size: 14px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  overflow-wrap: anywhere;
   color: var(--dark-mid);
+}
+
+.footer-col a:hover,
+.footer-col a:focus-visible {
+  color: var(--rose-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .footer-bottom {
@@ -203,7 +215,7 @@ onMounted(async () => {
 
 @media (max-width: 900px) {
   .footer-main {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

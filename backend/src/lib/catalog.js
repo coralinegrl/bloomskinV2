@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { sanitizeProductAttributes } = require('./productAttributes');
 
 const catalogPath = path.resolve(__dirname, '../../../database/catalogo-2026.json');
 
@@ -18,6 +19,7 @@ function sanitizeProduct(product, index = 0) {
       .filter(Boolean);
 
   return {
+    ...sanitizeProductAttributes(product),
     marca: product.marca,
     nombre: product.nombre,
     descripcion: product.descripcion || null,

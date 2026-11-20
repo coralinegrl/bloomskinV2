@@ -40,6 +40,8 @@ CREATE TABLE productos (
   usa_tonos         BIT            NOT NULL DEFAULT 0,
   tonos_json        NVARCHAR(MAX)  NULL,
   tonos_stock_json  NVARCHAR(MAX)  NULL,
+  tipos_piel_json   NVARCHAR(MAX)  NULL,
+  necesidades_json NVARCHAR(MAX)  NULL,
   creado_en         DATETIME2      NOT NULL DEFAULT GETDATE(),
   actualizado_en    DATETIME2      NOT NULL DEFAULT GETDATE()
 );

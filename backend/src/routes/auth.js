@@ -266,16 +266,14 @@ router.post('/client/request-password-reset', async (req, res) => {
       `);
 
     const resetUrl = `${getStoreBaseUrl(req).replace(/\/$/, '')}/recuperar-contrasena?token=${rawToken}&email=${encodeURIComponent(cliente.email)}`;
-    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-
-    await transporter.sendMail({
-      from,
+    const sent = await require('../lib/mail').sendMessage({
       to: cliente.email,
       subject: 'Restablece tu contraseña Bloomskin',
-      ...require('../lib/mail').renderMessage({ title: 'Restablece tu contraseña', name: cliente.nombre,
+      title: 'Restablece tu contraseña', name: cliente.nombre,
         paragraphs: ['Recibimos una solicitud para cambiar tu contraseña. El enlace vence en una hora.', 'Si no lo solicitaste, ignora este correo: tu contraseña no cambiará.'],
-        actionLabel: 'Crear nueva contraseña', actionUrl: resetUrl }),
+        actionLabel: 'Crear nueva contraseña', actionUrl: resetUrl,
     });
+    if (!sent) throw new Error('SMTP_REJECTED');
 
     res.json({ ok: true });
   } catch (err) {

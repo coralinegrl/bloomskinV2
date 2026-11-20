@@ -5,21 +5,29 @@ const path = require('path');
 const os = require('os');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const base = 'http://127.0.0.1:3001';
 const qaSecret = crypto.randomBytes(48).toString('hex');
-let child;
+let child, qaConnection, masterConnection;
 async function run() {
   const { name: dbName, qa, master, sql } = await require('./lib/qaDatabase').createQaDatabase();
+  qaConnection = qa; masterConnection = master;
   await qa.request().query(`INSERT INTO productos(marca,nombre,descripcion,categoria,precio_usd,precio_clp,stock,usa_tonos,tonos_json,tonos_stock_json,imagen_url)
     VALUES ('Bloomskin QA','Serum piel sensible','Hidratacion para piel sensible','Serums',10,10000,10,0,NULL,NULL,'/brand/bloomskin-logo.png'),
     ('Bloomskin QA','Labial con tipos','Dos variantes de prueba','Labiales',10,12000,3,1,'["Rosa","Rojo"]','{"Rosa":1,"Rojo":2}','/brand/bloomskin-logo.png');`);
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'bloomskin-commerce-'));
-  child = spawn(process.execPath, ['--require', './src/scripts/qa-flow-mock.cjs', 'src/server.js'], { cwd: path.resolve(__dirname, '../..'), stdio: 'inherit', env: {
+  fs.mkdirSync(path.join(scratch, 'data'));
+  fs.writeFileSync(path.join(scratch, 'data', 'site-settings.json'), JSON.stringify({ payment: {
+    bank_name: 'Banco QA', account_type: 'Cuenta QA', account_number: '12345', account_holder: 'Comercio QA', account_rut: '12.345.678-5', transfer_email: 'qa@example.invalid',
+  } }));
+  const qaEnv = {
     ...process.env, DB_NAME: dbName, PORT: '3001', NODE_ENV: 'test', SMTP_HOST: '', FLOW_ENABLED: 'true', FLOW_ENV:'sandbox', FLOW_API_KEY:'qa-fake', FLOW_SECRET_KEY:'qa-fake-secret',
     JWT_SECRET: qaSecret, STORE_BASE_URL:'http://127.0.0.1:5174',
+    DATA_DIR: path.join(scratch, 'data'), SITE_SETTINGS_FILE: path.join(scratch, 'data', 'site-settings.json'), ORDER_NOTIFICATION_EMAIL: 'qa-owner@example.invalid',
+    BANK_NAME: 'Banco QA', BANK_ACCOUNT_NUMBER: '12345', BANK_ACCOUNT_RUT: '12.345.678-5', BANK_TRANSFER_EMAIL: 'qa@example.invalid',
     UPLOADS_DIR: path.join(scratch, 'uploads'), FRONTEND_DIST: process.env.QA_FRONTEND_DIST || path.join(os.tmpdir(), 'bloomskin-v3-check'),
-  } });
+  };
+  child = spawn(process.execPath, ['--require', './src/scripts/qa-flow-mock.cjs', 'src/server.js'], { cwd: path.resolve(__dirname, '../..'), stdio: 'inherit', env: qaEnv });
   let healthy = false;
   for (let i=0;i<80;i++) { await new Promise(r => setTimeout(r,500)); try { if ((await fetch(`${base}/api/health`)).ok) { healthy=true;break; } } catch (_) {} }
   assert(healthy, 'QA server did not start');
@@ -61,6 +69,12 @@ async function run() {
   const bcrypt=require('bcryptjs');
   await qa.request().input('hash',sql.NVarChar,await bcrypt.hash('QaOnly123!',10)).query("INSERT INTO usuarios(nombre,email,password_hash) VALUES('Admin QA','admin@example.invalid',@hash)");
   const adminToken=jwt.sign({id:1,rol:'admin',tipo:'admin'},qaSecret,{expiresIn:'1h'});
+  assert.equal((await api('/mensajes/email/notifications',{email:'qa@example.invalid'},token,'PUT')).status,403,'Guest cannot change private notification settings');
+  assert.equal((await api('/mensajes/email/notifications',{enabled:true,email:'invalid'},adminToken,'PUT')).status,400);
+  const alertSettings=await api('/mensajes/email/notifications',{enabled:true,email:'qa-owner@example.invalid'},adminToken,'PUT');
+  assert.equal(alertSettings.status,200,JSON.stringify(alertSettings.data));
+  assert.equal(alertSettings.data.pending_payment,false,'Unpaid reservations do not request preparation by default');
+  assert(!JSON.stringify((await api('/settings/site')).data).includes('qa-owner'),'Private recipient must not leak through site settings');
   const expired=jwt.sign({tipo:'order_access',pedido_id:order.id},qaSecret,{expiresIn:-1});
   assert.equal((await api(`/pedidos/${order.id}/access`,null,expired)).status,401,'Expired link must be denied');
   const currentVariant=(await api(`/productos/${variant.id}`)).data;
@@ -99,11 +113,41 @@ async function run() {
   assert.equal((await api(`/pedidos/${flowOrder.id}/access`,null,flowOrder.access_token)).data.estado,'paid');
   const paidEvents=(await qa.request().query(`SELECT COUNT(*) AS n FROM order_mail_events WHERE pedido_id=${flowOrder.id} AND estado='paid'`)).recordset[0].n;
   assert.equal(paidEvents,1,'Repeated Flow callback cannot duplicate paid email');
+  const ownerPaid=(await qa.request().query(`SELECT COUNT(*) AS n FROM order_admin_mail_events WHERE pedido_id=${flowOrder.id} AND estado='paid'`)).recordset[0].n;
+  assert.equal(ownerPaid,1,'Repeated Flow callback cannot duplicate the owner alert');
   const late=await buy('flow');
   const latePayment=await api(`/flow/${late.id}/create`,{},late.access_token);
   await api(`/pedidos/${late.id}/estado`,{estado:'cancelled'},adminToken,'PATCH');
   assert.equal((await api('/flow/confirm',{token:new URL(latePayment.data.url).searchParams.get('token')})).status,200);
   assert.equal((await qa.request().query(`SELECT requiere_revision FROM flow_payments WHERE pedido_id=${late.id}`)).recordset[0].requiere_revision,true,'Late payment needs manual review');
+  assert.equal((await qa.request().query(`SELECT COUNT(*) AS n FROM order_admin_mail_events WHERE pedido_id=${late.id} AND estado='manual_review'`)).recordset[0].n,1,'Late payment alerts the merchant separately');
+  function maintenance() {
+    execFileSync(process.execPath,['--require','./src/scripts/qa-flow-mock.cjs','-e',
+      "if(!/^bloomskin_qa_\\d+$/.test(process.env.DB_NAME))throw Error('QA only');const{sql}=require('./src/config/db');require('./src/routes/pedidos').runOrderMaintenance().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>sql.close())"],
+      {cwd:path.resolve(__dirname,'../..'),env:qaEnv,stdio:'pipe',timeout:60000});
+  }
+  const expireGuest=await api('/checkout/session',contact);
+  const expireItems=[{producto_id:variant.id,cantidad:1,tono_seleccionado:'Rosa'}];
+  assert.equal((await api('/pedidos/reservation',{items:expireItems},expireGuest.data.token)).status,201);
+  const expiring=(await api('/pedidos',{items:expireItems,delivery_mode:'pickup',metodo_pago:'flow'},expireGuest.data.token)).data;
+  await qa.request().input('id',sql.Int,expiring.id).query('UPDATE pedidos SET comprobante_limite_en=DATEADD(MINUTE,-1,SYSUTCDATETIME()) WHERE id=@id');
+  maintenance();
+  const expiredState=(await qa.request().input('id',sql.Int,expiring.id).query('SELECT estado,stock_comprometido FROM pedidos WHERE id=@id')).recordset[0];
+  assert.equal(expiredState.estado,'cancelled'); assert.equal(expiredState.stock_comprometido,false);
+  const restored=(await qa.request().query(`SELECT stock,tonos_stock_json FROM productos WHERE id=${variant.id}`)).recordset[0];
+  assert.equal(JSON.parse(restored.tonos_stock_json).Rosa,1,'Expired unpaid order restores its variant');
+  maintenance();
+  assert.deepEqual((await qa.request().query(`SELECT stock,tonos_stock_json FROM productos WHERE id=${variant.id}`)).recordset[0],restored,'Repeated maintenance must not restore stock twice');
+  const missed=await buy('flow');
+  assert.equal((await api(`/flow/${missed.id}/create`,{},missed.access_token)).status,200);
+  // The provider mock lives in the QA server; its scheduled worker must recover this missed callback.
+  for(let i=0;i<80;i++) {
+    const current=(await api(`/pedidos/${missed.id}/access`,null,missed.access_token)).data;
+    if(current.estado==='paid')break;
+    if(i===79)assert.fail('Scheduled reconciliation did not recover the paid order');
+    await new Promise(resolve=>setTimeout(resolve,1000));
+  }
+  console.log('PASS: automatic expiry restores variant stock exactly once; missed Flow callback reconciles; private owner alerts are idempotent.');
   console.log('PASS: proof signature and deadlines, cancelled order hiding, mocked Flow create/verify/idempotency/late payment. No real charge or email sent.');
   const fixture={base,dbName,token,adminToken,normal,variant,order};
   fs.writeFileSync(path.join(os.tmpdir(),'bloomskin-commerce-fixture.json'),JSON.stringify(fixture));
@@ -111,4 +155,4 @@ async function run() {
   await qa.close(); await master.close();
   if (process.env.QA_KEEP_SERVER==='true') await new Promise(resolve=>process.once('SIGINT',resolve));
 }
-run().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{child?.kill(); await require('../config/db').sql.close();});
+run().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{child?.kill(); await qaConnection?.close(); await masterConnection?.close(); await require('../config/db').sql.close();});

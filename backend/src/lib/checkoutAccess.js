@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { getPool, sql } = require('../config/db');
 const { requireClientAuth } = require('../middleware/auth');
 const { validateCustomerPayload } = require('./validation');
+const { storeBaseUrl } = require('./publicUrl');
 
 async function ensureCheckoutSchema(pool) {
   await pool.request().batch(`
@@ -36,7 +37,7 @@ function orderAccessToken(pedidoId) {
 }
 
 function orderAccessUrl(pedidoId) {
-  const base = String(process.env.STORE_BASE_URL || process.env.PUBLIC_APP_URL || 'https://bloomskin.cl').replace(/\/$/, '');
+  const base = storeBaseUrl();
   return `${base}/pedido/${pedidoId}#access=${encodeURIComponent(orderAccessToken(pedidoId))}`;
 }
 

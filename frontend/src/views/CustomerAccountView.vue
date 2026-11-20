@@ -179,7 +179,7 @@
 
           <div v-if="order.estado !== 'cancelled'" class="timeline">
             <div
-              v-for="step in getOrderTimeline(order.estado)"
+              v-for="step in getOrderTimeline(order)"
               :key="`${order.id}-${step.key}`"
               class="timeline-step"
               :class="{ done: step.state === 'done', current: step.state === 'current' }"
@@ -268,6 +268,12 @@
             Ver comprobante subido
           </a>
 
+          <div v-else-if="order.metodo_pago === 'flow' && order.estado === 'pending_payment'" class="proof-upload-box">
+            <strong>Pago pendiente con Flow</strong>
+            <p>No necesitas subir un comprobante. El pago se confirmará cuando Flow informe su aprobación.</p>
+            <RouterLink :to="{ name: 'order-access', params: { id: order.id } }" class="proof-link">Ver pedido y continuar pago</RouterLink>
+          </div>
+
           <div v-else-if="canUploadProof(order)" class="proof-upload-box">
             <div>
               <strong>Sube tu comprobante</strong>
@@ -296,7 +302,7 @@
           </div>
 
           <p v-else-if="order.estado === 'pending_payment' && order.comprobante_limite_en" class="proof-expired">
-            El plazo para subir el comprobante ya terminó. Actualiza tus pedidos o escríbenos si ya habías transferido.
+            El plazo de pago ya terminó. Actualiza tus pedidos o escríbenos si ya habías pagado.
           </p>
 
           <p v-if="order.notas" class="order-notes">Notas: {{ order.notas }}</p>
@@ -353,7 +359,7 @@ const fieldErrors = reactive({
 
 const timelineLabels = {
   created: { label: 'Pedido creado', helper: 'Tu compra ya quedó registrada en Bloomskin.' },
-  pending_payment: { label: 'Esperando transferencia', helper: 'Realiza la transferencia con los datos del pedido.' },
+  pending_payment: { label: 'Pendiente de pago', helper: 'Completa el pago antes de que venza la reserva.' },
   payment_submitted: { label: 'Comprobante recibido', helper: 'Tu comprobante está pendiente de revisión.' },
   paid: { label: 'Pago validado', helper: 'El pago ya fue confirmado por Bloomskin.' },
   shipped: { label: 'En preparación o enviado', helper: 'Estamos preparando o despachando tu pedido.' },
@@ -412,7 +418,7 @@ function openQuickView(product) {
 }
 
 function canUploadProof(order) {
-  if (!order || order.estado !== 'pending_payment' || order.comprobante_url) return false
+  if (!order || order.metodo_pago !== 'bank_transfer' || order.estado !== 'pending_payment' || order.comprobante_url) return false
   if (!order.comprobante_limite_en) return true
   return new Date(order.comprobante_limite_en).getTime() > Date.now()
 }
@@ -581,7 +587,7 @@ function formatDate(value) {
 
 function formatStatus(status) {
   const labels = {
-    pending_payment: 'Esperando transferencia',
+    pending_payment: 'Pendiente de pago',
     payment_submitted: 'Comprobante recibido',
     paid: 'Pago validado',
     shipped: 'Enviado',
@@ -601,16 +607,11 @@ function formatShippingMethod(method) {
   return labels[method] || method || 'Por definir'
 }
 
-function getOrderTimeline(status) {
-  const order = ['created', 'pending_payment', 'payment_submitted', 'paid', 'shipped', 'delivered']
-  const activeMap = {
-    pending_payment: 1,
-    payment_submitted: 2,
-    paid: 3,
-    shipped: 4,
-    delivered: 5,
-  }
-  const activeIndex = activeMap[status] ?? 1
+function getOrderTimeline(pedido) {
+  const order = pedido.metodo_pago === 'flow'
+    ? ['created', 'pending_payment', 'paid', 'shipped', 'delivered']
+    : ['created', 'pending_payment', 'payment_submitted', 'paid', 'shipped', 'delivered']
+  const activeIndex = Math.max(1, order.indexOf(pedido.estado))
 
   return order.map((key, index) => {
     let state = 'pending'

@@ -1,6 +1,6 @@
 <template>
   <div class="store-select">
-    <select :value="modelValue" @change="$emit('update:modelValue', $event.target.value)">
+    <select :value="modelValue" :aria-label="label || undefined" @change="$emit('update:modelValue', $event.target.value)">
       <option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option>
     </select>
     <ChevronDown :size="16" class="store-select-chevron" aria-hidden="true" />
@@ -11,6 +11,7 @@
 import { ChevronDown } from 'lucide-vue-next'
 
 defineProps({
+  label: { type: String, default: '' },
   modelValue: {
     type: String,
     required: true,

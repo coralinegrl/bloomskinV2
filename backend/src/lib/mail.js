@@ -1,4 +1,6 @@
 const nodemailer = require('nodemailer');
+const path = require('path');
+const { storeBaseUrl } = require('./publicUrl');
 let transport;
 
 function createMailer() {
@@ -14,20 +16,17 @@ function createMailer() {
   return transport;
 }
 
-function storeBaseUrl() {
-  return String(process.env.STORE_BASE_URL || process.env.PUBLIC_APP_URL || 'https://bloomskin.cl').replace(/\/$/, '');
-}
-
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 }
 
-function renderMessage({ title, name, paragraphs = [], details = [], actionLabel, actionUrl }) {
+function renderMessage({ title, name, paragraphs = [], details = [], actionLabel, actionUrl, previewText = title, logoUrl = `${storeBaseUrl()}/brand/bloomskin-logo.png` }) {
   const text = [`Hola ${name || 'clienta'},`, '', title, ...paragraphs, '', ...details.map(([key, value]) => `${key}: ${value}`), '', actionUrl || '', 'Bloomskin · K-Beauty Chile'].join('\n');
-  const html = `<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#fff4f7;font-family:Arial,sans-serif;color:#5f2d45">
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#fff4f7;font-family:Arial,sans-serif;color:#5f2d45">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(previewText)}</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:white;border:1px solid #efd8df;border-radius:8px">
-      <tr><td style="padding:24px;border-bottom:1px solid #efd8df"><img src="${escapeHtml(storeBaseUrl())}/brand/bloomskin-logo.png" width="48" height="48" alt="Bloomskin" style="vertical-align:middle"><span style="font-family:Georgia,serif;font-size:28px;color:#bf547a"> bloomskin</span></td></tr>
+      <tr><td style="padding:24px;border-bottom:1px solid #efd8df"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="96"><img src="${escapeHtml(logoUrl)}" width="80" height="80" alt="Bloomskin" style="display:block;border:0;max-width:80px;height:auto"></td><td><span style="font-family:Georgia,serif;font-size:28px;color:#bf547a">bloomskin</span><br><span style="font-size:14px;line-height:1.7;color:#866476">K-Beauty Chile</span></td></tr></table></td></tr>
       <tr><td style="padding:24px"><h1 style="font-family:Georgia,serif;font-size:28px;line-height:1.25;margin:0 0 20px">${escapeHtml(title)}</h1><p style="font-size:16px;line-height:1.7">Hola ${escapeHtml(name || 'clienta')},</p>
       ${paragraphs.map(p => `<p style="font-size:16px;line-height:1.7">${escapeHtml(p)}</p>`).join('')}
       <table role="presentation" width="100%" cellpadding="8" cellspacing="0" style="font-size:15px;background:#fff8fa">${details.map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td align="right"><strong>${escapeHtml(v)}</strong></td></tr>`).join('')}</table>
@@ -37,11 +36,18 @@ function renderMessage({ title, name, paragraphs = [], details = [], actionLabel
   return { text, html };
 }
 
-async function sendMessage({ to, subject, ...content }) {
+function messageOptions({ to, subject, ...content }) {
+  return { from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject,
+    ...renderMessage({ ...content, logoUrl: 'cid:bloomskin-logo@bloomskin.cl' }),
+    attachments: [{ filename: 'bloomskin-logo.png', path: path.resolve(__dirname, '../../../frontend/public/brand/bloomskin-logo.png'),
+      cid: 'bloomskin-logo@bloomskin.cl', contentType: 'image/png', contentDisposition: 'inline' }] };
+}
+
+async function sendMessage(content) {
   const mailer = createMailer();
   if (!mailer) { console.error('Correo no enviado: configuración SMTP incompleta.'); return false; }
-  const result = await mailer.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, ...renderMessage(content) });
+  const result = await mailer.sendMail(messageOptions(content));
   return Boolean(result.accepted?.length);
 }
 
-module.exports = { createMailer, storeBaseUrl, escapeHtml, renderMessage, sendMessage };
+module.exports = { createMailer, storeBaseUrl, escapeHtml, renderMessage, messageOptions, sendMessage };

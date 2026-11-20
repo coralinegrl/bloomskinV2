@@ -6,6 +6,7 @@ const { readCatalogFile, writeCatalogFile, sanitizeProduct } = require('../lib/c
 const { getPool, sql } = require('../config/db');
 const { requireAdminAuth } = require('../middleware/auth');
 const { normalizeVariantMeta } = require('../lib/variants');
+const { hydrateProductAttributes, attributeUpdateJson, validateBulkAttributes, mergeProductAttributes } = require('../lib/productAttributes');
 
 const uploadsRoot = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
@@ -227,6 +228,7 @@ function hydrateProduct(product) {
   const toneStock = usesTones ? buildToneStock(product, tones) : {};
   return {
     ...product,
+    ...hydrateProductAttributes(product),
     usa_tonos: usesTones,
     tonos: tones,
     tonos_stock: toneStock,
@@ -237,6 +239,8 @@ function hydrateProduct(product) {
 
 async function ensureProductSchema(pool) {
   await pool.request().batch(`
+    IF COL_LENGTH('productos', 'tipos_piel_json') IS NULL ALTER TABLE productos ADD tipos_piel_json NVARCHAR(MAX) NULL;
+    IF COL_LENGTH('productos', 'necesidades_json') IS NULL ALTER TABLE productos ADD necesidades_json NVARCHAR(MAX) NULL;
     IF COL_LENGTH('productos', 'variant_meta_json') IS NULL ALTER TABLE productos ADD variant_meta_json NVARCHAR(MAX) NULL;
     IF COL_LENGTH('productos', 'usa_tonos') IS NULL
     BEGIN
@@ -266,7 +270,7 @@ router.get('/', async (req, res) => {
     const result = await pool.request().query(`
       SELECT id, marca, nombre, descripcion, categoria, precio_clp, precio_oferta_clp,
              oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url,
-             usa_tonos, tonos_json, tonos_stock_json, variant_meta_json
+             usa_tonos, tonos_json, tonos_stock_json, variant_meta_json, tipos_piel_json, necesidades_json
       FROM productos
       WHERE activo = 1
       ORDER BY creado_en DESC
@@ -407,17 +411,17 @@ router.put('/catalogo-json', requireAdminAuth, async (req, res) => {
     res.json({ ok: true, total: sanitized.length });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'No se pudo guardar el catalogo JSON' });
+    res.status(err.code === 'INVALID_ATTRIBUTE' ? 400 : 500).json({ error: err.code === 'INVALID_ATTRIBUTE' ? err.message : 'No se pudo guardar el catalogo JSON' });
   }
 });
 
 router.post('/catalogo-json/import', requireAdminAuth, async (req, res) => {
-  const products = Array.isArray(req.body?.products) ? req.body.products : readCatalogFile();
-  const sanitized = products.map((product, index) => sanitizeProduct(product, index));
-
   let transaction;
   try {
+    const products = Array.isArray(req.body?.products) ? req.body.products : readCatalogFile();
+    const sanitized = products.map((product, index) => sanitizeProduct(product, index));
     const pool = await getPool();
+    await ensureProductSchema(pool);
     transaction = new sql.Transaction(pool);
     await transaction.begin();
     await new sql.Request(transaction).query("IF OBJECT_ID('product_reviews', 'U') IS NOT NULL DELETE FROM product_reviews; DELETE FROM pedido_items; DELETE FROM pedidos; DELETE FROM productos; DBCC CHECKIDENT ('productos', RESEED, 0);");
@@ -437,7 +441,7 @@ router.post('/catalogo-json/import', requireAdminAuth, async (req, res) => {
       }
     }
     console.error(err);
-    res.status(500).json({ error: 'No se pudo importar el catalogo JSON a la base' });
+    res.status(err.code === 'INVALID_ATTRIBUTE' ? 400 : 500).json({ error: err.code === 'INVALID_ATTRIBUTE' ? err.message : 'No se pudo importar el catalogo JSON a la base' });
   }
 });
 
@@ -463,7 +467,7 @@ router.post('/', requireAdminAuth, async (req, res) => {
     res.status(201).json(hydrateProduct(result.recordset[0]));
   } catch (err) {
     console.error(err);
-    res.status(err.code === 'INVALID_VARIANT' ? 400 : 500).json({ error: err.code === 'INVALID_VARIANT' ? err.message : 'Error al crear producto' });
+    res.status(['INVALID_VARIANT', 'INVALID_ATTRIBUTE'].includes(err.code) ? 400 : 500).json({ error: ['INVALID_VARIANT', 'INVALID_ATTRIBUTE'].includes(err.code) ? err.message : 'Error al crear producto' });
   }
 });
 
@@ -500,6 +504,8 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       .input('tonos_json', sql.NVarChar(sql.MAX), toneConfig.tonos_json)
       .input('tonos_stock_json', sql.NVarChar(sql.MAX), toneConfig.tonos_stock_json)
       .input('variant_meta_json', sql.NVarChar(sql.MAX), toneConfig.variant_meta_json)
+      .input('tipos_piel_json', sql.NVarChar(sql.MAX), attributeUpdateJson(req.body, product, 'tipos_piel'))
+      .input('necesidades_json', sql.NVarChar(sql.MAX), attributeUpdateJson(req.body, product, 'necesidades'))
       .input('activo', sql.Bit, req.body.activo !== undefined ? req.body.activo : 1)
       .query(`
         UPDATE productos SET
@@ -521,6 +527,8 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
           tonos_json=@tonos_json,
           tonos_stock_json=@tonos_stock_json,
           variant_meta_json=@variant_meta_json,
+          tipos_piel_json=COALESCE(@tipos_piel_json, tipos_piel_json),
+          necesidades_json=COALESCE(@necesidades_json, necesidades_json),
           activo=@activo,
           actualizado_en=GETDATE()
         OUTPUT INSERTED.*
@@ -534,7 +542,47 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
     res.json(hydrateProduct(result.recordset[0]));
   } catch (err) {
     console.error(err);
-    res.status(err.code === 'INVALID_VARIANT' ? 400 : 500).json({ error: err.code === 'INVALID_VARIANT' ? err.message : 'Error al actualizar producto' });
+    res.status(['INVALID_VARIANT', 'INVALID_ATTRIBUTE'].includes(err.code) ? 400 : 500).json({ error: ['INVALID_VARIANT', 'INVALID_ATTRIBUTE'].includes(err.code) ? err.message : 'Error al actualizar producto' });
+  }
+});
+
+router.patch('/atributos', requireAdminAuth, async (req, res) => {
+  let transaction;
+  try {
+    const { ids, additions } = validateBulkAttributes(req.body);
+    const pool = await getPool();
+    await ensureProductSchema(pool);
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
+    const request = new sql.Request(transaction);
+    ids.forEach((id, index) => request.input(`id${index}`, sql.Int, id));
+    const result = await request.query(`
+      SELECT id, tipos_piel_json, necesidades_json FROM productos WITH (UPDLOCK, HOLDLOCK)
+      WHERE id IN (${ids.map((_, index) => `@id${index}`).join(', ')})
+    `);
+    if (result.recordset.length !== ids.length) {
+      await transaction.rollback();
+      transaction = null;
+      return res.status(404).json({ error: 'Uno de los productos ya no existe. Recarga el catálogo.' });
+    }
+    const products = result.recordset.map(product => ({ id: product.id, ...mergeProductAttributes(product, additions) }));
+    for (const product of products) {
+      await new sql.Request(transaction)
+        .input('id', sql.Int, product.id)
+        .input('tipos_piel_json', sql.NVarChar(sql.MAX), JSON.stringify(product.tipos_piel))
+        .input('necesidades_json', sql.NVarChar(sql.MAX), JSON.stringify(product.necesidades))
+        .query(`UPDATE productos SET tipos_piel_json=@tipos_piel_json, necesidades_json=@necesidades_json,
+          actualizado_en=GETDATE() WHERE id=@id`);
+    }
+    await transaction.commit();
+    transaction = null;
+    res.json({ products });
+  } catch (err) {
+    if (transaction) {
+      try { await transaction.rollback(); } catch (_) { /* Preserve the original error. */ }
+    }
+    console.error(err);
+    res.status(err.code === 'INVALID_ATTRIBUTE' ? 400 : 500).json({ error: err.code === 'INVALID_ATTRIBUTE' ? err.message : 'No pudimos añadir las etiquetas.' });
   }
 });
 
@@ -637,12 +685,14 @@ async function insertProduct(request, product, index = 0) {
     .input('tonos_json', sql.NVarChar(sql.MAX), toneConfig.tonos_json)
     .input('tonos_stock_json', sql.NVarChar(sql.MAX), toneConfig.tonos_stock_json)
     .input('variant_meta_json', sql.NVarChar(sql.MAX), toneConfig.variant_meta_json)
+    .input('tipos_piel_json', sql.NVarChar(sql.MAX), JSON.stringify(product.tipos_piel || []))
+    .input('necesidades_json', sql.NVarChar(sql.MAX), JSON.stringify(product.necesidades || []))
     .query(`
       INSERT INTO productos
-      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url, usa_tonos, tonos_json, tonos_stock_json, variant_meta_json)
+      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url, usa_tonos, tonos_json, tonos_stock_json, variant_meta_json, tipos_piel_json, necesidades_json)
       OUTPUT INSERTED.*
       VALUES
-      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url, @usa_tonos, @tonos_json, @tonos_stock_json, @variant_meta_json)
+      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url, @usa_tonos, @tonos_json, @tonos_stock_json, @variant_meta_json, @tipos_piel_json, @necesidades_json)
     `);
 }
 

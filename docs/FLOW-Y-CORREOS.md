@@ -51,6 +51,25 @@ Si Flow informa un pago cuando el pedido ya estaba cancelado, no se vuelve
 a descontar stock ni a preparar el pedido automaticamente. Aparece en
 "Correos y pagos" para conciliar el pago y coordinar entrega o devolucion.
 
+## Reservas y confirmacion
+
+El stock del carrito no equivale a una venta pagada. La reserva de checkout
+dura 20 minutos y no se reinicia al volver a entrar. Al crear el pedido,
+Bloomskin fija un plazo de pago de 60 minutos. Es una regla de la tienda,
+no un plazo elegido por la compradora ni una confirmacion de Flow.
+La orden de Flow recibe un timeout derivado del plazo restante, con un
+minuto de margen para dejar de cobrar antes de liberar existencias.
+
+El mantenimiento corre cada minuto: consulta hasta cinco pagos Flow
+pendientes, recupera aprobaciones si se perdio el callback, cancela pedidos
+vencidos sin pago/comprobante y devuelve su stock por variante una sola
+vez. Los fallos del proveedor no se interpretan como un pago aprobado.
+Las ejecuciones del mantenimiento no se solapan dentro del proceso.
+
+Los pagos se aceptan solo al verificar estado aprobado, referencia, CLP
+y monto mediante la API firmada. Los pagos tardios quedan para revision;
+no reactivan pedidos cancelados ni consumen stock ya liberado.
+
 ## Cuando se envian los correos
 
 | Momento | Mensaje |
@@ -73,6 +92,35 @@ El panel "Correos y pagos" permite verificar SMTP, enviar una prueba a
 un correo elegido y revisar los ultimos eventos. No envia pruebas solo
 por abrir la seccion. Las newsletters conservan su envio manual.
 
+El dominio publico es compartido por correos, enlaces privados y callbacks.
+En produccion, una URL local, con credenciales o sin HTTPS se reemplaza por
+`https://bloomskin.cl`. Se corrigio el valor local que seguia en el servidor.
+Los correos nuevos incluyen el logo PNG como adjunto inline CID y el nombre
+de marca como respaldo. No dependen de descargar el logo desde localhost.
+Los correos ya recibidos no se pueden modificar retrospectivamente.
+
+### Avisos al comercio
+
+"Correos y pagos" permite cambiar el correo privado del comercio y elegir
+avisos de pago confirmado, comprobante recibido o reserva sin pagar.
+Los dos primeros vienen activos; las reservas impagas, desactivadas.
+Un pago tardio que requiere conciliacion genera un aviso distinto y nunca
+indica preparar un pedido automaticamente. Cada evento tiene su propio
+registro y hasta cinco intentos con cinco minutos entre reintentos.
+La direccion no se publica en `/api/settings/site`.
+
+`ORDER_NOTIFICATION_EMAIL` proporciona el destinatario inicial. Los cambios
+del panel quedan en `DATA_DIR/order-alerts.json`, fuera de Git. Este archivo
+debe conservarse junto al resto de la configuracion privada del servidor.
+
+### Tarjetas de credito
+
+La integracion solicita todos los medios contratados en Flow. Webpay admite
+credito, debito y prepago, pero debe activarse en la cuenta del comercio;
+las credenciales API no contratan medios ni condiciones de cuotas.
+Referencia: https://web.flow.cl/es-cl/preguntas-frecuentes/webpay/.
+No se publicitan tarjetas como disponibles sin verificar su activacion.
+
 Los enlaces privados vencen a los 30 dias y permiten consultar o completar
 solo ese pedido. No los compartas ni los publiques. No dan acceso a una
 cuenta, a otros pedidos o al panel de administracion.
@@ -91,6 +139,25 @@ de Flow de esa prueba se simulan: no crea pedidos ni cobros reales.
 sin modificar pedidos ni existencias de produccion. Simula Flow y desactiva
 SMTP; no genera cargos ni correos reales. Usa el puerto 3001, que debe
 estar libre. Conserva la base QA para poder inspeccionar resultados.
+Tambien comprueba vencimiento, devolucion idempotente del stock por variante,
+recuperacion de callbacks perdidos y avisos privados al comercio.
+
+`node --test src/lib/mail.test.js src/lib/productAttributes.test.js src/routes/productos.test.js`
+agrega pruebas de URLs productivas, logo MIME inline, destinatarios y
+etiquetas de catalogo. Desde la raiz, `node --test frontend/tests/catalogFilters.test.mjs`
+verifica filtros por piel/necesidad y precios de variantes.
+`frontend/tests/commerceUx.browser.cjs` revisa catalogo, home y avisos admin
+en Chrome/WebKit a 320, 390, 768 y 1440 px, con API simulada.
+
+## Etiquetas del catalogo
+
+La migracion `011_add_product_attributes.sql` agrega tipos de piel y
+necesidades, sin inferir ni asignar compatibilidades a productos existentes.
+El admin permite editar cada producto o seleccionar hasta 100 para anadir
+etiquetas. La operacion masiva actualiza solo esas etiquetas, conserva las
+anteriores y no reenvia precios ni stock. Los filtros usan metadata explicita;
+los productos sin etiquetas no aparecen como compatibles por defecto.
+"Todo tipo de piel" no implica que un producto sirva para piel sensible.
 
 ### Prueba real de Sandbox
 

@@ -100,13 +100,15 @@ getPool()
     await pedidosRouter.ensurePedidosSchema(pool);
     await require('./routes/flow').ensureFlowSchema(pool);
     await require('./lib/orderMail').ensureMailSchema(pool);
+    await require('./lib/orderAlerts').ensureAlertSchema(pool);
     await resenasRouter.ensureReviewsSchema(pool);
-    await pedidosRouter.runOrderMaintenance();
+    pedidosRouter.runOrderMaintenance().catch(err => console.error('No se pudo completar el mantenimiento inicial:', err.message));
     setInterval(() => {
       pedidosRouter.runOrderMaintenance().catch(err => {
         console.error('No se pudo ejecutar el mantenimiento de pedidos:', err.message);
       });
       require('./lib/orderMail').retryOrderMail(pool).catch(err => console.error('No se pudieron reintentar correos:', err.message));
+      require('./lib/orderAlerts').retryAdminOrderAlerts(pool).catch(err => console.error('No se pudieron reintentar avisos:', err.message));
     }, 60 * 1000);
     app.listen(PORT, () => {
       console.log(`Bloomskin API corriendo en http://localhost:${PORT}`);

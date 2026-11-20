@@ -2,13 +2,12 @@
   <header class="app-header">
     <div class="header-inner">
       <div class="mobile-bar">
-        <button class="mobile-menu-btn" type="button" :aria-expanded="mobileMenuOpen ? 'true' : 'false'" aria-label="Abrir menú" @click="mobileMenuOpen = !mobileMenuOpen">
-          <span></span>
-          <span></span>
-          <span></span>
+        <button ref="menuButton" class="mobile-menu-btn" type="button" :aria-expanded="mobileMenuOpen" aria-controls="store-navigation store-header-actions" :aria-label="mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'" :title="mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'" @click="mobileMenuOpen = !mobileMenuOpen">
+          <X v-if="mobileMenuOpen" :size="20" aria-hidden="true" />
+          <Menu v-else :size="20" aria-hidden="true" />
         </button>
 
-        <RouterLink to="/" class="logo mobile-logo">
+        <RouterLink :to="homeTo" class="logo mobile-logo" @click="closeMobileMenu">
           <span class="logo-lockup">
             <img src="/brand/bloomskin-logo.png" alt="Bloomskin" class="logo-image" />
             <span class="logo-wording">
@@ -19,13 +18,13 @@
         </RouterLink>
 
         <div class="mobile-actions">
-          <button class="icon-btn" type="button" aria-label="Favoritos" @click="$emit('favorites-click')">
+          <button class="icon-btn" type="button" aria-label="Favoritos" title="Favoritos" @click="$emit('favorites-click'); closeMobileMenu()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
           </button>
 
-          <button class="icon-btn cart-btn" type="button" aria-label="Carrito" @click="$emit('cart-click')">
+          <button class="icon-btn cart-btn" type="button" aria-label="Carrito" title="Carrito" @click="$emit('cart-click'); closeMobileMenu()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
               <line x1="3" y1="6" x2="21" y2="6" />
@@ -36,7 +35,7 @@
         </div>
       </div>
 
-      <nav class="header-nav" :class="{ open: mobileMenuOpen }">
+      <nav id="store-navigation" class="header-nav" :class="{ open: mobileMenuOpen }" aria-label="Navegación principal">
         <RouterLink class="nav-link" :to="homeTo" @click="closeMobileMenu">Inicio</RouterLink>
         <RouterLink class="nav-link" :to="catalogTo" @click="closeMobileMenu">Catálogo</RouterLink>
         <RouterLink class="nav-link" to="/contacto" @click="closeMobileMenu">Contáctanos</RouterLink>
@@ -44,7 +43,7 @@
         <RouterLink class="nav-link" to="/envios" @click="closeMobileMenu">Envíos</RouterLink>
       </nav>
 
-      <RouterLink to="/" class="logo desktop-logo">
+      <RouterLink :to="homeTo" class="logo desktop-logo">
         <span class="logo-lockup">
           <img src="/brand/bloomskin-logo.png" alt="Bloomskin" class="logo-image" />
           <span class="logo-wording">
@@ -54,9 +53,9 @@
         </span>
       </RouterLink>
 
-      <div class="header-right" :class="{ open: mobileMenuOpen }">
+      <div id="store-header-actions" class="header-right" :class="{ open: mobileMenuOpen }">
         <form class="search-bar" role="search" @submit.prevent="emitSearchSubmit">
-          <button class="search-submit" type="submit" aria-label="Buscar">
+          <button class="search-submit" type="submit" aria-label="Buscar" title="Buscar">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.35-4.35" />
@@ -72,23 +71,24 @@
           />
         </form>
 
-        <button class="account-btn" type="button" :aria-label="isAuthenticated ? accountLabel : 'Ingresar o crear cuenta'" @click="$emit('account-click'); closeMobileMenu()">
+        <button class="account-btn" type="button" :aria-label="isAuthenticated ? accountLabel : 'Ingresar o crear cuenta'" :title="isAuthenticated ? accountLabel : 'Ingresar o crear cuenta'" @click="$emit('account-click'); closeMobileMenu()">
           <span class="account-copy">
             <strong v-if="isAuthenticated">{{ accountLabel }}</strong>
             <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
               <path d="M20 21a8 8 0 0 0-16 0" />
               <circle cx="12" cy="8" r="4" />
             </svg>
+            <span v-if="!isAuthenticated" class="mobile-account-label">{{ accountLabel }}</span>
           </span>
         </button>
 
-        <button class="icon-btn desktop-only" type="button" aria-label="Favoritos" @click="$emit('favorites-click')">
+        <button class="icon-btn desktop-only" type="button" aria-label="Favoritos" title="Favoritos" @click="$emit('favorites-click')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
           </svg>
         </button>
 
-        <button class="icon-btn cart-btn desktop-only" type="button" aria-label="Carrito" @click="$emit('cart-click')">
+        <button class="icon-btn cart-btn desktop-only" type="button" aria-label="Carrito" title="Carrito" @click="$emit('cart-click')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
             <line x1="3" y1="6" x2="21" y2="6" />
@@ -104,8 +104,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
+import { Menu, X } from 'lucide-vue-next'
 
 const props = defineProps({
   searchTerm: { type: String, default: '' },
@@ -128,9 +129,21 @@ const emit = defineEmits([
 ])
 
 const mobileMenuOpen = ref(false)
+const menuButton = ref(null)
+const route = useRoute()
+
+watch(() => route.fullPath, closeMobileMenu)
+onMounted(() => document.addEventListener('keydown', dismissMobileMenu))
+onBeforeUnmount(() => document.removeEventListener('keydown', dismissMobileMenu))
 
 function closeMobileMenu() {
   mobileMenuOpen.value = false
+}
+
+function dismissMobileMenu(event) {
+  if (event.key !== 'Escape' || !mobileMenuOpen.value) return
+  closeMobileMenu()
+  menuButton.value?.focus()
 }
 
 function emitSearchSubmit() {
@@ -176,17 +189,20 @@ function emitSearchSubmit() {
 .nav-link {
   background: none;
   border: none;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--dark-mid);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   padding: 4px 0;
   border-bottom: 1.5px solid transparent;
   transition: all 0.2s;
 }
 
-.nav-link:hover {
+.nav-link:hover,
+.nav-link.router-link-exact-active {
   color: var(--rose);
   border-bottom-color: var(--rose);
 }
@@ -252,24 +268,16 @@ function emitSearchSubmit() {
 }
 
 .mobile-menu-btn {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
   border: 1px solid #ead7dd;
   background: linear-gradient(180deg, #fffafc, #fdf1f5);
   display: inline-flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 4px;
+  color: var(--rose-dark);
   padding: 0 10px;
-}
-
-.mobile-menu-btn span {
-  display: block;
-  width: 100%;
-  height: 1.5px;
-  border-radius: 999px;
-  background: var(--rose-dark);
 }
 
 .search-bar {
@@ -310,14 +318,29 @@ function emitSearchSubmit() {
   color: var(--text-muted);
 }
 
+.search-bar:focus-within {
+  outline: 2px solid var(--rose-dark);
+  outline-offset: 2px;
+}
+
 .account-btn {
   min-width: 0;
+  min-height: 44px;
   border: 1px solid rgba(139, 63, 85, 0.12);
   background: linear-gradient(135deg, #fff9fa, #f8eff1);
   border-radius: 999px;
   padding: 9px 14px;
   text-align: center;
 }
+
+.account-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mobile-account-label { display: none; }
 
 .account-copy strong {
   font-size: 11px;
@@ -336,6 +359,9 @@ function emitSearchSubmit() {
 }
 
 .icon-btn {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
   background: none;
   border: none;
   color: var(--dark-mid);
@@ -352,12 +378,13 @@ function emitSearchSubmit() {
 
 .cart-badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: 0;
+  right: 0;
   background: var(--rose);
   color: white;
   border-radius: 50%;
-  width: 17px;
+  min-width: 17px;
+  padding: 0 3px;
   height: 17px;
   font-size: 9px;
   display: flex;
@@ -380,13 +407,16 @@ function emitSearchSubmit() {
 
 @media (max-width: 1180px) {
   .header-inner {
-    grid-template-columns: 1fr;
-    padding: 14px 24px;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 12px 24px 6px;
+    gap: 6px 20px;
   }
 
-  .header-nav,
+  .desktop-logo { order: 1; }
+  .header-nav { order: 3; grid-column: 1 / -1; justify-content: center; }
   .header-right {
-    justify-content: center;
+    order: 2;
+    min-width: 0;
   }
 }
 
@@ -443,7 +473,7 @@ function emitSearchSubmit() {
 
   .header-nav {
     margin-top: 14px;
-    gap: 10px 14px;
+    gap: 4px 14px;
     justify-content: flex-start;
     width: 100%;
   }
@@ -468,7 +498,9 @@ function emitSearchSubmit() {
   .search-bar input { font-size: 16px; min-width: 0; }
   .search-submit { min-width: 28px; min-height: 28px; }
   .icon-btn { min-width: 44px; min-height: 44px; }
-  .header-nav { flex-wrap: wrap; }
+  .header-nav { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .header-nav.open { display: grid; }
+  .nav-link { line-height: 1.4; }
   .logo-lockup { gap: 6px; }
   .mobile-actions { gap: 0; }
   .logo-sub { letter-spacing: 0; }
@@ -482,6 +514,8 @@ function emitSearchSubmit() {
   .account-btn {
     flex: 1 1 auto;
   }
+
+  .mobile-account-label { display: inline; font-size: 14px; color: var(--rose-dark); }
 }
 
 @media (max-width: 420px) {
@@ -498,14 +532,10 @@ function emitSearchSubmit() {
     font-size: 20px;
   }
 
-  .mobile-actions {
-    gap: 6px;
-  }
-
   .icon-btn,
   .mobile-menu-btn {
-    min-width: 42px;
-    min-height: 42px;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .header-nav.open {
@@ -514,7 +544,7 @@ function emitSearchSubmit() {
   }
 
   .nav-link {
-    min-height: 40px;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
   }

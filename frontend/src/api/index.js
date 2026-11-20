@@ -94,6 +94,7 @@ export const productosApi = {
   },
   crear: data => adminApi.post('/productos', data),
   actualizar: (id, data) => adminApi.put(`/productos/${id}`, data),
+  agregarEtiquetas: data => adminApi.patch('/productos/atributos', data),
   eliminar: id => adminApi.delete(`/productos/${id}`),
   actualizarStock: (id, stock) => adminApi.patch(`/productos/${id}/stock`, { stock }),
   calcularPrecio: usd => adminApi.get(`/productos/utils/calcular-precio?usd=${usd}`),
@@ -162,6 +163,7 @@ export const settingsApi = {
 export const mensajesApi = {
   emailStatus: () => adminApi.get('/mensajes/email/status', { timeout: 15000 }),
   testEmail: email => adminApi.post('/mensajes/email/test', { email }, { timeout: 20000 }),
+  saveOrderNotifications: data => adminApi.put('/mensajes/email/notifications', data),
   listar: () => adminApi.get('/mensajes'),
   listarSuscriptores: () => adminApi.get('/mensajes/suscriptores'),
   enviar: data => publicApi.post('/mensajes', data),

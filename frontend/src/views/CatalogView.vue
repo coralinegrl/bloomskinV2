@@ -49,24 +49,32 @@
       <div v-show="filtersOpen" id="catalog-filters" class="filters-panel">
         <div class="filters-grid">
           <label class="filter-field">
+            <span>Tipo de piel</span>
+            <StoreSelect v-model="skinFilter" :options="skinOptions" label="Tipo de piel" />
+          </label>
+          <label class="filter-field">
+            <span>Necesidad</span>
+            <StoreSelect v-model="needFilter" :options="needOptions" label="Necesidad" />
+          </label>
+          <label class="filter-field">
             <span>Marca</span>
-            <StoreSelect v-model="brandFilter" :options="brandOptions" />
+            <StoreSelect v-model="brandFilter" :options="brandOptions" label="Marca" />
           </label>
           <label class="filter-field">
             <span>Stock</span>
-            <StoreSelect v-model="stockFilter" :options="stockOptions" />
+            <StoreSelect v-model="stockFilter" :options="stockOptions" label="Stock" />
           </label>
           <label class="filter-field">
             <span>Precio</span>
-            <StoreSelect v-model="priceFilter" :options="priceOptions" />
+            <StoreSelect v-model="priceFilter" :options="priceOptions" label="Precio" />
           </label>
           <label class="filter-field">
             <span>Promoción</span>
-            <StoreSelect v-model="badgeFilter" :options="badgeOptions" />
+            <StoreSelect v-model="badgeFilter" :options="badgeOptions" label="Promoción" />
           </label>
           <label class="filter-field">
             <span>Orden</span>
-            <StoreSelect v-model="sortBy" :options="sortOptions" />
+            <StoreSelect v-model="sortBy" :options="sortOptions" label="Orden" />
           </label>
         </div>
 
@@ -114,6 +122,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { SlidersHorizontal, X } from 'lucide-vue-next'
 import { normalizeSearch } from '../utils/browserStorage.js'
+import { attributeKey, attributeFilterOptions, matchesProductAttributes, matchesPriceFilter, catalogProductPrice } from '../utils/catalogFilters.mjs'
 import { productosApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
 import ProductCard from '../components/store/ProductCard.vue'
@@ -138,6 +147,8 @@ const catalogError = ref(false)
 const searchQuery = ref('')
 const activeTab = ref('todos')
 const brandFilter = ref('all')
+const skinFilter = ref('all')
+const needFilter = ref('all')
 const stockFilter = ref('all')
 const priceFilter = ref('all')
 const badgeFilter = ref('all')
@@ -172,6 +183,8 @@ const tabs = computed(() => {
 
 const availableBrands = computed(() => [...new Set(productos.value.map(product => product.marca).filter(Boolean))].sort((a, b) => a.localeCompare(b)))
 const brandOptions = computed(() => [{ value: 'all', label: 'Todas las marcas' }, ...availableBrands.value.map(brand => ({ value: brand, label: brand }))])
+const skinOptions = computed(() => attributeFilterOptions(productos.value, 'tipos_piel', skinFilter.value, 'Todos los tipos de piel'))
+const needOptions = computed(() => attributeFilterOptions(productos.value, 'necesidades', needFilter.value, 'Todas las necesidades'))
 const stockOptions = [{ value: 'all', label: 'Todo el stock' }, { value: 'in', label: 'Solo con stock' }, { value: 'low', label: 'Stock bajo' }, { value: 'out', label: 'Agotados' }]
 const priceOptions = [{ value: 'all', label: 'Todos los precios' }, { value: 'under-15000', label: 'Hasta $15.000' }, { value: '15000-30000', label: '$15.000 a $30.000' }, { value: '30000-50000', label: '$30.000 a $50.000' }, { value: 'over-50000', label: 'Sobre $50.000' }]
 const badgeOptions = [{ value: 'all', label: 'Todas las etiquetas' }, { value: 'hot', label: 'Más vendidos' }, { value: 'new', label: 'Nuevos' }, { value: 'sale', label: 'Ofertas' }]
@@ -183,6 +196,8 @@ const activeFilterChips = computed(() => {
   if (activeTab.value !== 'todos') chips.push({ key: 'category', label: activeTab.value })
   if (searchQuery.value.trim()) chips.push({ key: 'q', label: `Búsqueda: ${searchQuery.value.trim()}` })
   if (brandFilter.value !== 'all') chips.push({ key: 'brand', label: `Marca: ${brandFilter.value}` })
+  if (skinFilter.value !== 'all') chips.push({ key: 'skin', label: `Piel: ${optionLabel(skinOptions.value, skinFilter.value)}` })
+  if (needFilter.value !== 'all') chips.push({ key: 'need', label: `Necesidad: ${optionLabel(needOptions.value, needFilter.value)}` })
   if (stockFilter.value !== 'all') chips.push({ key: 'stock', label: optionLabel(stockOptions, stockFilter.value) })
   if (priceFilter.value !== 'all') chips.push({ key: 'price', label: optionLabel(priceOptions, priceFilter.value) })
   if (badgeFilter.value !== 'all') chips.push({ key: 'badge', label: optionLabel(badgeOptions, badgeFilter.value) })
@@ -200,10 +215,11 @@ const filteredProducts = computed(() => {
     )
   }
   if (brandFilter.value !== 'all') list = list.filter(product => product.marca === brandFilter.value)
+  list = list.filter(product => matchesProductAttributes(product, skinFilter.value, needFilter.value))
   if (stockFilter.value === 'in') list = list.filter(product => Number(product.stock) > 0)
   else if (stockFilter.value === 'low') list = list.filter(product => Number(product.stock) > 0 && Number(product.stock) <= 5)
   else if (stockFilter.value === 'out') list = list.filter(product => Number(product.stock) === 0)
-  if (priceFilter.value !== 'all') list = list.filter(product => matchesPriceFilter(Number(product.precio_clp), priceFilter.value))
+  if (priceFilter.value !== 'all') list = list.filter(product => matchesPriceFilter(catalogProductPrice(product), priceFilter.value))
   if (badgeFilter.value !== 'all') list = list.filter(product => product.badge === badgeFilter.value)
   sortProducts(list, sortBy.value)
   return list
@@ -248,7 +264,7 @@ async function refreshCatalogProducts() {
 }
 
 watch(() => route.query, applyRouteFilters)
-watch([activeTab, searchQuery, brandFilter, stockFilter, priceFilter, badgeFilter, sortBy], () => {
+watch([activeTab, searchQuery, brandFilter, skinFilter, needFilter, stockFilter, priceFilter, badgeFilter, sortBy], () => {
   syncRouteQuery()
 })
 
@@ -257,6 +273,8 @@ function applyRouteFilters() {
   activeTab.value = tabs.value.some(tab => tab.key === nextCategory) ? nextCategory : 'todos'
   searchQuery.value = typeof route.query.q === 'string' ? route.query.q : ''
   brandFilter.value = typeof route.query.brand === 'string' && brandOptions.value.some(option => option.value === route.query.brand) ? route.query.brand : 'all'
+  skinFilter.value = typeof route.query.skin === 'string' ? attributeKey(route.query.skin) || 'all' : 'all'
+  needFilter.value = typeof route.query.need === 'string' ? attributeKey(route.query.need) || 'all' : 'all'
   stockFilter.value = typeof route.query.stock === 'string' && stockOptions.some(option => option.value === route.query.stock) ? route.query.stock : 'all'
   priceFilter.value = typeof route.query.price === 'string' && priceOptions.some(option => option.value === route.query.price) ? route.query.price : 'all'
   badgeFilter.value = typeof route.query.badge === 'string' && badgeOptions.some(option => option.value === route.query.badge) ? route.query.badge : 'all'
@@ -268,6 +286,8 @@ function syncRouteQuery() {
   if (activeTab.value !== 'todos') nextQuery.category = activeTab.value
   if (searchQuery.value.trim()) nextQuery.q = searchQuery.value.trim()
   if (brandFilter.value !== 'all') nextQuery.brand = brandFilter.value
+  if (skinFilter.value !== 'all') nextQuery.skin = skinFilter.value
+  if (needFilter.value !== 'all') nextQuery.need = needFilter.value
   if (stockFilter.value !== 'all') nextQuery.stock = stockFilter.value
   if (priceFilter.value !== 'all') nextQuery.price = priceFilter.value
   if (badgeFilter.value !== 'all') nextQuery.badge = badgeFilter.value
@@ -276,6 +296,8 @@ function syncRouteQuery() {
     category: typeof route.query.category === 'string' ? route.query.category : undefined,
     q: typeof route.query.q === 'string' ? route.query.q : undefined,
     brand: typeof route.query.brand === 'string' ? route.query.brand : undefined,
+    skin: typeof route.query.skin === 'string' ? route.query.skin : undefined,
+    need: typeof route.query.need === 'string' ? route.query.need : undefined,
     stock: typeof route.query.stock === 'string' ? route.query.stock : undefined,
     price: typeof route.query.price === 'string' ? route.query.price : undefined,
     badge: typeof route.query.badge === 'string' ? route.query.badge : undefined,
@@ -309,6 +331,8 @@ function resetFilters() {
   searchQuery.value = ''
   activeTab.value = 'todos'
   brandFilter.value = 'all'
+  skinFilter.value = 'all'
+  needFilter.value = 'all'
   stockFilter.value = 'all'
   priceFilter.value = 'all'
   badgeFilter.value = 'all'
@@ -326,6 +350,8 @@ function clearFilter(key) {
   if (key === 'category') activeTab.value = 'todos'
   if (key === 'q') searchQuery.value = ''
   if (key === 'brand') brandFilter.value = 'all'
+  if (key === 'skin') skinFilter.value = 'all'
+  if (key === 'need') needFilter.value = 'all'
   if (key === 'stock') stockFilter.value = 'all'
   if (key === 'price') priceFilter.value = 'all'
   if (key === 'badge') badgeFilter.value = 'all'
@@ -341,17 +367,9 @@ function normalizeCategory(category) {
   return categoryAliases[category] || category
 }
 
-function matchesPriceFilter(price, filter) {
-  if (filter === 'under-15000') return price <= 15000
-  if (filter === '15000-30000') return price > 15000 && price <= 30000
-  if (filter === '30000-50000') return price > 30000 && price <= 50000
-  if (filter === 'over-50000') return price > 50000
-  return true
-}
-
 function sortProducts(list, mode) {
-  if (mode === 'price-asc') return list.sort((a, b) => a.precio_clp - b.precio_clp)
-  if (mode === 'price-desc') return list.sort((a, b) => b.precio_clp - a.precio_clp)
+  if (mode === 'price-asc') return list.sort((a, b) => catalogProductPrice(a) - catalogProductPrice(b))
+  if (mode === 'price-desc') return list.sort((a, b) => catalogProductPrice(b) - catalogProductPrice(a))
   if (mode === 'name-asc') return list.sort((a, b) => a.nombre.localeCompare(b.nombre))
   if (mode === 'brand-asc') return list.sort((a, b) => a.marca.localeCompare(b.marca))
   if (mode === 'reviews-desc') return list.sort((a, b) => Number(b.resenas || 0) - Number(a.resenas || 0))
@@ -368,7 +386,8 @@ function sortProducts(list, mode) {
 .catalog-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; font-size: 14px; }
 .filters-toggle { display: none; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; background: white; color: var(--dark); border: 1px solid var(--line-soft); border-radius: 6px; font-size: 14px; }
 .filter-count { background: var(--rose-dark); color: white; border-radius: 50%; min-width: 22px; }
-.filter-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; }
+.filter-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; max-width: 100%; overflow-wrap: anywhere; text-align: left; }
+.filter-chip svg { flex-shrink: 0; }
 .applied-filters { margin-bottom: 16px; }
 .show-results { display: none; }
 @media (min-width: 721px) { .filters-panel { display: block !important; } }
@@ -459,11 +478,12 @@ function sortProducts(list, mode) {
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
 .filter-field {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -474,7 +474,7 @@ async function cleanupExpiredPendingOrders(pool) {
           SET estado = 'cancelled',
               stock_comprometido = 0,
               actualizado_en = GETDATE(),
-              notas = CONCAT(ISNULL(notas, ''), CASE WHEN notas IS NULL OR notas = '' THEN '' ELSE CHAR(10) END, 'Cancelado automaticamente por no subir comprobante dentro de 1 hora.')
+              notas = CONCAT(ISNULL(notas, ''), CASE WHEN notas IS NULL OR notas = '' THEN '' ELSE CHAR(10) END, 'Cancelado automaticamente al vencer el plazo sin pago confirmado ni comprobante.')
           WHERE id = @pedido_id
         `);
     }
@@ -487,9 +487,16 @@ async function cleanupExpiredPendingOrders(pool) {
   }
 }
 
-async function runOrderMaintenance() {
+let maintenanceRun = null;
+function runOrderMaintenance() {
+  if (!maintenanceRun) maintenanceRun = maintainOrders().finally(() => { maintenanceRun = null; });
+  return maintenanceRun;
+}
+
+async function maintainOrders() {
   const pool = await getPool();
   await ensurePedidosSchema(pool);
+  await require('./flow').reconcilePendingPayments(pool);
   await cleanupExpiredReservations(pool);
   const cancelledOrders = await cleanupExpiredPendingOrders(pool);
 
@@ -786,7 +793,7 @@ router.get('/mine', requireClientAuth, async (req, res) => {
                p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
                p.cliente_nombre, p.cliente_email, p.cliente_rut, p.cliente_telefono,
                p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
-               p.estado, p.comprobante_url, p.notas, p.creado_en, p.actualizado_en
+               p.estado, p.comprobante_url, p.comprobante_limite_en, p.notas, p.creado_en, p.actualizado_en
         FROM pedidos p
         WHERE p.cliente_id = @cliente_id
         ORDER BY p.creado_en DESC

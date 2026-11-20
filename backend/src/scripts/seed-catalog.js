@@ -29,11 +29,13 @@ async function run() {
         .input('img_clase', sql.NVarChar, product.img_clase || `p-img-${(index % 8) + 1}`)
         .input('imagen_url', sql.NVarChar, product.imagen_url || null)
         .input('descripcion', sql.NVarChar, product.descripcion || null)
+        .input('tipos_piel_json', sql.NVarChar(sql.MAX), JSON.stringify(product.tipos_piel))
+        .input('necesidades_json', sql.NVarChar(sql.MAX), JSON.stringify(product.necesidades))
         .query(`
           INSERT INTO productos
-          (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, stock, badge, estrellas, resenas, img_clase, imagen_url)
+          (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, stock, badge, estrellas, resenas, img_clase, imagen_url, tipos_piel_json, necesidades_json)
           VALUES
-          (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url)
+          (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url, @tipos_piel_json, @necesidades_json)
         `);
     }
 

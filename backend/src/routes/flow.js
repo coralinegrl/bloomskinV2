@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { getPool, sql } = require('../config/db');
 const { requireOrderAccess } = require('../lib/checkoutAccess');
 const { flowConfig, flowRequest, validatePayment } = require('../lib/flow');
+const { storeBaseUrl } = require('../lib/publicUrl');
 
 async function ensureFlowSchema(pool) {
   await pool.request().batch(`
@@ -64,7 +65,7 @@ router.post('/:id/create', requireOrderAccess, async (req, res) => {
       if (existing) return res.status(409).json({ error: 'El pago se está preparando o requiere revisión. No realices un segundo pago; contacta a Bloomskin.' });
       await pool.request().input('id', sql.Int, order.id).query('INSERT INTO flow_payments (pedido_id) VALUES (@id)');
     }
-    const base = String(process.env.STORE_BASE_URL || 'https://bloomskin.cl').replace(/\/$/, '');
+    const base = storeBaseUrl();
     const payment = await flowRequest('payment/create', {
       commerceOrder: `BS-${String(order.id).padStart(4, '0')}`, subject: `Pedido Bloomskin BS-${String(order.id).padStart(4, '0')}`,
       currency: 'CLP', amount: order.total_clp, email: order.cliente_email, paymentMethod: 9,
@@ -116,9 +117,10 @@ async function confirmPayment(token) {
         AND (token IS NULL OR token<>@token OR EXISTS(SELECT 1 FROM pedidos WHERE id=@id AND (estado='cancelled' OR stock_comprometido=0 OR eliminado_en IS NOT NULL)));
       COMMIT TRANSACTION;
     `);
-  if (result.recordset?.[0]) {
-    const p = result.recordset[0];
-    await require('../lib/orderMail').sendOrderMail({ pedidoId: p.id, clienteNombre: p.cliente_nombre, clienteEmail: p.cliente_email, estado: 'paid', totalClp: p.total_clp });
+  if (Number(status.status) === 2) {
+    // Retried callbacks can recover mail registration after the payment commit.
+    await require('../lib/orderMail').sendOrderMail({ pedidoId: order.id, estado: 'paid' });
+    await require('../lib/orderAlerts').sendAdminOrderAlert({ pedidoId: order.id, estado: 'manual_review' });
   }
   return order.id;
 }
@@ -136,5 +138,18 @@ router.post('/return', async (req, res) => {
   } catch { res.redirect(303, '/pedido/estado'); }
 });
 
+async function reconcilePendingPayments(pool) {
+  if (!flowConfig().ready || (flowConfig().sandbox && process.env.NODE_ENV === 'production')) return;
+  const rows = (await pool.request().query(`SELECT TOP 5 f.token FROM flow_payments f JOIN pedidos p ON p.id=f.pedido_id
+    WHERE f.token IS NOT NULL AND f.status=1 AND f.requiere_revision=0 AND p.metodo_pago='flow'
+      AND (p.estado='pending_payment' OR (p.estado='cancelled' AND p.actualizado_en>=DATEADD(DAY,-1,GETDATE())))
+    ORDER BY f.actualizado_en`)).recordset;
+  for (const row of rows) {
+    try { await confirmPayment(row.token); }
+    catch (error) { console.error('No se pudo conciliar un pago Flow:', error.code || error.name); }
+  }
+}
+
 router.ensureFlowSchema = ensureFlowSchema;
+router.reconcilePendingPayments = reconcilePendingPayments;
 module.exports = router;

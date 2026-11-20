@@ -1,16 +1,8 @@
 const { sendMessage } = require('./mail');
 const { orderAccessUrl } = require('./checkoutAccess');
 const { getPool, sql } = require('../config/db');
-
-const copy = {
-  pending_payment: ['Recibimos tu pedido', 'Tu pedido está reservado por una hora. Si elegiste transferencia, transfiere el total exacto y sube el comprobante desde el enlace de este correo. Si elegiste Flow, continúa el pago online desde tu pedido.'],
-  payment_submitted: ['Recibimos tu comprobante', 'Estamos revisando tu transferencia. Aún no es una confirmación del pago; te avisaremos cuando esté validado.'],
-  paid: ['Tu pago está confirmado', 'Recibimos tu pago y comenzaremos a preparar tu pedido. No necesitas volver a pagar.'],
-  shipped: ['Tu pedido está en camino', 'Tu pedido fue despachado. Puedes revisar su estado desde el enlace seguro.'],
-  pickup_ready: ['Tu pedido está listo para retirar', 'Ya puedes coordinar el retiro de tu pedido en Oficina Lina 210, Antofagasta.'],
-  delivered: ['Gracias por comprar en Bloomskin', 'Tu pedido fue marcado como entregado. Esperamos que lo disfrutes. Si compraste con tu cuenta, puedes compartir tu experiencia desde Mis pedidos.'],
-  cancelled: ['Tu pedido fue cancelado', 'La reserva de stock fue liberada. Si alcanzaste a pagar, no vuelvas a hacerlo: responde este correo para que podamos revisar tu caso.'],
-};
+const { customerOrderContent } = require('./orderMessages');
+const { sendAdminOrderAlert } = require('./orderAlerts');
 
 async function ensureMailSchema(pool) {
   await pool.request().batch(`IF OBJECT_ID('dbo.order_mail_events', 'U') IS NULL CREATE TABLE order_mail_events (
@@ -23,12 +15,16 @@ async function ensureMailSchema(pool) {
 
 async function sendOrderMail({ pedidoId, clienteNombre, clienteEmail, estado, totalClp, pickup = false }) {
   const pool = await getPool();
-  if (estado === 'shipped') {
-    const order = (await pool.request().input('id', sql.Int, pedidoId).query('SELECT metodo_envio FROM pedidos WHERE id=@id')).recordset[0];
-    pickup = order?.metodo_envio === 'store_pickup';
-  }
+  const order = (await pool.request().input('id', sql.Int, pedidoId).query('SELECT * FROM pedidos WHERE id=@id AND eliminado_en IS NULL')).recordset[0];
+  if (!order || order.estado !== estado) return false;
+  pickup = order.metodo_envio === 'store_pickup';
   const key = estado === 'shipped' && pickup ? 'pickup_ready' : estado;
-  if (!copy[key] || !clienteEmail || clienteEmail.endsWith('.local') || clienteEmail.endsWith('.invalid')) return false;
+  const content = customerOrderContent(order, key, orderAccessUrl(pedidoId));
+  if (!content) return false;
+  try { await sendAdminOrderAlert({ pedidoId, estado }); }
+  catch (error) { console.error('No se pudo registrar aviso al comercio:', error.code || error.name); }
+  clienteEmail = order.cliente_email;
+  if (!clienteEmail || clienteEmail.endsWith('.local') || clienteEmail.endsWith('.invalid')) return false;
   await pool.request().input('id', sql.Int, pedidoId).input('state', sql.NVarChar, key).query(`
     SET XACT_ABORT ON;
     BEGIN TRANSACTION;
@@ -44,11 +40,7 @@ async function sendOrderMail({ pedidoId, clienteNombre, clienteEmail, estado, to
   const event = claimed.recordset[0];
   if (!event) return false;
   try {
-    const sent = await sendMessage({ to: clienteEmail, subject: `${copy[key][0]} · BS-${String(pedidoId).padStart(4, '0')}`,
-      name: clienteNombre, title: copy[key][0], paragraphs: [copy[key][1]],
-      details: [['Pedido', `BS-${String(pedidoId).padStart(4, '0')}`], ['Total', '$' + Number(totalClp).toLocaleString('es-CL')]],
-      actionUrl: orderAccessUrl(pedidoId), actionLabel: 'Ver mi pedido',
-    });
+    const sent = await sendMessage({ to: clienteEmail, ...content });
     await pool.request().input('id', sql.Int, event.id).input('sent', sql.Bit, sent)
       .query('UPDATE order_mail_events SET enviado=@sent, ultimo_error=CASE WHEN @sent=1 THEN NULL ELSE N\'SMTP no configurado o destinatario rechazado\' END WHERE id=@id');
     return sent;
@@ -62,7 +54,7 @@ async function sendOrderMail({ pedidoId, clienteNombre, clienteEmail, estado, to
 async function retryOrderMail(pool) {
   const rows = (await pool.request().query(`SELECT TOP 5 p.id, p.cliente_nombre, p.cliente_email, p.total_clp, e.estado
     FROM order_mail_events e JOIN pedidos p ON p.id=e.pedido_id
-    WHERE e.enviado=0 AND e.intentos<5 AND e.actualizado_en<DATEADD(MINUTE,-5,SYSUTCDATETIME())
+    WHERE e.enviado=0 AND e.intentos<5 AND p.eliminado_en IS NULL AND e.actualizado_en<DATEADD(MINUTE,-5,SYSUTCDATETIME())
       AND (p.estado=e.estado OR (e.estado='pickup_ready' AND p.estado='shipped')) ORDER BY e.id`)).recordset;
   for (const p of rows) await sendOrderMail({ pedidoId: p.id, clienteNombre: p.cliente_nombre, clienteEmail: p.cliente_email, totalClp: p.total_clp, estado: p.estado });
 }

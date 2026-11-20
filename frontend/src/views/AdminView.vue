@@ -191,8 +191,16 @@
               <div class="summary-pill">Sin foto: {{ productosSinImagen }}</div>
             </div>
 
+            <div class="catalog-selection">
+              <label><input type="checkbox" :checked="allVisibleProductsSelected" :disabled="!filteredProductos.length || filteredProductos.length > 100" @change="toggleVisibleProducts($event.target.checked)"> Seleccionar visibles</label>
+              <span role="status">{{ selectedProductIds.length }} seleccionados</span>
+              <button type="button" class="btn-primary" :disabled="!selectedProductIds.length" @click="openBulkAttributes">Añadir etiquetas</button>
+              <button v-if="selectedProductIds.length" type="button" class="btn-ghost" @click="selectedProductIds = []">Quitar selección</button>
+            </div>
+
             <div class="mobile-admin-list">
               <article v-for="p in filteredProductos" :key="p.id" class="mobile-product-row">
+                <label class="catalog-product-selection"><input type="checkbox" :aria-label="`Seleccionar ${p.nombre}`" :checked="selectedProductIds.includes(p.id)" :disabled="!selectedProductIds.includes(p.id) && selectedProductIds.length >= 100" @change="toggleProductSelection(p.id)"> Seleccionar</label>
                 <div class="mobile-product-head"><img v-if="p.imagen_url" :src="p.imagen_url" :alt="p.nombre" loading="lazy"><div><span>{{ p.marca }}</span><h3>{{ p.nombre }}</h3><p>{{ fmt(p.precio_clp) }} · {{ p.categoria }}</p></div></div>
                 <div v-if="p.usa_tonos" class="mobile-variant-list"><span v-for="tone in p.tonos" :key="tone">{{ tone }}: <strong>{{ p.tonos_stock?.[tone] || 0 }}</strong></span></div>
                 <div v-else class="mobile-stock-row"><label :for="`mobile-stock-${p.id}`">Stock</label><input :id="`mobile-stock-${p.id}`" v-model.number="stockDrafts[p.id]" type="number" inputmode="numeric" min="0"><button :disabled="savingStockId === p.id || Number(stockDrafts[p.id]) === Number(p.stock)" @click="guardarStockRapido(p)">Guardar stock</button></div>
@@ -220,7 +228,7 @@
                     <td colspan="9" class="empty-state table-empty">No hay productos para ese filtro.</td>
                   </tr>
                   <tr v-for="(p, i) in filteredProductos" :key="p.id">
-                    <td class="muted">{{ i + 1 }}</td>
+                    <td class="muted"><input type="checkbox" :aria-label="`Seleccionar ${p.nombre}`" :checked="selectedProductIds.includes(p.id)" :disabled="!selectedProductIds.includes(p.id) && selectedProductIds.length >= 100" @change="toggleProductSelection(p.id)"> {{ i + 1 }}</td>
                     <td>
                       <div class="product-thumb" :class="{ empty: !p.imagen_url }">
                         <img v-if="p.imagen_url" :src="p.imagen_url" :alt="p.nombre">
@@ -281,7 +289,7 @@
                 <input v-model.trim="pedidoSearch" class="toolbar-input" type="text" placeholder="Buscar por código, nombre o correo">
                 <select v-model="pedidoEstadoFilter" class="toolbar-select">
                   <option value="all">Todos los estados</option>
-                  <option value="pending_payment">Esperando transferencia</option>
+                  <option value="pending_payment">Pendiente de pago</option>
                   <option value="payment_submitted">Comprobante recibido</option>
                   <option value="paid">Pago validado</option>
                   <option value="shipped">Enviado</option>
@@ -300,7 +308,7 @@
 
             <div class="summary-strip">
               <div class="summary-pill">Pagos por revisar: {{ stats.pagos_por_validar || 0 }}</div>
-              <div class="summary-pill">Esperando transferencia: {{ stats.pendientes_pago || 0 }}</div>
+              <div class="summary-pill">Pendientes de pago: {{ stats.pendientes_pago || 0 }}</div>
               <div class="summary-pill">Ventas externas: {{ ventasExternasCount }}</div>
               <div class="summary-pill">Mes del reporte: {{ ventasExportMonth }}</div>
               <div class="summary-pill">Haz clic en un pedido para ver su detalle</div>
@@ -363,7 +371,7 @@
                     </td>
                     <td>
                       <select class="estado-select" :value="p.estado" @click.stop @change="cambiarEstado(p.id, $event.target.value)">
-                        <option value="pending_payment">Esperando transferencia</option>
+                        <option value="pending_payment">Pendiente de pago</option>
                         <option value="payment_submitted">Comprobante recibido</option>
                         <option value="paid">Pago validado</option>
                         <option value="shipped">Enviado</option>
@@ -788,11 +796,23 @@
             <p v-if="emailStatus?.flow?.review_orders?.length" class="error-msg" role="alert">Pagos Flow que requieren revisión manual: {{ emailStatus.flow.review_orders.map(id => `BS-${String(id).padStart(4, '0')}`).join(', ') }}. Verifica el pago en Flow antes de preparar el pedido o devolver el dinero.</p>
             <div class="section-actions"><h2 class="section-h2">Correos y pagos</h2><button class="btn-primary" :disabled="checkingEmail" @click="loadEmailStatus">{{ checkingEmail ? 'Comprobando…' : 'Comprobar conexiones' }}</button></div>
             <p v-if="emailStatusError" class="integration-error" role="alert">{{ emailStatusError }}</p>
-            <div class="home-settings-grid">
+            <div class="home-settings-grid integrations-grid">
               <article class="ad-card"><h3 class="ad-card-title">Correo transaccional</h3><template v-if="emailStatus"><p>SMTP: {{ emailStatus.connected ? 'Conectado' : emailStatus.configured ? 'Sin conexión' : 'No configurado' }}</p><p>{{ emailStatus.from }}</p></template><label class="form-group"><span>Enviar prueba a</span><input v-model.trim="testEmail" type="email" autocomplete="email"></label><button class="btn-primary" :disabled="checkingEmail || !testEmail" @click="sendTestEmail">Enviar correo de prueba</button><p v-if="emailTestResult" role="status">{{ emailTestResult }}</p></article>
               <article class="ad-card"><h3 class="ad-card-title">Flow</h3><template v-if="emailStatus"><p>{{ emailStatus.flow?.enabled ? 'Credenciales configuradas' : 'Pendiente de configuración segura en servidor' }}</p><p>Entorno: {{ emailStatus.flow?.sandbox ? 'Pruebas (sandbox)' : 'Producción' }}</p></template><a class="btn-ghost" href="https://www.flow.cl/" target="_blank" rel="noopener">Abrir Flow</a></article>
+              <article class="ad-card notification-settings">
+                <h3 class="ad-card-title">Avisos para preparar pedidos</h3>
+                <label class="notification-option"><input v-model="notificationForm.enabled" type="checkbox"> Recibir avisos por correo</label>
+                <label class="form-group"><span>Correo del comercio</span><input v-model.trim="notificationForm.email" type="email" autocomplete="email" :disabled="savingNotifications"></label>
+                <label class="notification-option"><input v-model="notificationForm.paid" type="checkbox" :disabled="!notificationForm.enabled"> Pago confirmado: preparar pedido</label>
+                <label class="notification-option"><input v-model="notificationForm.payment_submitted" type="checkbox" :disabled="!notificationForm.enabled"> Comprobante recibido: revisar pago</label>
+                <label class="notification-option"><input v-model="notificationForm.pending_payment" type="checkbox" :disabled="!notificationForm.enabled"> Pedido reservado sin pagar</label>
+                <button class="btn-primary" :disabled="savingNotifications || checkingEmail" @click="saveOrderNotifications">{{ savingNotifications ? 'Guardando…' : 'Guardar avisos' }}</button>
+                <p v-if="notificationResult" role="status">{{ notificationResult }}</p>
+                <p v-if="emailStatus?.store_url" class="section-copy">Dirección de los correos: {{ emailStatus.store_url }}</p>
+              </article>
             </div>
             <article class="ad-card mail-events"><h3 class="ad-card-title">Correos de pedidos recientes</h3><div v-for="event in emailStatus?.events || []" :key="`${event.pedido_id}-${event.estado}`" class="mail-event"><strong>BS-{{ String(event.pedido_id).padStart(4, '0') }}</strong><span>{{ estadoLabel(event.estado) }}</span><span>{{ event.enviado ? 'Aceptado por SMTP' : `Pendiente · ${event.intentos} intento(s)` }}</span><small v-if="event.ultimo_error">{{ event.ultimo_error }}</small></div></article>
+            <article class="ad-card mail-events"><h3 class="ad-card-title">Avisos al comercio</h3><p v-if="!emailStatus?.admin_events?.length" class="section-copy">Todavía no hay avisos registrados.</p><div v-for="event in emailStatus?.admin_events || []" :key="`${event.pedido_id}-${event.estado}`" class="mail-event"><strong>BS-{{ String(event.pedido_id).padStart(4, '0') }}</strong><span>{{ event.estado === 'manual_review' ? 'Revisar pago Flow' : estadoLabel(event.estado) }}</span><span>{{ event.enviado ? 'Aceptado por SMTP' : `Pendiente · ${event.intentos} intento(s)` }}</span><small v-if="event.ultimo_error">{{ event.ultimo_error }}</small></div></article>
           </template>
 
           <template v-if="activeSection === 'home'">
@@ -1369,6 +1389,9 @@
               <textarea v-model="form.descripcion" rows="3" placeholder="Descripción breve para ubicarlo rápido"></textarea>
           </div>
 
+          <ProductAttributeEditor v-model="form.tipos_piel" label="Tipo de piel" :suggestions="productSkinLabels" />
+          <ProductAttributeEditor v-model="form.necesidades" label="Necesidad" :suggestions="productNeedLabels" />
+
           <div class="form-row">
             <div class="form-group">
               <label>Precio de venta en CLP</label>
@@ -1458,6 +1481,20 @@
             <button class="btn-primary" :disabled="saving" @click="guardarProducto">
               {{ saving ? 'Guardando...' : 'Guardar producto' }}
             </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="modal">
+      <div v-if="showBulkAttributes" class="modal-overlay" @click.self="!savingBulkAttributes && (showBulkAttributes = false)">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bulk-attributes-title">
+          <h3 id="bulk-attributes-title" class="modal-title">Añadir etiquetas a {{ selectedProductIds.length }} productos</h3>
+          <ProductAttributeEditor v-model="bulkAttributes.tipos_piel" label="Tipo de piel" :suggestions="productSkinLabels" />
+          <ProductAttributeEditor v-model="bulkAttributes.necesidades" label="Necesidad" :suggestions="productNeedLabels" />
+          <div class="modal-actions">
+            <button type="button" class="btn-ghost" :disabled="savingBulkAttributes" @click="showBulkAttributes = false">Cancelar</button>
+            <button type="button" class="btn-primary" :disabled="savingBulkAttributes || !(bulkAttributes.tipos_piel.length || bulkAttributes.necesidades.length)" @click="saveBulkAttributes">{{ savingBulkAttributes ? 'Guardando...' : 'Añadir etiquetas' }}</button>
           </div>
         </div>
       </div>
@@ -1763,6 +1800,8 @@ import { clientesApi, descuentosApi, mensajesApi, pedidosApi, productosApi, sett
 import { useAuthStore } from '../stores/auth.js'
 import { CHILE_REGIONS, buildApiCustomerPayload, buildProfileForm, formatPhoneInput, formatRutInput } from '../utils/customerFields.js'
 import { validateCustomerProfile } from '../utils/validation.js'
+import ProductAttributeEditor from '../components/admin/ProductAttributeEditor.vue'
+import { attributeLabels, attributeOptions, skinTypeLabels } from '../utils/catalogFilters.mjs'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -1770,10 +1809,16 @@ const router = useRouter()
 const activeSection = ref(sessionStorage.getItem('bs_admin_section') || 'dashboard')
 const adminMenuOpen = ref(false)
 const emailStatus = ref(null), checkingEmail = ref(false), emailStatusError = ref(''), testEmail = ref(''), emailTestResult = ref('')
+const notificationForm = ref({ enabled: false, email: '', paid: true, payment_submitted: true, pending_payment: false })
+const savingNotifications = ref(false), notificationResult = ref('')
 watch(activeSection, value => { if (value === 'integraciones') void loadEmailStatus() })
 async function loadEmailStatus() {
   checkingEmail.value = true; emailStatusError.value = ''
-  try { emailStatus.value = (await mensajesApi.emailStatus()).data }
+  try {
+    emailStatus.value = (await mensajesApi.emailStatus()).data
+    if (emailStatus.value.notifications) notificationForm.value = { ...emailStatus.value.notifications }
+    testEmail.value ||= notificationForm.value.email
+  }
   catch (err) { emailStatusError.value = err.response?.data?.error || 'No pudimos revisar las conexiones.' }
   finally { checkingEmail.value = false }
 }
@@ -1782,6 +1827,14 @@ async function sendTestEmail() {
   try { await mensajesApi.testEmail(testEmail.value); emailTestResult.value = 'Prueba aceptada por el servidor. Revisa también la carpeta de spam.' }
   catch (err) { emailTestResult.value = err.response?.data?.error || 'No se pudo enviar la prueba.' }
   finally { checkingEmail.value = false }
+}
+async function saveOrderNotifications() {
+  savingNotifications.value = true; notificationResult.value = ''
+  try {
+    notificationForm.value = (await mensajesApi.saveOrderNotifications(notificationForm.value)).data
+    notificationResult.value = 'Avisos guardados.'
+  } catch (err) { notificationResult.value = err.response?.data?.error || 'No pudimos guardar los avisos.' }
+  finally { savingNotifications.value = false }
 }
 watch(activeSection, value => sessionStorage.setItem('bs_admin_section', value))
 const navItems = [
@@ -2018,6 +2071,10 @@ const scanningImage = ref(false)
 const scanImageMessage = ref(null)
 const savingStockId = ref(null)
 const form = ref({})
+const selectedProductIds = ref([])
+const showBulkAttributes = ref(false)
+const savingBulkAttributes = ref(false)
+const bulkAttributes = ref({ tipos_piel: [], necesidades: [] })
 const brandMode = ref('')
 const editingCliente = ref(null)
 const clienteForm = ref(buildProfileForm())
@@ -2089,6 +2146,8 @@ const productosDisponiblesVentaManual = computed(() =>
 const productoCategorias = computed(() => [...new Set(productos.value.map(p => p.categoria).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es')))
 const productBrandOptions = computed(() => uniqueProductBrands(productos.value))
 const productoMarcas = computed(() => productBrandOptions.value)
+const productSkinLabels = computed(() => attributeLabels([...skinTypeLabels, ...attributeOptions(productos.value, 'tipos_piel').map(option => option.label)]))
+const productNeedLabels = computed(() => attributeOptions(productos.value, 'necesidades').map(option => option.label))
 const brandDuplicateWarning = computed(() => {
   if (brandMode.value !== '__new' || !form.value.marca) return ''
   const existing = findExistingBrand(form.value.marca)
@@ -2250,12 +2309,49 @@ function resetManualSaleForm() {
   }
 }
 
+const allVisibleProductsSelected = computed(() => filteredProductos.value.length > 0 && filteredProductos.value.every(product => selectedProductIds.value.includes(product.id)))
+
+function toggleProductSelection(id) {
+  if (selectedProductIds.value.includes(id)) selectedProductIds.value = selectedProductIds.value.filter(value => value !== id)
+  else if (selectedProductIds.value.length < 100) selectedProductIds.value = [...selectedProductIds.value, id]
+}
+
+function toggleVisibleProducts(checked) {
+  const visibleIds = filteredProductos.value.map(product => product.id)
+  const next = checked ? [...new Set([...selectedProductIds.value, ...visibleIds])] : selectedProductIds.value.filter(id => !visibleIds.includes(id))
+  if (next.length > 100) return showToast('Selecciona hasta 100 productos por lote.', 'error')
+  selectedProductIds.value = next
+}
+
+function openBulkAttributes() {
+  bulkAttributes.value = { tipos_piel: [], necesidades: [] }
+  showBulkAttributes.value = true
+}
+
+async function saveBulkAttributes() {
+  savingBulkAttributes.value = true
+  try {
+    const { data } = await productosApi.agregarEtiquetas({ ids: [...selectedProductIds.value], ...bulkAttributes.value })
+    const updated = new Map(data.products.map(product => [product.id, product]))
+    productos.value = productos.value.map(product => ({ ...product, ...updated.get(product.id) }))
+    showToast(`Etiquetas añadidas a ${data.products.length} productos.`)
+    showBulkAttributes.value = false
+    selectedProductIds.value = []
+  } catch (error) {
+    showToast(error.response?.data?.error || 'No pudimos añadir las etiquetas.', 'error')
+  } finally {
+    savingBulkAttributes.value = false
+  }
+}
+
 function resetForm() {
   form.value = {
     marca: '',
     nombre: '',
     descripcion: '',
     categoria: 'Serums',
+    tipos_piel: [],
+    necesidades: [],
     precio_usd: 0,
     precio_clp: '',
     precio_oferta_clp: '',
@@ -2305,6 +2401,8 @@ function openProductoModal(producto = null) {
     const existingBrand = findExistingBrand(producto.marca)
     form.value = {
       ...producto,
+      tipos_piel: attributeLabels(producto.tipos_piel),
+      necesidades: attributeLabels(producto.necesidades),
       marca: existingBrand || producto.marca || '',
       precio_usd: producto.precio_usd || 0,
       oferta_hasta: producto.oferta_hasta ? String(producto.oferta_hasta).slice(0, 10) : '',
@@ -2981,6 +3079,7 @@ async function handleHomeImagePicked(index, event) {
 async function cargarProductos() {
   const { data } = await productosApi.listarAdmin()
   productos.value = data
+  selectedProductIds.value = selectedProductIds.value.filter(id => data.some(product => product.id === id))
   syncStockDrafts()
 }
 
@@ -3047,7 +3146,7 @@ function formatDateTime(value) {
 
 function estadoLabel(estado) {
   return {
-    pending_payment: 'Esperando transferencia',
+    pending_payment: 'Pendiente de pago',
     payment_submitted: 'Comprobante recibido',
     paid: 'Pago validado',
     shipped: 'Enviado',
@@ -3093,11 +3192,23 @@ function stockLabel(stock) {
 </script>
 
 <style scoped>
+.catalog-selection { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--ad-text); font-size: 14px; }
+.catalog-selection label, .catalog-product-selection { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; }
+.catalog-selection input, .catalog-product-selection input, .desktop-product-table input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--rose); }
+.catalog-product-selection { margin-bottom: 8px; }
 .admin-layout { color-scheme: dark; }
 select { background-color: var(--ad-bg); color: var(--ad-text); }
 .mobile-admin-bar, .mobile-admin-list { display: none; }
 .mail-events { margin-top: 20px; } .mail-event { display: flex; gap: 16px; flex-wrap: wrap; padding: 16px 0; border-top: 1px solid var(--ad-border); color: var(--ad-text); font-size: 14px; }
 .integration-error { color: #f1a2a2; } .mail-events small { flex-basis: 100%; }
+.notification-settings { display: grid; gap: 16px; align-content: start; }
+.notification-option { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.6; color: var(--ad-text); }
+.notification-option input { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 2px; accent-color: #d96d90; }
+.notification-settings input[type="email"] { width: 100%; min-width: 0; font-size: 16px; }
+.notification-settings p { overflow-wrap: anywhere; }
+.integrations-grid .form-group { display: grid; gap: 8px; margin: 16px 0; }
+.integrations-grid .form-group > span { color: var(--ad-muted); font-size: 14px; }
+.integrations-grid button, .integrations-grid .btn-ghost { min-height: 44px; }
 .home-settings-grid > .ad-card p { color: var(--ad-text); overflow-wrap: anywhere; margin-bottom: 16px; }
 .content-actions { position: sticky; top: 0; z-index: 15; padding: 14px 0; background: var(--ad-bg); border-bottom: 1px solid var(--ad-border); }
 .save-status { font-size: 13px; color: var(--ad-text); }
