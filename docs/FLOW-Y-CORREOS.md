@@ -15,16 +15,18 @@ La transferencia bancaria sigue disponible mientras tanto.
 
    ```dotenv
    FLOW_ENABLED=false
-   FLOW_ENV=sandbox
+   FLOW_ENV=production
    FLOW_API_KEY=
    FLOW_SECRET_KEY=
+   FLOW_SANDBOX_API_KEY=
+   FLOW_SANDBOX_SECRET_KEY=
    STORE_BASE_URL=https://bloomskin.cl
    ```
 
-4. En un entorno de pruebas con su propia base de datos, habilita Flow.
-   Comprueba un pago aprobado, uno rechazado, regreso sin pago y
-   notificaciones repetidas. La prueba automatizada usa respuestas simuladas:
-   no sustituye esta certificacion con Flow.
+4. Las claves reales quedan en `FLOW_API_KEY` y `FLOW_SECRET_KEY`.
+   Guarda las de pruebas en `FLOW_SANDBOX_API_KEY` y `FLOW_SANDBOX_SECRET_KEY`.
+   El script aislado de Sandbox selecciona las de pruebas solo en su proceso;
+   no cambia las variables activas de la tienda.
 5. Para publicar, usa las claves reales, `FLOW_ENV=production` y
    `FLOW_ENABLED=true`, reinicia el backend y revisa "Correos y pagos".
 6. Haz una compra real controlada y verifica monto, stock, pedido y correo
@@ -73,6 +75,54 @@ Desde `backend`: `node --test src/lib/commerce.test.js src/lib/siteSettings.test
 sin modificar pedidos ni existencias de produccion. Simula Flow y desactiva
 SMTP; no genera cargos ni correos reales. Usa el puerto 3001, que debe
 estar libre. Conserva la base QA para poder inspeccionar resultados.
+
+### Prueba real de Sandbox
+
+`node src/scripts/qa-flow-sandbox.js` crea una base QA, desactiva el SMTP
+de la aplicacion y publica temporalmente SOLO los callbacks de Flow,
+los recursos estaticos y la consulta privada del pedido de prueba.
+Requiere el ejecutable oficial de Cloudflare (`CLOUDFLARED_PATH`) para
+recibir la notificacion real de Flow; no cambia IIS ni el dominio real.
+El correo del pagador de prueba debe ser propio: usa `FLOW_SANDBOX_TEST_EMAIL`
+o, por defecto, el remitente configurado en `SMTP_FROM`.
+Flow Sandbox puede generar sus propios avisos al correo del comercio.
+
+El script escribe una fixture privada en la carpeta temporal del sistema.
+`qa-flow-browser.cjs` permite completar el simulador de Flow con Playwright
+mediante las acciones `pay` y `reject`. Requiere Playwright instalado
+o una ruta en `PLAYWRIGHT_MODULE_PATH`.
+`qa-flow-check.js audit` verifica confirmacion, callbacks duplicados,
+stock por variante y un solo evento de correo. `create-reject`,
+`create-retry` y `audit-retry` verifican el rechazo y posterior reintento.
+`create-cancel` y `audit-late` verifican un pago posterior a la cancelacion,
+incluida la advertencia en admin y la exclusion de los totales de ventas.
+Los recibos de auditoria y capturas quedan en la carpeta temporal de la prueba.
+
+Cada intento conserva su token en `flow_payment_attempts`. Solo se permite
+generar otro intento si Flow confirma que el anterior fue rechazado o
+anulado; un pago en estado incierto nunca se recrea automaticamente.
+Una notificacion antigua de rechazo no puede revertir un pago aprobado.
+Un cobro tardio de un intento anterior queda marcado para conciliacion.
+
+El retorno del navegador admite un POST desde dominios HTTPS de Flow
+exclusivamente en `/api/flow/return`; el resto de la API conserva sus
+restricciones de origen y autenticacion.
+
+### Resultados del 19 de noviembre de 2026
+
+Se completo el simulador real de Flow Sandbox, no solo respuestas mock:
+
+- Pago aprobado y retorno automatico al pedido con "Pago confirmado".
+- Rechazo seguido de un nuevo intento aprobado sobre el mismo pedido.
+- Notificaciones duplicadas y notificacion antigua de rechazo sin volver
+  a descontar stock ni duplicar el evento de correo de pago.
+- Pago tardio de un pedido cancelado: queda cancelado, stock disponible,
+  alerta de conciliacion en admin y sin inflar el resumen de ventas.
+- Credenciales productivas verificadas mediante una consulta sin cobro.
+
+Flow en produccion permanece desactivado. Falta autorizar la activacion
+y efectuar una primera compra real controlada; Sandbox no prueba la
+liquidacion bancaria real ni garantiza entrega de correos a la bandeja.
 
 ## Mantenimiento pendiente
 

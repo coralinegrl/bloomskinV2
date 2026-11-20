@@ -30,4 +30,13 @@ function validatePayment(status, order) {
     && String(status.commerceOrder) === `BS-${String(order.id).padStart(4, '0')}`;
 }
 
-module.exports = { flowConfig, flowRequest, signParameters, validatePayment };
+function isFlowReturnRequest(req, origin) {
+  if (req.method !== 'POST' || req.path !== '/api/flow/return' || !origin) return false;
+  try {
+    const url = new URL(origin);
+    return url.origin === origin && url.protocol === 'https:' && !url.port
+      && (url.hostname === 'flow.cl' || url.hostname.endsWith('.flow.cl'));
+  } catch { return false; }
+}
+
+module.exports = { flowConfig, flowRequest, signParameters, validatePayment, isFlowReturnRequest };

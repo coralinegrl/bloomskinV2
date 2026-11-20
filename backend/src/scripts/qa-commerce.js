@@ -6,32 +6,11 @@ const os = require('os');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { spawn } = require('child_process');
-const dbName = `bloomskin_qa_${Date.now()}`;
-const productionName = process.env.DB_NAME;
 const base = 'http://127.0.0.1:3001';
 const qaSecret = crypto.randomBytes(48).toString('hex');
 let child;
 async function run() {
-  process.env.DB_NAME = 'master';
-  const { getPool, sql } = require('../config/db');
-  const master = await getPool();
-  assert.match(dbName, /^bloomskin_qa_\d+$/);
-  assert.notEqual(dbName, productionName);
-  await master.request().batch(`CREATE DATABASE [${dbName}]`);
-  const qa = new sql.ConnectionPool({ ...master.config, database: dbName,
-    connectionString: master.config.connectionString?.replace(/Database=[^;]+;/, `Database=${dbName};`) });
-  await qa.connect();
-  const root = path.resolve(__dirname, '../../../database');
-  const schema = fs.readFileSync(path.join(root, 'schema.sql'), 'utf8').split(/^\s*GO\s*$/gim).slice(2);
-  const batches = [...schema];
-  for (const name of fs.readdirSync(path.join(root, 'migrations')).filter(n => n.endsWith('.sql')).sort()) {
-    batches.push(...fs.readFileSync(path.join(root, 'migrations', name), 'utf8').split(/^\s*GO\s*$/gim));
-  }
-  for (const batch of batches) {
-    const safe = batch.replace(/^\s*USE\s+bloomskin\s*;\s*$/gim, '');
-    assert(!/\b(?:USE|CREATE DATABASE)\s+/i.test(safe.replace(/--[^\r\n]*/g, '')), 'Unsafe database switch');
-    if (safe.trim()) await qa.request().batch(safe);
-  }
+  const { name: dbName, qa, master, sql } = await require('./lib/qaDatabase').createQaDatabase();
   await qa.request().query(`INSERT INTO productos(marca,nombre,descripcion,categoria,precio_usd,precio_clp,stock,usa_tonos,tonos_json,tonos_stock_json,imagen_url)
     VALUES ('Bloomskin QA','Serum piel sensible','Hidratacion para piel sensible','Serums',10,10000,10,0,NULL,NULL,'/brand/bloomskin-logo.png'),
     ('Bloomskin QA','Labial con tipos','Dos variantes de prueba','Labiales',10,12000,3,1,'["Rosa","Rojo"]','{"Rosa":1,"Rojo":2}','/brand/bloomskin-logo.png');`);
@@ -113,7 +92,7 @@ async function run() {
   const flowOrder=await buy('flow','qa@example.test');
   const payment=await api(`/flow/${flowOrder.id}/create`,{},flowOrder.access_token);
   assert.equal(payment.status,200,JSON.stringify(payment.data));
-  assert.equal((await api(`/flow/${flowOrder.id}/create`,{},flowOrder.access_token)).data.url,payment.data.url,'Reuses payment instead of charging twice');
+  assert.equal((await api(`/flow/${flowOrder.id}/create`,{},flowOrder.access_token)).status,409,'An already-approved provider payment cannot create another charge when its notification was missed');
   const flowToken=new URL(payment.data.url).searchParams.get('token');
   assert.equal((await api('/flow/confirm',{token:flowToken})).status,200);
   assert.equal((await api('/flow/confirm',{token:flowToken})).status,200);

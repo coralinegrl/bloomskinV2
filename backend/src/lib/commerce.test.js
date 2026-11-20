@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
-const { signParameters, validatePayment, flowConfig } = require('./flow');
+const { signParameters, validatePayment, flowConfig, isFlowReturnRequest } = require('./flow');
 const { normalizeVariantMeta, variantPrice } = require('./variants');
 const { renderMessage } = require('./mail');
 
@@ -22,6 +22,14 @@ test('Variant metadata validates prices, images and base-price fallbacks', () =>
   assert.equal(variantPrice({precio_clp:10000,variant_meta:meta},'Rojo'),10000);
   assert.throws(()=>normalizeVariantMeta({Rosa:{precio_clp:-1}},['Rosa']),{code:'INVALID_VARIANT'});
   assert.throws(()=>normalizeVariantMeta({Rosa:{imagen_url:'javascript:alert(1)'}},['Rosa']),{code:'INVALID_VARIANT'});
+});
+
+test('Flow return origin exception is restricted to its POST callback', () => {
+  const req={method:'POST',path:'/api/flow/return'};
+  for (const origin of ['https://www.flow.cl','https://sandbox.flow.cl','https://api.flow.cl']) assert.equal(isFlowReturnRequest(req,origin),true);
+  for (const origin of ['https://flow.cl.evil.example','http://www.flow.cl','https://evil.example','https://www.flow.cl:8443','null','https://evil@www.flow.cl']) assert.equal(isFlowReturnRequest(req,origin),false);
+  assert.equal(isFlowReturnRequest({...req,path:'/api/pedidos'},'https://sandbox.flow.cl'),false);
+  assert.equal(isFlowReturnRequest({...req,method:'GET'},'https://sandbox.flow.cl'),false);
 });
 
 test('Transactional email has a text fallback and escapes customer-controlled content', () => {

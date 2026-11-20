@@ -7,6 +7,7 @@ const { rateLimit } = require('express-rate-limit');
 const { getPool } = require('./config/db');
 const { ensureDiscountSchema } = require('./lib/discounts');
 const { ensureCheckoutSchema, createGuestSession } = require('./lib/checkoutAccess');
+const { isFlowReturnRequest } = require('./lib/flow');
 const pedidosRouter = require('./routes/pedidos');
 const resenasRouter = require('./routes/resenas');
 
@@ -43,15 +44,15 @@ function isAllowedOrigin(origin) {
   }
 }
 
-app.use(cors({
+app.use(cors((req, optionsCallback) => optionsCallback(null, {
   origin(origin, callback) {
-    if (isAllowedOrigin(origin)) {
+    if (isAllowedOrigin(origin) || isFlowReturnRequest(req, origin)) {
       return callback(null, true);
     }
     return callback(new Error('Origen no permitido por CORS'));
   },
   credentials: true,
-}));
+})));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.post('/api/checkout/session', rateLimit({ windowMs: 15 * 60 * 1000, limit: 30,
