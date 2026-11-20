@@ -13,7 +13,7 @@
         <h2>{{ order.metodo_pago === 'flow' ? 'Completa tu pago con Flow' : 'Pago por transferencia' }}</h2>
         <p>Plazo para completar el pago: {{ deadline }}. Después de ese plazo se libera la reserva.</p>
         <template v-if="order.metodo_pago === 'flow'">
-          <p>El pago se abre en otra pestaña. Este pedido se actualiza al volver.</p>
+          <p>Paga con débito, crédito u otro medio disponible en Flow. El pago se abre en otra pestaña y tu pedido se actualiza al volver.</p>
           <a v-if="flowUrl" :href="flowUrl" target="_blank" rel="noopener noreferrer" class="flow-link" @click="feedback = 'Completa el pago en la pestaña de Flow. No vuelvas a pagar si ya recibiste un cargo.'">Abrir Flow en otra pestaña</a>
           <button v-else :disabled="busy" @click="payFlow">{{ busy ? 'Preparando…' : 'Pagar con Flow' }}</button>
         </template>

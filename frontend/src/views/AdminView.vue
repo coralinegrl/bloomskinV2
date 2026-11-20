@@ -824,8 +824,8 @@
               <div class="actions-row">
                 <span class="save-status" role="status">{{ siteSettingsDirty ? 'Cambios sin guardar' : 'Sin cambios pendientes' }}</span>
                 <a href="/" target="_blank" rel="noopener" class="btn-ghost"><Eye :size="16" aria-hidden="true" /> Ver tienda</a>
-                <button class="btn-ghost" type="button" :disabled="!siteSettingsDirty || savingSiteSettings" @click="siteSettings = JSON.parse(savedSiteSettings)">Descartar</button>
-                <button class="btn-primary" type="button" :disabled="savingSiteSettings || !siteSettingsDirty" @click="guardarSiteSettings">
+                <button class="btn-ghost" type="button" :disabled="!siteSettingsDirty || savingSiteSettings || uploadingAboutPhoto" @click="siteSettings = JSON.parse(savedSiteSettings)">Descartar</button>
+                <button class="btn-primary" type="button" :disabled="savingSiteSettings || !siteSettingsDirty || uploadingAboutPhoto" @click="guardarSiteSettings">
                   <Save :size="16" aria-hidden="true" />
                   {{ savingSiteSettings ? 'Guardando...' : 'Guardar cambios' }}
                 </button>
@@ -1230,6 +1230,16 @@
 
               <article class="ad-card home-tile-card">
                 <div class="ad-card-title">Quiénes somos</div>
+                <div class="founder-photo-editor">
+                  <img v-if="siteSettings.about.photo_url" :src="siteSettings.about.photo_url" :alt="siteSettings.about.photo_alt || 'Vista previa de tu foto'" class="founder-photo-preview">
+                  <label class="form-group"><span>Tu foto</span><input type="file" accept="image/jpeg,image/png,image/webp" :disabled="uploadingAboutPhoto || savingSiteSettings" @change="handleAboutPhotoPicked"></label>
+                  <p v-if="uploadingAboutPhoto" role="status">Subiendo tu foto…</p>
+                  <p v-if="aboutPhotoError" class="error-msg" role="alert">{{ aboutPhotoError }}</p>
+                  <button v-if="siteSettings.about.photo_url" class="btn-ghost" type="button" :disabled="uploadingAboutPhoto || savingSiteSettings" @click="siteSettings.about.photo_url = ''; siteSettings.about.photo_alt = ''">Quitar foto</button>
+                </div>
+                <label class="form-group"><span>Tu nombre o apodo</span><input v-model.trim="siteSettings.about.founder_name" type="text" maxlength="100" autocomplete="nickname"></label>
+                <label class="form-group"><span>Tu presentación</span><textarea v-model.trim="siteSettings.about.founder_bio" rows="5" maxlength="1600"></textarea></label>
+                <label class="form-group"><span>Descripción de la foto</span><input v-model.trim="siteSettings.about.photo_alt" type="text" maxlength="180"></label>
                 <div class="form-group">
                   <label>Título sección</label>
                   <input v-model="siteSettings.about.heading" type="text">
@@ -1977,6 +1987,7 @@ const siteSettings = ref({
     email_cta_label: 'Escribir por correo',
   },
   about: {
+    founder_name: '', founder_bio: '', photo_url: '', photo_alt: '',
     heading: 'Quiénes somos',
     intro: 'Bloomskin nace para acercar el skincare coreano a Chile con una selección curada, amable de comprar y pensada para la vida real.',
     body: 'Nos importan las fórmulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catálogo, acompañamos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
@@ -2120,6 +2131,7 @@ const manualSaleForm = ref({
   items: [{ producto_id: 0, tono_seleccionado: '', cantidad: 1, producto_query: '' }],
 })
 const uploadingHomeIndex = ref(null)
+const uploadingAboutPhoto = ref(false), aboutPhotoError = ref('')
 const newsletterForm = ref({
   subject: '',
   headline: '',
@@ -3045,6 +3057,7 @@ async function cargarHomeSettings() {
 }
 
 async function guardarSiteSettings() {
+  if (uploadingAboutPhoto.value) return
   savingSiteSettings.value = true
   const submittedSettings = JSON.stringify(siteSettings.value)
   try {
@@ -3058,6 +3071,25 @@ async function guardarSiteSettings() {
   } finally {
     savingSiteSettings.value = false
   }
+}
+
+async function handleAboutPhotoPicked(event) {
+  const file = event.target.files?.[0]
+  if (!file || uploadingAboutPhoto.value) return
+  aboutPhotoError.value = ''
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !/\.(jpe?g|png|webp)$/i.test(file.name) || file.size > 5 * 1024 * 1024) {
+    aboutPhotoError.value = 'Usa una foto JPG, PNG o WebP de hasta 5 MB.'
+    event.target.value = ''
+    return
+  }
+  uploadingAboutPhoto.value = true
+  try {
+    const { data } = await productosApi.subirImagen(file)
+    siteSettings.value.about.photo_url = data.image_url
+    showToast('Foto subida. Guarda los cambios para publicarla.')
+  } catch (err) {
+    aboutPhotoError.value = err.response?.data?.error || 'No pudimos subir la foto. Intenta nuevamente.'
+  } finally { uploadingAboutPhoto.value = false; event.target.value = '' }
 }
 
 async function handleHomeImagePicked(index, event) {
@@ -3268,6 +3300,11 @@ select { background-color: var(--ad-bg); color: var(--ad-text); }
 .settings-subblock { border-top: 1px solid rgba(255,255,255,.06); margin-top: 16px; padding-top: 16px; }
 .home-tile-card { display: flex; flex-direction: column; gap: 14px; }
 .home-image-preview img { max-height: 180px; object-fit: contain; background: #fff; }
+.founder-photo-editor { display: grid; gap: 12px; margin-bottom: 20px; }
+.founder-photo-preview { display: block; width: 180px; max-width: 100%; aspect-ratio: 4 / 5; object-fit: contain; border-radius: 6px; }
+.founder-photo-editor input[type="file"] { width: 100%; min-width: 0; font-size: 16px; }
+.home-tile-card label.form-group { display: grid; gap: 8px; }
+.home-tile-card label.form-group > span { color: var(--ad-muted); font-size: 14px; }
 .ad-card { background: var(--ad-surface); border: 1px solid var(--ad-border); border-radius: 10px; padding: 24px; }
 .ad-card-title { font-size: 13px; font-weight: 600; color: var(--ad-text); margin-bottom: 20px; }
 .newsletter-list-header { padding: 24px 24px 0; }

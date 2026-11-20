@@ -20,6 +20,18 @@
         <p>{{ about.intro }}</p>
       </section>
 
+      <section v-if="showFounder" class="founder-section" :class="{ 'has-photo': about.photo_url && !photoBroken }" aria-labelledby="founder-title">
+        <figure v-if="about.photo_url && !photoBroken" class="founder-portrait">
+          <img :src="about.photo_url" :alt="about.photo_alt || (about.founder_name ? `${about.founder_name}, detrás de Bloomskin` : 'La persona detrás de Bloomskin')" width="640" height="800" decoding="async" @error="photoBroken = true">
+        </figure>
+        <div class="founder-story">
+          <span class="founder-eyebrow">Detrás de Bloomskin</span>
+          <h2 id="founder-title">{{ about.founder_name || 'Una tienda con una historia propia' }}</h2>
+          <p v-if="about.founder_bio">{{ about.founder_bio }}</p>
+          <RouterLink to="/contacto" class="about-link">Conversemos</RouterLink>
+        </div>
+      </section>
+
       <section class="about-layout">
         <article class="about-card story-card">
           <h2>La idea detrás de Bloomskin</h2>
@@ -53,7 +65,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { settingsApi } from '../api/index.js'
 import AppHeader from '../components/store/AppHeader.vue'
@@ -69,12 +81,16 @@ const cart = useCartStore()
 const customerAuth = useCustomerAuthStore()
 
 const headerSearch = ref('')
+const photoBroken = ref(false)
 const about = ref({
+  founder_name: '', founder_bio: '', photo_url: '', photo_alt: '',
   heading: 'Quiénes somos',
   intro: 'Bloomskin nace para acercar el skincare coreano a Chile con una selección curada, amable de comprar y pensada para la vida real.',
   body: 'Nos importan las fórmulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catálogo, acompañamos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
   signature: 'Curaduría real, ayuda cercana y una forma más humana de comprar K-Beauty.',
 })
+const showFounder = computed(() => Boolean(about.value.founder_name || about.value.founder_bio || (about.value.photo_url && !photoBroken.value)))
+watch(() => about.value.photo_url, () => { photoBroken.value = false })
 
 function submitHeaderSearch() {
   router.push({
@@ -120,7 +136,7 @@ onMounted(loadSite)
 <style scoped>
 .about-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #fffdfd, #fff5f8 20%, #fefcfd 100%);
+  background: var(--white);
 }
 
 .about-main {
@@ -164,24 +180,22 @@ onMounted(loadSite)
 .about-layout {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
-  gap: 18px;
+  gap: 48px;
+  padding: 32px 0;
 }
 
 .about-card {
-  padding: 30px;
-  border-radius: 32px;
-  background: linear-gradient(145deg, #fff7fa, #fffdfd);
-  border: 1px solid rgba(191, 84, 122, 0.12);
-  box-shadow: 0 16px 40px rgba(148, 89, 108, 0.08);
+  min-width: 0;
 }
 
 .story-card {
-  background: linear-gradient(145deg, #fef0f5, #fffdfd);
+  padding-right: 12px;
 }
 
 .about-card h2 {
   font-family: 'Cormorant Garamond', serif;
   font-size: 34px;
+  line-height: 1.2;
   color: var(--dark);
 }
 
@@ -209,10 +223,8 @@ blockquote {
 }
 
 .value-list li {
-  padding: 16px 18px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(191, 84, 122, 0.12);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .value-list strong {
@@ -237,13 +249,23 @@ blockquote {
   justify-content: center;
   min-height: 46px;
   padding: 0 18px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--rose-dark);
   color: #fff;
   font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
+
+.founder-section { padding: 32px 0 48px; display: grid; gap: 32px; align-items: center; border-bottom: 1px solid var(--line-soft); }
+.founder-section.has-photo { grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 48px; }
+.founder-portrait { margin: 0; min-width: 0; }
+.founder-portrait img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: contain; border-radius: 8px; }
+.founder-story { min-width: 0; }
+.founder-eyebrow { font-size: 14px; color: var(--rose-dark); }
+.founder-story h2 { margin: 12px 0 20px; font-family: 'Cormorant Garamond', serif; font-size: 36px; line-height: 1.15; color: var(--dark); overflow-wrap: anywhere; }
+.founder-story p { white-space: pre-line; overflow-wrap: anywhere; font-size: 16px; line-height: 1.8; color: var(--dark-mid); }
+.about-card p, .about-hero p { white-space: pre-line; overflow-wrap: anywhere; }
 
 @media (max-width: 900px) {
   .about-layout {
@@ -252,6 +274,9 @@ blockquote {
 }
 
 @media (max-width: 720px) {
+  .founder-section.has-photo { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .founder-portrait { width: min(100%, 320px); margin: 0 auto; }
+  .founder-story h2 { font-size: 32px; }
   .about-main {
     padding: 28px 20px 0;
   }
@@ -261,7 +286,7 @@ blockquote {
   }
 
   .about-card {
-    padding: 24px 20px;
+    padding: 0;
   }
 }
 </style>

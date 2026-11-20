@@ -56,7 +56,7 @@ async function scenario(browser, viewport, mode) {
       await drawer.locator('input[type=email]').fill('qa@example.com')
       await drawer.getByPlaceholder('12.345.678-5', { exact: true }).fill('12345678-5')
       await drawer.getByPlaceholder('+56 9 1234 5678', { exact: true }).fill('+56912345678')
-      await drawer.getByRole('radio', { name: 'Pago online con Flow' }).check()
+      await drawer.getByRole('radio', { name: 'Débito / crédito y otros medios con Flow' }).check()
       await drawer.getByRole('button', { name: 'Continuar a Flow', exact: true }).click()
       await page.waitForURL('**/pedido/990001?flow=*')
     } else {

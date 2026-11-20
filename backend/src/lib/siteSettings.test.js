@@ -53,3 +53,33 @@ test('community links reject scripts, unrelated hosts, credentials, and missing 
     assert.throws(() => sanitizeHomeSettings({ whatsappClub: { url } }), { code: 'INVALID_SITE_SETTINGS' });
   }
 });
+
+test('founder details stay optional and survive settings save without changing store content', () => {
+  const legacy = sanitizeSiteSettings({ about: { heading: 'Nuestra tienda', body: 'Nuestra historia real' } });
+  assert.equal(legacy.about.photo_url, '');
+  assert.equal(legacy.about.founder_name, '');
+  const settings = readSettings();
+  const previousHome = settings.home;
+  settings.about = { ...settings.about, founder_name: 'Nombre QA', founder_bio: 'Una historia propia.\nCon dos párrafos.',
+    photo_url: '/uploads/productos/123-retrato.jpg', photo_alt: 'Retrato de prueba' };
+  writeSettings(settings);
+  assert.deepEqual(readSettings().about, settings.about);
+  assert.deepEqual(readSettings().home, previousHome);
+  settings.about.photo_url = ''; settings.about.founder_name = ''; settings.about.founder_bio = '';
+  writeSettings(settings);
+  assert.equal(readSettings().about.photo_url, '');
+  assert.equal(readSettings().about.founder_bio, '');
+});
+
+test('portrait fields are bounded and unsafe or nonimage URLs cannot be published', () => {
+  const about = sanitizeSiteSettings({ about: { founder_name: 'x'.repeat(200), founder_bio: 'x'.repeat(2000), photo_alt: 'x'.repeat(300) } }).about;
+  assert.equal(about.founder_name.length, 100);
+  assert.equal(about.founder_bio.length, 1600);
+  assert.equal(about.photo_alt.length, 180);
+  for (const photo_url of ['javascript:alert(1)', 'data:image/png;base64,AAA', '//evil.example/photo.jpg',
+    '/uploads/comprobantes/private.png', '/uploads/productos/../secret.jpg', '/uploads/productos/file.html',
+    'http://example.com/photo.jpg', 'https://user:pass@example.com/photo.png', 'https://example.com/photo.svg']) {
+    assert.throws(() => sanitizeSiteSettings({ about: { photo_url } }), { code: 'INVALID_SITE_SETTINGS' });
+  }
+  assert.equal(sanitizeSiteSettings({ about: { photo_url: 'https://example.com/photo.jpeg?v=1' } }).about.photo_url, 'https://example.com/photo.jpeg?v=1');
+});

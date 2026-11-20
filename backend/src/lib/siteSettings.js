@@ -175,6 +175,10 @@ const defaultSettings = {
     email_cta_label: 'Escribir por correo',
   },
   about: {
+    founder_name: '',
+    founder_bio: '',
+    photo_url: '',
+    photo_alt: '',
     heading: 'QuiÃƒÆ’Ã‚Â©nes somos',
     intro: 'Bloomskin nace para acercar el skincare coreano a Chile con una seleccion curada, amable de comprar y pensada para la vida real.',
     body: 'Nos importan las fÃƒÆ’Ã‚Â³rmulas originales, las texturas que de verdad se disfrutan y una experiencia simple para descubrir productos sin sentir la tienda pesada. Curamos el catÃƒÆ’Ã‚Â¡logo, acompaÃƒÆ’Ã‚Â±amos por WhatsApp y buscamos que cada compra se sienta confiable, linda y clara de principio a fin.',
@@ -367,7 +371,25 @@ function sanitizeContactSettings(contact = {}) {
 }
 
 function sanitizeAboutSettings(about = {}) {
+  const photoUrl = sanitizeString(about.photo_url).slice(0, 1200);
+  if (photoUrl) {
+    let valid = /^\/uploads\/productos\/[a-zA-Z0-9._-]+\.(?:jpe?g|png|webp)$/i.test(photoUrl);
+    try {
+      const url = new URL(photoUrl);
+      valid = url.protocol === 'https:' && !url.username && !url.password && !url.port
+        && /\.(?:jpe?g|png|webp)$/i.test(url.pathname);
+    } catch { /* Uploaded portraits use a relative URL. */ }
+    if (!valid) {
+      const error = new Error('La foto de Quiénes somos debe ser JPG, PNG o WebP, subida desde el panel o mediante una URL https válida.');
+      error.code = 'INVALID_SITE_SETTINGS';
+      throw error;
+    }
+  }
   return {
+    founder_name: sanitizeString(about.founder_name).slice(0, 100),
+    founder_bio: sanitizeString(about.founder_bio).slice(0, 1600),
+    photo_url: photoUrl,
+    photo_alt: sanitizeString(about.photo_alt).slice(0, 180),
     heading: sanitizeString(about.heading, defaultSettings.about.heading),
     intro: sanitizeString(about.intro, defaultSettings.about.intro),
     body: sanitizeString(about.body, defaultSettings.about.body),

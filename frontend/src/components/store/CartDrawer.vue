@@ -305,7 +305,7 @@
 
               <div class="checkout-panel">
                 <strong>Forma de pago</strong>
-                <div class="payment-options"><label><input v-model="paymentMethod" type="radio" value="bank_transfer"> Transferencia bancaria</label><label v-if="flowEnabled"><input v-model="paymentMethod" type="radio" value="flow"> Pago online con Flow</label></div>
+                <div class="payment-options"><label><input v-model="paymentMethod" type="radio" value="bank_transfer"> Transferencia bancaria</label><label v-if="flowEnabled"><input v-model="paymentMethod" type="radio" value="flow"> Débito / crédito y otros medios con Flow</label></div>
                 <p class="panel-copy">{{ paymentMethod === 'flow' ? 'Abriremos el pago seguro de Flow en otra pestaña. Tu pedido seguirá disponible aquí.' : 'Creas el pedido, transfieres el total exacto y luego subes tu comprobante.' }}</p>
                 <p v-if="paymentMethod === 'bank_transfer' && transferConfigWarning" class="panel-error">{{ transferConfigWarning }}</p>
                 <p v-else-if="checkoutError" class="panel-error">{{ checkoutError }}</p>

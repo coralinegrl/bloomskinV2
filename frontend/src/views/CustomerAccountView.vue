@@ -270,7 +270,7 @@
 
           <div v-else-if="order.metodo_pago === 'flow' && order.estado === 'pending_payment'" class="proof-upload-box">
             <strong>Pago pendiente con Flow</strong>
-            <p>No necesitas subir un comprobante. El pago se confirmará cuando Flow informe su aprobación.</p>
+            <p>Puedes pagar con débito, crédito u otro medio disponible en Flow. No necesitas subir un comprobante: el pago se confirmará cuando Flow informe su aprobación.</p>
             <RouterLink :to="{ name: 'order-access', params: { id: order.id } }" class="proof-link">Ver pedido y continuar pago</RouterLink>
           </div>
 
