@@ -11,14 +11,17 @@
 </template>
 
 <script setup>
-const items = [
-  'Envío gratis sobre $49.990',
-  'Envíos a todo Chile continental',
+import {computed} from 'vue'
+import {useStoreConfig} from '../../stores/storeConfig.js'
+const config=useStoreConfig()
+const items = computed(()=>[
+  config.operations.free_shipping_enabled && config.operations.delivery_enabled ? `Envío gratis desde $${Number(config.operations.free_shipping_threshold).toLocaleString('es-CL')}` : '',
+  config.operations.delivery_enabled ? config.operations.national_enabled ? 'Envíos a todo Chile continental' : `Despacho local en ${config.operations.pickup_city}` : '',
   'Skincare coreano 100% original',
-  'Despacho local en Antofagasta',
+  config.operations.pickup_enabled ? `Retiro en ${config.operations.pickup_address}` : '',
   'Ayuda por WhatsApp para elegir tu rutina',
   'Novedades y lanzamientos de K-Beauty',
-]
+].filter(Boolean))
 </script>
 
 <style scoped>

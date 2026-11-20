@@ -16,7 +16,7 @@
           :aria-current="activeSection === item.section ? 'page' : undefined"
           @click="activeSection = item.section; adminMenuOpen = false"
         >
-          <span class="nav-icon">{{ item.icon }}</span>
+          <component :is="navIcons[item.section]" class="nav-icon" :size="18" aria-hidden="true" />
           <span>{{ item.label }}</span>
         </button>
       </nav>
@@ -63,7 +63,9 @@
 
         <template v-else>
           <template v-if="activeSection === 'dashboard'">
-            <div class="stats-grid">
+            <AdminDailyTasks :orders="pedidos" :products="productos" :threshold="siteSettings.operations.low_stock_threshold" @order="openOrderDetails" @inventory="activeSection='inventario'" @catalog="activeSection='productos'; openProductoModal()" />
+            <button type="button" class="metrics-toggle" :aria-expanded="showMetrics" @click="showMetrics=!showMetrics">Resumen y métricas <ChevronDown :size="18"/></button>
+            <div class="stats-grid" :class="{'metrics-collapsed':!showMetrics}">
               <div class="stat-card">
                 <div class="stat-label">Facturación confirmada del mes</div>
                 <div class="stat-value">{{ fmt(stats.ventas_mes || 0) }}</div>
@@ -100,7 +102,7 @@
               </div>
             </div>
 
-            <div class="dash-grid">
+            <div class="dash-grid" :class="{'metrics-collapsed':!showMetrics}">
               <div class="ad-card">
                 <div class="ad-card-title">Pedidos recientes</div>
                 <div v-if="pedidos.length === 0" class="empty-state">No hay pedidos aún.</div>
@@ -163,6 +165,7 @@
               </div>
               <div class="actions-row">
                 <input v-model.trim="productoSearch" class="toolbar-input" type="text" placeholder="Buscar producto o marca">
+                <select v-model="productoEstadoFilter" class="toolbar-select" aria-label="Estado de publicación"><option value="all">Publicados y borradores</option><option value="published">Publicados</option><option value="draft">Borradores</option><option value="archived">Archivados</option></select>
                 <select v-model="productoCategoriaFilter" class="toolbar-select">
                   <option value="all">Todas las categorías</option>
                   <option v-for="categoria in productoCategorias" :key="categoria" :value="categoria">{{ categoria }}</option>
@@ -204,7 +207,8 @@
                 <div class="mobile-product-head"><img v-if="p.imagen_url" :src="p.imagen_url" :alt="p.nombre" loading="lazy"><div><span>{{ p.marca }}</span><h3>{{ p.nombre }}</h3><p>{{ fmt(p.precio_clp) }} · {{ p.categoria }}</p></div></div>
                 <div v-if="p.usa_tonos" class="mobile-variant-list"><span v-for="tone in p.tonos" :key="tone">{{ tone }}: <strong>{{ p.tonos_stock?.[tone] || 0 }}</strong></span></div>
                 <div v-else class="mobile-stock-row"><label :for="`mobile-stock-${p.id}`">Stock</label><input :id="`mobile-stock-${p.id}`" v-model.number="stockDrafts[p.id]" type="number" inputmode="numeric" min="0"><button :disabled="savingStockId === p.id || Number(stockDrafts[p.id]) === Number(p.stock)" @click="guardarStockRapido(p)">Guardar stock</button></div>
-                <div class="mobile-row-actions"><button @click="openProductoModal(p)">{{ p.usa_tonos ? 'Editar producto y tipos' : 'Editar producto' }}</button><button @click="eliminarProducto(p.id)">Eliminar</button></div>
+                <span class="publication-label">{{ p.activo===false ? 'Archivado' : p.publication_status==='draft' ? 'Borrador' : 'Publicado' }}</span>
+                <div class="mobile-row-actions"><button @click="openProductoModal(p)">{{ p.usa_tonos ? 'Editar producto y tipos' : 'Editar producto' }}</button><button @click="duplicateProduct(p)"><Copy :size="16"/> Duplicar</button><button @click="previewProduct=p"><Eye :size="16"/> Vista previa</button><button @click="eliminarProducto(p.id)">Archivar</button></div>
               </article>
               <p v-if="!filteredProductos.length" class="empty-state">No hay productos para ese filtro.</p>
             </div>
@@ -237,6 +241,7 @@
                     </td>
                     <td>
                       <div class="td-name">{{ p.nombre }}</div>
+                      <span class="publication-label">{{ p.activo===false ? 'Archivado' : p.publication_status==='draft' ? 'Borrador' : 'Publicado' }}</span>
                       <span class="muted d-block">{{ p.categoria || 'Sin categoría' }}</span>
                       <span v-if="p.usa_tonos && p.tonos?.length" class="muted d-block">{{ p.tonos.length }} tipos configurados</span>
                     </td>
@@ -271,7 +276,9 @@
                     <td class="muted">{{ badgeLabel(p.badge) }}</td>
                     <td class="td-actions">
                       <button class="btn-edit" @click="openProductoModal(p)">Editar</button>
-                      <button class="btn-delete" @click="eliminarProducto(p.id)">Eliminar</button>
+                      <button class="btn-edit" @click="duplicateProduct(p)" title="Duplicar producto como borrador"><Copy :size="16"/></button>
+                      <button class="btn-edit" @click="previewProduct=p" title="Vista previa del producto"><Eye :size="16"/></button>
+                      <button class="btn-delete" @click="eliminarProducto(p.id)">Archivar</button>
                     </td>
                   </tr>
                 </tbody>
@@ -471,6 +478,7 @@
                   <div class="detail-subtitle">{{ selectedOrder.cliente_nombre }} - {{ selectedOrder.cliente_email }}</div>
                 </div>
                 <span class="status-pill" :class="`s-${selectedOrder.estado}`">{{ estadoLabel(selectedOrder.estado) }}</span>
+                <button type="button" class="btn-ghost" @click="selectedOrderId=null">Cerrar detalle</button>
               </div>
 
               <div class="detail-grid">
@@ -571,6 +579,7 @@
                 <div class="detail-label">Notas</div>
                 <p>{{ selectedOrder.notas }}</p>
               </div>
+              <OrderFulfillment :order="selectedOrder" @updated="refreshAll" />
             </div>
           </template>
 
@@ -793,6 +802,7 @@
           </template>
 
           <template v-if="activeSection === 'integraciones'">
+            <AdminMailCenter />
             <p v-if="emailStatus?.flow?.review_orders?.length" class="error-msg" role="alert">Pagos Flow que requieren revisión manual: {{ emailStatus.flow.review_orders.map(id => `BS-${String(id).padStart(4, '0')}`).join(', ') }}. Verifica el pago en Flow antes de preparar el pedido o devolver el dinero.</p>
             <div class="section-actions"><h2 class="section-h2">Correos y pagos</h2><button class="btn-primary" :disabled="checkingEmail" @click="loadEmailStatus">{{ checkingEmail ? 'Comprobando…' : 'Comprobar conexiones' }}</button></div>
             <p v-if="emailStatusError" class="integration-error" role="alert">{{ emailStatusError }}</p>
@@ -824,6 +834,7 @@
               <div class="actions-row">
                 <span class="save-status" role="status">{{ siteSettingsDirty ? 'Cambios sin guardar' : 'Sin cambios pendientes' }}</span>
                 <a href="/" target="_blank" rel="noopener" class="btn-ghost"><Eye :size="16" aria-hidden="true" /> Ver tienda</a>
+                <button class="btn-ghost" type="button" @click="previewContent"><Eye :size="16"/> Vista previa sin publicar</button>
                 <button class="btn-ghost" type="button" :disabled="!siteSettingsDirty || savingSiteSettings || uploadingAboutPhoto" @click="siteSettings = JSON.parse(savedSiteSettings)">Descartar</button>
                 <button class="btn-primary" type="button" :disabled="savingSiteSettings || !siteSettingsDirty || uploadingAboutPhoto" @click="guardarSiteSettings">
                   <Save :size="16" aria-hidden="true" />
@@ -832,12 +843,13 @@
               </div>
             </div>
 
+            <label class="content-section-select">Qué quieres editar<select v-model="contentPanel" aria-label="Qué quieres editar"><option v-for="(label,key) in contentPanels" :key="key" :value="key">{{ label }}</option></select></label>
             <div class="home-settings-grid">
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='inicio'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Secciones del inicio</div>
                 <label v-for="section in editableHomeSections" :key="section.key" class="club-toggle"><input v-model="siteSettings.home.sections[section.key]" type="checkbox"> {{ section.label }}</label>
               </article>
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='inicio'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Comunidad WhatsApp</div>
                 <label class="club-toggle"><input v-model="siteSettings.home.whatsappClub.enabled" type="checkbox"> Mostrar grupo en la tienda</label>
                 <div class="form-group"><label for="club-url">Enlace de invitación</label><input id="club-url" v-model="siteSettings.home.whatsappClub.url" type="url" maxlength="500" placeholder="https://chat.whatsapp.com/..."></div>
@@ -846,7 +858,7 @@
                 <div class="form-group"><label for="club-copy">Descripción</label><textarea id="club-copy" v-model="siteSettings.home.whatsappClub.copy" rows="3" maxlength="600"></textarea></div>
                 <div class="form-group"><label for="club-button">Texto del botón</label><input id="club-button" v-model="siteSettings.home.whatsappClub.button_label" maxlength="80"></div>
               </article>
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='inicio'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Hero principal</div>
                 <div class="form-group">
                   <label>Etiqueta</label>
@@ -876,7 +888,7 @@
                 </div>
               </article>
 
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='inicio'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Barra de beneficios</div>
                 <div
                   v-for="(promo, index) in siteSettings.home.promoItems"
@@ -904,6 +916,7 @@
 
             <div class="home-settings-grid">
               <article
+                v-show="contentPanel==='inicio'"
                 v-for="(tile, index) in siteSettings.home.categoryTiles"
                 :key="`home-tile-${index}`"
                 class="ad-card home-tile-card"
@@ -949,7 +962,7 @@
             </div>
 
             <div class="home-settings-grid">
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='inicio'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Secciones de productos</div>
                 <div class="settings-subblock">
                   <div class="detail-label">Best sellers</div>
@@ -992,7 +1005,7 @@
                 </div>
               </article>
 
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='inicio'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Editorial y CTA</div>
                 <div class="form-group">
                   <label>Etiqueta editorial</label>
@@ -1058,7 +1071,7 @@
             </div>
 
             <div class="home-settings-grid">
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='contacto'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Newsletter y footer</div>
                 <div class="settings-subblock">
                   <div class="detail-label">Newsletter</div>
@@ -1136,7 +1149,7 @@
                 </div>
               </article>
 
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='pagos'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Transferencia bancaria</div>
                 <div class="form-row">
                   <div class="form-group">
@@ -1174,7 +1187,7 @@
                 </div>
               </article>
 
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='google'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Google y vista en enlaces</div>
                 <div class="form-group">
                   <label>Nombre del sitio</label>
@@ -1206,7 +1219,7 @@
             </div>
 
             <div class="home-settings-grid">
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='contacto'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Contacto y WhatsApp</div>
                 <div class="form-group">
                   <label>Título contacto</label>
@@ -1228,7 +1241,7 @@
                 </div>
               </article>
 
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='nosotros'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Quiénes somos</div>
                 <div class="founder-photo-editor">
                   <img v-if="siteSettings.about.photo_url" :src="siteSettings.about.photo_url" :alt="siteSettings.about.photo_alt || 'Vista previa de tu foto'" class="founder-photo-preview">
@@ -1258,7 +1271,7 @@
                 </div>
               </article>
 
-              <article class="ad-card home-tile-card">
+              <article v-show="contentPanel==='politicas'" class="ad-card home-tile-card">
                 <div class="ad-card-title">Políticas visibles</div>
                 <div class="settings-subblock">
                   <div class="detail-label">Envíos</div>
@@ -1326,14 +1339,20 @@
               </article>
             </div>
           </template>
+          <template v-if="activeSection==='configuracion'"><div class="section-actions content-actions"><h2 class="section-h2">Mi tienda</h2><div class="actions-row"><span class="save-status">{{ siteSettingsDirty ? 'Cambios sin guardar' : 'Sin cambios pendientes' }}</span><button class="btn-ghost" type="button" :disabled="savingSiteSettings || !siteSettingsDirty" @click="siteSettings=JSON.parse(savedSiteSettings)">Descartar</button><button class="btn-primary" type="button" :disabled="savingSiteSettings || !siteSettingsDirty" @click="guardarSiteSettings"><Save :size="18"/> Guardar cambios</button></div></div><StoreOperationsEditor :model-value="siteSettings.operations" /></template>
+          <AdminInventory v-if="activeSection==='inventario'" @updated="refreshAll" />
+          <AdminRecovery v-if="activeSection==='historial'" :has-unsaved="siteSettingsDirty" @restored="applyRestoredContent" />
         </template>
       </div>
     </main>
+    <nav class="admin-bottom-nav" aria-label="Accesos rápidos"><button v-for="key in ['dashboard','pedidos','productos','inventario']" :key="key" type="button" :class="{active:activeSection===key}" @click="activeSection=key; adminMenuOpen=false"><component :is="navIcons[key]" :size="20"/><span>{{ {dashboard:'Hoy',pedidos:'Ventas',productos:'Catálogo',inventario:'Inventario'}[key] }}</span></button><button type="button" :aria-expanded="adminMenuOpen" @click="adminMenuOpen=!adminMenuOpen; scrollAdminTop()"><Menu :size="20"/><span>Más</span></button></nav>
+    <ProductQuickViewModal :product="previewProduct" preview @close="previewProduct=null" />
 
     <Transition name="modal">
       <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
         <div class="modal">
           <h3 class="modal-title">{{ editingProducto ? 'Editar producto' : 'Nuevo producto' }}</h3>
+          <div class="form-group"><label for="product-publication">Publicación</label><select id="product-publication" v-model="form.publication_status"><option value="draft">Borrador · no visible en la tienda</option><option value="published">Publicado · visible en la tienda</option></select></div>
 
           <div class="ai-fill-card">
             <div class="ai-fill-copy">
@@ -1488,8 +1507,9 @@
           </div>
           <div class="modal-actions">
             <button class="btn-ghost" @click="showModal = false">Cancelar</button>
+            <button class="btn-ghost" type="button" @click="previewCurrentProduct"><Eye :size="18"/> Vista previa</button>
             <button class="btn-primary" :disabled="saving" @click="guardarProducto">
-              {{ saving ? 'Guardando...' : 'Guardar producto' }}
+              {{ saving ? 'Guardando...' : form.publication_status==='draft' ? 'Guardar borrador' : 'Publicar producto' }}
             </button>
           </div>
         </div>
@@ -1804,7 +1824,19 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, onBeforeRouteLeave, useRouter } from 'vue-router'
-import { Eye, Save, Menu } from 'lucide-vue-next'
+import { Eye, Save, Menu, Copy, LayoutDashboard, ShoppingBag, Package, Boxes, Tag, Users, Inbox, Mail, Settings, History, FileText, CreditCard, ChevronDown } from 'lucide-vue-next'
+import AdminDailyTasks from '../components/admin/AdminDailyTasks.vue'
+import AdminInventory from '../components/admin/AdminInventory.vue'
+import StoreOperationsEditor from '../components/admin/StoreOperationsEditor.vue'
+import OrderFulfillment from '../components/admin/OrderFulfillment.vue'
+import AdminRecovery from '../components/admin/AdminRecovery.vue'
+import AdminMailCenter from '../components/admin/AdminMailCenter.vue'
+import ProductQuickViewModal from '../components/store/ProductQuickViewModal.vue'
+import '../components/admin/management.css'
+import {defaultOperations} from '../constants/storeOperations.js'
+import {openContentPreview} from '../utils/contentPreview.js'
+import {useStoreConfig} from '../stores/storeConfig.js'
+const storeConfig=useStoreConfig()
 import { defaultHomeSections, defaultWhatsappClub } from '../constants/storeContent.js'
 import { clientesApi, descuentosApi, mensajesApi, pedidosApi, productosApi, settingsApi } from '../api/index.js'
 import { useAuthStore } from '../stores/auth.js'
@@ -1818,6 +1850,13 @@ const router = useRouter()
 
 const activeSection = ref(sessionStorage.getItem('bs_admin_section') || 'dashboard')
 const adminMenuOpen = ref(false)
+const contentPanels={inicio:'Inicio y productos destacados',contacto:'Contacto, redes y pie de página',nosotros:'Quiénes somos y tu foto',pagos:'Transferencias',google:'Google y enlaces',politicas:'Políticas'}
+const contentPanel=ref('inicio'),previewProduct=ref(null),productoEstadoFilter=ref('all'),showMetrics=ref(false)
+const navIcons={dashboard:LayoutDashboard,productos:Package,pedidos:ShoppingBag,inventario:Boxes,descuentos:Tag,clientes:Users,mensajes:Inbox,newsletter:Mail,home:FileText,integraciones:CreditCard,configuracion:Settings,historial:History}
+function scrollAdminTop(){document.querySelector('.admin-main')?.scrollTo({top:0,behavior:'smooth'});window.scrollTo({top:0,behavior:'smooth'})}
+watch(activeSection,()=>nextTick(scrollAdminTop))
+function previewContent(){try{openContentPreview(siteSettings.value,null,contentPanel.value==='nosotros' ? '/quienes-somos' : '/')}catch(e){showToast(e.message,'error')}}
+function applyRestoredContent(site){siteSettings.value=normalizeSiteSettings(site);savedSiteSettings.value=JSON.stringify(siteSettings.value);storeConfig.setSite(siteSettings.value);showToast('Contenido restaurado.')}
 const emailStatus = ref(null), checkingEmail = ref(false), emailStatusError = ref(''), testEmail = ref(''), emailTestResult = ref('')
 const notificationForm = ref({ enabled: false, email: '', paid: true, payment_submitted: true, pending_payment: false })
 const savingNotifications = ref(false), notificationResult = ref('')
@@ -1879,6 +1918,8 @@ navItems.push({ section: 'newsletter', icon: 'E', label: 'Campañas' })
 titleMap.newsletter = 'Campañas por correo'
 navItems.push({ section: 'home', icon: 'S', label: 'Contenido' })
 navItems.push({ section: 'integraciones', icon: '@', label: 'Correos y pagos' })
+navItems.push({section:'inventario',label:'Inventario'},{section:'configuracion',label:'Mi tienda'},{section:'historial',label:'Historial y respaldos'})
+Object.assign(titleMap,{inventario:'Inventario',configuracion:'Mi tienda',historial:'Historial y respaldos'})
 titleMap.integraciones = 'Correos y pagos'
 if (!navItems.some(item => item.section === activeSection.value)) activeSection.value = 'dashboard'
 titleMap.home = 'Contenido del sitio'
@@ -1891,6 +1932,7 @@ const mensajes = ref([])
 const suscriptores = ref([])
 const stats = ref({})
 const siteSettings = ref({
+  operations:JSON.parse(JSON.stringify(defaultOperations)),
   home: {
     sections: { ...defaultHomeSections },
     whatsappClub: { ...defaultWhatsappClub },
@@ -2142,13 +2184,13 @@ const newsletterForm = ref({
 })
 
 const currentTitle = computed(() => titleMap[activeSection.value])
-const productosActivos = computed(() => productos.value.length)
+const productosActivos = computed(() => productos.value.filter(p=>p.activo!==false && p.publication_status!=='draft').length)
 const productosSinImagen = computed(() => productos.value.filter(p => !p.imagen_url).length)
 const sinStock = computed(() => productos.value.filter(p => p.stock === 0).length)
-const productosStockBajo = computed(() => productos.value.filter(p => p.stock <= 5).sort((a, b) => a.stock - b.stock))
+const productosStockBajo = computed(() => productos.value.filter(p => p.activo!==false && p.publication_status!=='draft' && p.stock <= siteSettings.value.operations.low_stock_threshold).sort((a, b) => a.stock - b.stock))
 const productosDisponiblesVentaManual = computed(() =>
   productos.value
-    .filter(producto => producto.activo !== false)
+    .filter(producto => producto.activo !== false && producto.publication_status!=='draft')
     .sort((a, b) => {
       const brandCompare = String(a.marca || '').localeCompare(String(b.marca || ''), 'es', { sensitivity: 'base' })
       if (brandCompare !== 0) return brandCompare
@@ -2219,7 +2261,8 @@ const filteredProductos = computed(() => {
       || (productoImagenFilter.value === 'with' && Boolean(producto.imagen_url))
       || (productoImagenFilter.value === 'without' && !producto.imagen_url)
 
-    return matchesSearch && matchesCategory && matchesBrand && matchesStock && matchesImage
+    const matchesStatus=productoEstadoFilter.value==='archived' ? producto.activo===false : producto.activo!==false && (productoEstadoFilter.value==='all' || (producto.publication_status || 'published')===productoEstadoFilter.value)
+    return matchesSearch && matchesCategory && matchesBrand && matchesStock && matchesImage && matchesStatus
   })
 })
 
@@ -2358,6 +2401,7 @@ async function saveBulkAttributes() {
 
 function resetForm() {
   form.value = {
+    publication_status:'draft',
     marca: '',
     nombre: '',
     descripcion: '',
@@ -2413,6 +2457,8 @@ function openProductoModal(producto = null) {
     const existingBrand = findExistingBrand(producto.marca)
     form.value = {
       ...producto,
+      publication_status:producto.activo===false ? 'draft' : producto.publication_status || 'published',
+      expected_stock:producto.stock,expected_tones_json:producto.tonos_stock_json || '',
       tipos_piel: attributeLabels(producto.tipos_piel),
       necesidades: attributeLabels(producto.necesidades),
       marca: existingBrand || producto.marca || '',
@@ -2431,6 +2477,8 @@ function openProductoModal(producto = null) {
   }
   showModal.value = true
 }
+function duplicateProduct(product){openProductoModal({...product,nombre:`${product.nombre} (copia)`,publication_status:'draft',activo:true,stock:0,tonos_stock:Object.fromEntries((product.tonos || []).map(t=>[t,0]))});editingProducto.value=null;delete form.value.expected_stock;delete form.value.expected_tones_json}
+function previewCurrentProduct(){const tones=formToneList.value;previewProduct.value={...form.value,nombre:form.value.nombre || 'Producto sin nombre',tonos:tones,usa_tonos:form.value.usa_tonos && tones.length>0,precio_clp:Number(form.value.precio_clp || 0)}}
 
 function normalizeBrandName(value) {
   return String(value || '')
@@ -2686,8 +2734,8 @@ async function guardarProducto() {
     brandMode.value = existingBrand
   }
 
-  if (!form.value.marca || !form.value.nombre || !form.value.precio_clp) {
-    showToast('Marca, nombre y precio en CLP son obligatorios.', 'error')
+  if (!form.value.nombre || (form.value.publication_status!=='draft' && (!form.value.marca || !form.value.precio_clp || !form.value.categoria || !form.value.imagen_url))) {
+    showToast(form.value.publication_status==='draft' ? 'Ponle un nombre al borrador.' : 'Para publicar, completa nombre, marca, categoría, foto y precio en CLP.', 'error')
     return
   }
 
@@ -2699,6 +2747,7 @@ async function guardarProducto() {
     )
     const payload = {
       ...form.value,
+      activo:true,
       precio_usd: 0,
       precio_clp: Number(form.value.precio_clp || 0),
       precio_oferta_clp: form.value.precio_oferta_clp ? Number(form.value.precio_oferta_clp) : null,
@@ -2725,11 +2774,11 @@ async function guardarProducto() {
 }
 
 async function eliminarProducto(id) {
-  if (!window.confirm('Eliminar este producto? Se ocultara de la tienda.')) return
+  if (!window.confirm('¿Archivar este producto? Se ocultará de la tienda, pero conservará su historial.')) return
   try {
     await productosApi.eliminar(id)
     await Promise.all([cargarProductos(), cargarStats()])
-    showToast('Producto eliminado.')
+    showToast('Producto archivado.')
   } catch (err) {
     showToast(err.response?.data?.error || 'No se pudo eliminar el producto.', 'error')
   }
@@ -2845,7 +2894,7 @@ async function guardarStockRapido(producto) {
 
   savingStockId.value = producto.id
   try {
-    await productosApi.actualizarStock(producto.id, nextStock)
+    await productosApi.actualizarStock(producto.id, nextStock, Number(producto.stock))
     producto.stock = nextStock
     stockDrafts.value[producto.id] = nextStock
     showToast(`Stock actualizado para ${producto.nombre}.`)
@@ -3063,6 +3112,7 @@ async function guardarSiteSettings() {
   try {
     const { data } = await settingsApi.guardarSite(JSON.parse(submittedSettings))
     const storedSettings = normalizeSiteSettings(data.site)
+    storeConfig.setSite(storedSettings)
     savedSiteSettings.value = JSON.stringify(storedSettings)
     if (JSON.stringify(siteSettings.value) === submittedSettings) siteSettings.value = storedSettings
     showToast('Contenido del sitio actualizado correctamente.')
@@ -3118,7 +3168,7 @@ async function cargarProductos() {
 async function cargarPedidos() {
   const { data } = await pedidosApi.listar()
   pedidos.value = data
-  if (!selectedOrderId.value && data.length > 0) selectedOrderId.value = data[0].id
+  if (selectedOrderId.value && !data.some(order=>order.id===selectedOrderId.value)) selectedOrderId.value=null
 }
 
 async function cargarDescuentos() {
@@ -3224,6 +3274,10 @@ function stockLabel(stock) {
 </script>
 
 <style scoped>
+.metrics-toggle{display:none}.detail-header{flex-wrap:wrap}
+@media(max-width:720px){.metrics-toggle{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:46px;padding:12px 0;margin:0 0 20px;border:0;border-bottom:1px solid var(--ad-border);background:transparent;color:var(--ad-text);font-size:15px}.metrics-collapsed{display:none!important}}
+.admin-bottom-nav{display:none}.publication-label{display:inline-block;font-size:12px;padding:4px 0;color:#edabc8}.content-section-select{display:grid;gap:8px;font-size:14px;margin-bottom:22px;max-width:560px}.content-section-select select{font-size:16px;padding:12px;background:var(--ad-surface);color:var(--ad-text);border:1px solid var(--ad-border);border-radius:6px;width:100%}
+@media(max-width:720px){.admin-bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:70;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:#100d18;border-top:1px solid var(--ad-border);padding:6px 4px max(6px,env(safe-area-inset-bottom))}.admin-bottom-nav button{display:grid;justify-items:center;align-content:center;gap:5px;border:0;background:transparent;color:#a8a0b8;min-height:54px;min-width:0;font-size:11px;border-radius:6px}.admin-bottom-nav button.active{color:#f5b4ce;background:#d4779d18}.admin-main{padding-bottom:calc(80px + env(safe-area-inset-bottom))}.content-actions{position:static!important;padding:16px 0!important}.content-actions .actions-row>*{min-height:44px}.home-settings-grid{gap:16px!important;margin-top:16px!important}.home-tile-card{padding:18px!important;border-radius:8px!important}.home-settings-grid:empty{display:none}.modal-actions button:last-child{grid-column:1/-1}.topbar-right .status-chip{display:none}}
 .catalog-selection { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--ad-text); font-size: 14px; }
 .catalog-selection label, .catalog-product-selection { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; }
 .catalog-selection input, .catalog-product-selection input, .desktop-product-table input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--rose); }

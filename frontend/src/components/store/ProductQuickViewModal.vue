@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="quick-view">
-      <div v-if="product" class="quick-view-backdrop" @click.self="close">
+      <div v-if="product" class="quick-view-backdrop" :class="{'admin-preview':preview}" @click.self="close">
         <article ref="modalElement" class="quick-view-modal" role="dialog" aria-modal="true" :aria-labelledby="titleId" tabindex="-1">
           <button class="quick-view-close" type="button" aria-label="Cerrar vista rápida" @click="close">×</button>
 
@@ -23,6 +23,7 @@
 
           <div class="quick-view-content">
             <div class="quick-view-kicker">{{ product.categoria || 'Bloomskin' }}</div>
+            <p v-if="preview" class="preview-label">Vista previa · sin publicar cambios</p>
             <h2 :id="titleId">{{ product.nombre }}</h2>
             <div class="quick-view-brand">{{ product.marca }}</div>
 
@@ -49,7 +50,7 @@
                   class="quick-view-tone"
                   :class="{ active: selectedTone === tone }"
                   type="button"
-                  :disabled="toneStock(tone) === 0"
+                  :disabled="!preview && toneStock(tone) === 0"
                   @click="selectTone(tone)"
                 >
                   {{ tone }}
@@ -63,7 +64,8 @@
               <strong>{{ availabilityLabel }}</strong>
             </div>
 
-            <div class="quick-view-actions">
+            <RestockAlert v-if="!preview" :product="product" />
+            <div v-if="!preview" class="quick-view-actions">
               <div class="quick-view-qty" aria-label="Cantidad">
                 <button type="button" :disabled="qty <= 1" @click="qty = Math.max(1, qty - 1)">-</button>
                 <span>{{ qty }}</span>
@@ -74,7 +76,7 @@
               </button>
             </div>
 
-            <button class="quick-view-detail" type="button" @click="goToDetail">
+            <button v-if="!preview" class="quick-view-detail" type="button" @click="goToDetail">
               Ver detalle completo
             </button>
           </div>
@@ -92,8 +94,10 @@ import { useUiStore } from '../../stores/ui.js'
 import StarRating from './StarRating.vue'
 import { variantDisplay } from '../../utils/productVariants.js'
 import { rememberProduct } from '../../utils/browserStorage.js'
+import RestockAlert from './RestockAlert.vue'
 
 const props = defineProps({
+  preview:{type:Boolean,default:false},
   product: {
     type: Object,
     default: null,
@@ -194,6 +198,7 @@ function selectTone(tone) {
 }
 
 function addToCart() {
+  if(props.preview) return
   if (!props.product || !canAddToCart.value) return
   const payload = hasToneOptions.value
     ? { ...displayProduct.value, tono_seleccionado: selectedTone.value, stock: selectedStock.value }
@@ -243,6 +248,7 @@ function handleKeydown(event) {
 </script>
 
 <style scoped>
+.quick-view-backdrop.admin-preview{z-index:1600}.preview-label{font-size:14px;color:#9b3b65;margin:0 0 12px}
 .quick-view-backdrop {
   position: fixed;
   inset: 0;

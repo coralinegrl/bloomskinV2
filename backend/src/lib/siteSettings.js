@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { defaults: operationsDefaults, sanitizeOperations } = require('./storeOperations');
 
 const dataDir = process.env.DATA_DIR
   ? path.resolve(process.env.DATA_DIR)
@@ -51,6 +52,7 @@ function normalizePromoIcon(value, fallback = 'sparkle') {
 }
 
 const defaultSettings = {
+  operations: operationsDefaults,
   home: {
     sections: { reviews: true, editorial: true, newIn: true, news: true, newsletter: true },
     whatsappClub: {
@@ -416,6 +418,7 @@ function sanitizeLegalSettings(legal = {}) {
 
 function sanitizeSiteSettings(site = {}) {
   return {
+    operations: sanitizeOperations(site.operations),
     home: sanitizeHomeSettings(site.home),
     footer: sanitizeFooterSettings(site.footer),
     payment: sanitizePaymentSettings(site.payment),
@@ -445,7 +448,7 @@ function readSettings() {
 
 function writeSettings(nextSettings) {
   ensureSettingsFile();
-  fs.writeFileSync(settingsFile, JSON.stringify(sanitizeSiteSettings(nextSettings), null, 2), 'utf8');
+  require('./adminFiles').atomicJson(settingsFile, sanitizeSiteSettings(nextSettings));
 }
 
 module.exports = {

@@ -60,7 +60,7 @@
             <div class="summary-card">
               <details class="shipping-estimator">
                 <summary>Calcular despacho o elegir retiro</summary>
-                <div class="payment-options"><label><input v-model="deliveryMode" type="radio" value="delivery"> Despacho a domicilio</label><label><input v-model="deliveryMode" type="radio" value="pickup"> Retiro sin costo</label></div>
+                <div class="payment-options"><label v-if="operations.delivery_enabled"><input v-model="deliveryMode" type="radio" value="delivery"> Despacho a domicilio</label><label v-if="operations.pickup_enabled"><input v-model="deliveryMode" type="radio" value="pickup"> Retiro sin costo</label></div>
                 <div v-if="deliveryMode === 'delivery'" class="form-grid">
                   <label class="field-block"><span>Región</span><select v-model="shippingForm.region"><option value="">Selecciona una región</option><option v-for="region in CHILE_REGIONS" :key="region" :value="region">{{ region }}</option></select></label>
                   <label class="field-block"><span>Comuna / ciudad</span><input v-model.trim="shippingForm.city" autocomplete="address-level2"></label>
@@ -68,7 +68,7 @@
                   <label class="field-block"><span>Número</span><input v-model.trim="shippingForm.number" inputmode="numeric"></label>
                   <button class="ghost-btn" :disabled="shippingLoading" type="button" @click="calculateShipping">{{ shippingLoading ? 'Calculando…' : 'Calcular despacho' }}</button>
                 </div>
-                <p v-else class="panel-copy">Retiro coordinado en Oficina Lina 210, Antofagasta.</p>
+                <p v-else class="panel-copy">Retiro en {{ operations.pickup_address }}, {{ operations.pickup_city }}. {{ operations.pickup_hours }}.</p>
                 <p v-if="shippingError" role="alert" class="panel-error">{{ shippingError }}</p>
                 <p v-if="shippingQuote" class="panel-ok">{{ shippingQuote.provider }} · {{ shippingQuote.tier_label }}</p>
               </details>
@@ -85,12 +85,13 @@
                 <span>{{ shippingValueLabel }}</span>
               </div>
               <div class="summary-row total"><span>Total {{ shippingQuote || deliveryMode === 'pickup' ? '' : 'sin despacho' }}</span><strong>{{ fmt(orderTotal) }}</strong></div>
-              <div class="summary-banner">
-                <strong>{{ cart.total >= 49990 ? 'Ya tienes envío gratis.' : `Te faltan ${fmt(49990 - cart.total)} para envío gratis.` }}</strong>
-                <span>Antofagasta se calcula por distancia. Fuera de Antofagasta usamos Blue Express.</span>
+              <div v-if="operations.free_shipping_enabled && operations.delivery_enabled" class="summary-banner">
+                <strong>{{ discountedSubtotal >= operations.free_shipping_threshold ? 'Cumples el mínimo para envío gratis según cobertura.' : `Te faltan ${fmt(operations.free_shipping_threshold - discountedSubtotal)} para envío gratis.` }}</strong>
+                <span>Despacho local en {{ operations.pickup_city }}{{ operations.national_enabled ? ` y nacional con ${operations.national_carrier}` : '' }}.</span>
               </div>
               <a class="ghost-btn whatsapp-btn" :href="whatsappUrl" target="_blank" rel="noreferrer">Hablar por WhatsApp</a>
-              <button class="primary-btn" type="button" @click="openCheckoutStep">Continuar compra</button>
+              <p v-if="!operations.accepting_orders || previewMode" class="panel-error" role="status">{{ previewMode ? 'Las compras están desactivadas en la vista previa.' : operations.pause_message }}</p>
+              <button class="primary-btn" type="button" :disabled="!operations.accepting_orders || previewMode" @click="openCheckoutStep">Continuar compra</button>
               <button class="ghost-btn" type="button" @click="closeDrawer">Seguir comprando</button>
             </div>
           </div>
@@ -145,6 +146,7 @@
                 </div>
                 <div class="delivery-mode-grid" role="radiogroup" aria-label="Forma de entrega">
                   <button
+                    v-if="operations.delivery_enabled"
                     class="delivery-mode-card"
                     :class="{ active: deliveryMode === 'delivery' }"
                     type="button"
@@ -160,6 +162,7 @@
                     </span>
                   </button>
                   <button
+                    v-if="operations.pickup_enabled"
                     class="delivery-mode-card"
                     :class="{ active: deliveryMode === 'pickup' }"
                     type="button"
@@ -170,8 +173,8 @@
                   >
                     <span class="delivery-radio" aria-hidden="true"></span>
                     <span class="delivery-copy">
-                      <strong>Retiro en Oficina Lina 210</strong>
-                      <small>Coordinamos el retiro sin costo cuando tu pedido esté listo.</small>
+                      <strong>Retiro en {{ operations.pickup_address }}</strong>
+                      <small>{{ operations.pickup_hours }}. Sin costo cuando tu pedido esté listo.</small>
                     </span>
                   </button>
                 </div>
@@ -224,7 +227,7 @@
                 </div>
 
                 <p class="panel-copy">
-                  Antofagasta se calcula por distancia desde Oficina Lina 210. Fuera de Antofagasta usamos Blue Express por {{ fmt(3990) }}. Sobre {{ fmt(49990) }} el envío es gratis.
+                  Despacho local por distancia desde {{ operations.pickup_address }}, {{ operations.pickup_city }}.<template v-if="operations.national_enabled"> Despacho nacional con {{ operations.national_carrier }} por {{ fmt(operations.national_fee) }}.</template><template v-if="operations.free_shipping_enabled"> Envío gratis desde {{ fmt(operations.free_shipping_threshold) }} según cobertura.</template>
                 </p>
                 <p v-if="shippingQuote" class="panel-ok">
                   {{ shippingQuote.provider }} - {{ shippingQuote.tier_label }}
@@ -236,7 +239,7 @@
               <div v-else class="checkout-panel">
                 <strong>Retiro coordinado</strong>
                 <p class="panel-copy">
-                  Si eliges retiro, coordinaremos contigo por WhatsApp o correo una vez creado el pedido en Oficina Lina 210.
+                  Retiro en {{ operations.pickup_address }}, {{ operations.pickup_city }}. {{ operations.pickup_hours }}.
                   Tu dirección personal puede seguir guardada en tu cuenta para futuras compras con despacho.
                 </p>
                 <p class="panel-ok">No se cobrará envío en este pedido.</p>
@@ -387,6 +390,9 @@ import { reserveFlowTab, navigateFlowTab, closeFlowTab } from '../../utils/flowP
 import { useCartStore } from '../../stores/cart.js'
 import { useCustomerAuthStore } from '../../stores/customerAuth.js'
 import { useUiStore } from '../../stores/ui.js'
+import {useStoreConfig} from '../../stores/storeConfig.js'
+import {isContentPreview} from '../../utils/contentPreview.js'
+const storeConfig=useStoreConfig(),operations=computed(()=>storeConfig.operations),previewMode=isContentPreview
 import { validateCustomerProfile, validateShippingAddress } from '../../utils/validation.js'
 import {
   buildApiCustomerPayload,
@@ -420,6 +426,7 @@ const proofUploadedUrl = ref('')
 const proofSuccessModalOpen = ref(false)
 const whatsappUrl = ref('https://wa.me/56994841853')
 const deliveryMode = ref('delivery')
+watch(operations,config=>{if(deliveryMode.value==='delivery'&&!config.delivery_enabled&&config.pickup_enabled)deliveryMode.value='pickup';else if(deliveryMode.value==='pickup'&&!config.pickup_enabled&&config.delivery_enabled)deliveryMode.value='delivery';shippingQuote.value=null},{deep:true})
 const reservationInfo = ref(null)
 const reservationLoading = ref(false)
 const reservationError = ref('')
@@ -642,6 +649,7 @@ watch(
           checkoutSessionApi.config().catch(() => ({ data: { enabled: false } })),
         ])
         paymentConfig.value = data
+        storeConfig.setSite(siteData)
         flowEnabled.value = flowData.enabled === true
         if (siteData?.footer?.whatsapp_url) whatsappUrl.value = siteData.footer.whatsapp_url
       } catch (error) {
@@ -707,6 +715,7 @@ async function syncCheckoutReservation() {
 }
 
 async function openCheckoutStep() {
+  if(!operations.value.accepting_orders || previewMode){ui.error(previewMode ? 'La vista previa no permite compras.' : operations.value.pause_message);return}
   if (checkoutOk.value) { cart.view = 'checkout'; return }
   try {
     if (!reservationInfo.value && (customerAuth.isAuthenticated || sessionStorage.getItem('bs_checkout_token'))) {
@@ -822,6 +831,7 @@ async function calculateShipping() {
 }
 
 async function handleCheckout() {
+  if(!operations.value.accepting_orders || previewMode){checkoutError.value=operations.value.pause_message;return}
   if (submitting.value) return
   let paymentTab = null
   let flowOpened = false

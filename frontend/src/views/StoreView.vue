@@ -289,6 +289,8 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {useStoreConfig} from '../stores/storeConfig.js'
+const storeConfig=useStoreConfig()
 import { defaultHomeSections, defaultWhatsappClub } from '../constants/storeContent.js'
 import RecentlyViewed from '../components/store/RecentlyViewed.vue'
 import { RouterLink, useRouter } from 'vue-router'
@@ -387,7 +389,7 @@ const categoryAliases = {
 }
 
 const tileStyles = ['bottle1', 'bottle2', 'bottle3', 'bottle4']
-const homeContent = computed(() => siteSettings.value.home)
+const homeContent = computed(() => ({...siteSettings.value.home,promoItems:(siteSettings.value.home.promoItems || []).map(item=>item.icon==='truck' ? {...item,title:storeConfig.operations.free_shipping_enabled ? 'Envío gratis' : 'Despachos',copy:storeConfig.operations.free_shipping_enabled ? `Desde $${Number(storeConfig.operations.free_shipping_threshold).toLocaleString('es-CL')} según cobertura vigente` : `Desde ${storeConfig.operations.pickup_city}`} : item)}))
 
 const heroTiles = computed(() => {
   const counts = productos.value.reduce((acc, product) => {

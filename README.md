@@ -19,12 +19,27 @@ El proyecto ya soporta:
 - panel admin para productos, pedidos, clientes, mensajes, newsletter y contenido del sitio
 - wishlist por usuaria
 
-No incluye pago automático integrado. El flujo comercial actual es:
+Incluye pagos online con Flow y transferencia manual. La confirmación de Flow se verifica en el servidor; abrir la página de pago no confirma una venta. El flujo de transferencia es:
 
 1. la clienta crea el pedido
 2. transfiere manualmente
 3. sube comprobante
 4. admin valida y mueve el pedido por estados
+
+## Autogestión
+
+- **Resumen**: pendientes por revisar, preparar y entregar. En móvil, las métricas se despliegan por separado.
+- **Mi tienda**: dirección y horarios de retiro, cobertura, tarifas por distancia, envío gratis y pausa de nuevas compras. No modifica pedidos ya creados.
+- **Inventario**: disponible y reservado por variante, ajustes con motivo e historial desde su activación. Los cambios de precio también aparecen en Actividad.
+- **Ventas**: lista de preparación, contacto, dirección y seguimiento. Solo los pedidos con pago confirmado pueden prepararse.
+- **Catálogo**: borradores, duplicación sin stock heredado, vista previa, publicación y archivo. Los borradores no se pueden comprar.
+- **Contenido**: apartados, vista previa sin publicar y versiones recuperables. La vista previa no permite compras.
+- **Correos y pagos**: momentos de envío, mensaje adicional, vista previa con datos ficticios e historial con reintento de correos fallidos vigentes.
+- **Historial y respaldos**: copia automática diaria verificada de datos e imágenes, conservando siete copias en `DATA_DIR/backups`. La descarga contiene los datos y configuración en JSON comprimido, no las imágenes ni las variables secretas del servidor. Mantén una copia adicional fuera del servidor; el respaldo local no protege contra la pérdida de ese servidor. La restauración desde el panel es solo de contenido, nunca de pedidos o inventario.
+
+Las clientas pueden solicitar un aviso de reposición por tipo y volver a comprar un pedido con precios y disponibilidad actuales. Los avisos de reposición no reservan unidades ni suscriben al newsletter.
+
+Pruebas aisladas de gestión: `cd backend` y `node src/scripts/qa-management.js`. No usa pedidos reales ni envía correos.
 
 ## Estructura
 

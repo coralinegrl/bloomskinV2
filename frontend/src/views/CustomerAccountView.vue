@@ -257,6 +257,8 @@
             Cuando este pedido quede marcado como entregado podrás escribir reseñas verificadas.
           </p>
 
+          <OrderTracking :tracking="order.fulfillment || order" />
+          <ReorderButton v-if="['paid','shipped','delivered'].includes(order.estado)" :items="order.items" />
           <div class="order-financials">
             <span>Subtotal: {{ formatCurrency(order.subtotal_clp) }}</span>
             <span v-if="order.descuento_clp">Descuento: -{{ formatCurrency(order.descuento_clp) }}<template v-if="order.descuento_codigo"> con {{ order.descuento_codigo }}</template></span>
@@ -319,6 +321,8 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { pedidosApi, resolveAssetUrl, reviewsApi } from '../api/index.js'
+import OrderTracking from '../components/store/OrderTracking.vue'
+import ReorderButton from '../components/store/ReorderButton.vue'
 import ProductCard from '../components/store/ProductCard.vue'
 import ProductQuickViewModal from '../components/store/ProductQuickViewModal.vue'
 import StarRating from '../components/store/StarRating.vue'

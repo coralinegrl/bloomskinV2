@@ -15,14 +15,14 @@ async function ensureMailSchema(pool) {
 
 async function sendOrderMail({ pedidoId, clienteNombre, clienteEmail, estado, totalClp, pickup = false }) {
   const pool = await getPool();
-  const order = (await pool.request().input('id', sql.Int, pedidoId).query('SELECT * FROM pedidos WHERE id=@id AND eliminado_en IS NULL')).recordset[0];
+  const order = (await pool.request().input('id', sql.Int, pedidoId).query('SELECT p.*, f.carrier, f.tracking_number FROM pedidos p LEFT JOIN order_fulfillment f ON f.pedido_id=p.id WHERE p.id=@id AND p.eliminado_en IS NULL')).recordset[0];
   if (!order || order.estado !== estado) return false;
   pickup = order.metodo_envio === 'store_pickup';
   const key = estado === 'shipped' && pickup ? 'pickup_ready' : estado;
   const content = customerOrderContent(order, key, orderAccessUrl(pedidoId));
-  if (!content) return false;
   try { await sendAdminOrderAlert({ pedidoId, estado }); }
   catch (error) { console.error('No se pudo registrar aviso al comercio:', error.code || error.name); }
+  if (!content) return false;
   clienteEmail = order.cliente_email;
   if (!clienteEmail || clienteEmail.endsWith('.local') || clienteEmail.endsWith('.invalid')) return false;
   await pool.request().input('id', sql.Int, pedidoId).input('state', sql.NVarChar, key).query(`

@@ -13,7 +13,10 @@ router.get('/home', (_req, res) => {
 
 router.put('/site', requireAdminAuth, (req, res) => {
   try {
-    const site = sanitizeSiteSettings(req.body || {});
+    const current = readSettings();
+    const input = req.body || {};
+    const site = sanitizeSiteSettings({ ...input, operations:input.operations === undefined ? current.operations : input.operations });
+    require('../lib/adminFiles').saveRevision(current, req.user.id);
     writeSettings(site);
     res.json({ ok: true, site });
   } catch (error) {

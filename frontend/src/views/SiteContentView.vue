@@ -21,6 +21,7 @@
       </section>
 
       <section class="content-card">
+        <dl v-if="route.meta.contentKey==='shipping_policy'" class="current-shipping"><template v-if="storeConfig.operations.pickup_enabled"><dt>Retiro</dt><dd>{{ storeConfig.operations.pickup_address }}, {{ storeConfig.operations.pickup_city }}. {{ storeConfig.operations.pickup_hours }}.</dd></template><template v-if="storeConfig.operations.delivery_enabled"><dt>Despacho local</dt><dd>Según distancia desde {{ storeConfig.operations.pickup_address }}, {{ storeConfig.operations.pickup_city }}.</dd><template v-if="storeConfig.operations.national_enabled"><dt>Despacho nacional</dt><dd>{{ storeConfig.operations.national_carrier }} · {{ money(storeConfig.operations.national_fee) }}</dd></template><template v-if="storeConfig.operations.free_shipping_enabled"><dt>Envío gratis</dt><dd>Desde {{ money(storeConfig.operations.free_shipping_threshold) }} en productos, después de descuentos y según cobertura vigente.</dd></template></template></dl>
         <p>{{ page.body }}</p>
         <div class="content-actions">
           <RouterLink class="ghost-btn" to="/catalogo">Volver al catálogo</RouterLink>
@@ -43,6 +44,9 @@ import AnnouncementBar from '../components/ui/AnnouncementBar.vue'
 import { useCartStore } from '../stores/cart.js'
 import { useCustomerAuthStore } from '../stores/customerAuth.js'
 import { useUiStore } from '../stores/ui.js'
+import {useStoreConfig} from '../stores/storeConfig.js'
+const storeConfig=useStoreConfig()
+const money=value=>'$'+Number(value).toLocaleString('es-CL')
 
 const route = useRoute()
 const router = useRouter()
@@ -78,7 +82,9 @@ const site = ref({
 
 const page = computed(() => {
   const key = route.meta.contentKey || 'shipping_policy'
-  return site.value.legal?.[key] || site.value.legal.shipping_policy
+  const content=site.value.legal?.[key] || site.value.legal.shipping_policy
+  if(key!=='shipping_policy')return content
+  return {...content,intro:String(content.intro).startsWith('Despachamos desde Antofagasta y coordinamos') ? `Despachamos desde ${storeConfig.operations.pickup_city} y coordinamos cada pedido según destino y disponibilidad.` : content.intro,body:String(content.body).startsWith('Antofagasta se calcula por distancia desde Oficina Lina 210.') ? 'Los tiempos pueden variar en días de alta demanda. Los costos vigentes se confirman al finalizar tu compra.' : content.body}
 })
 
 function submitHeaderSearch() {
@@ -123,6 +129,7 @@ onMounted(loadSite)
 </script>
 
 <style scoped>
+.current-shipping{display:grid;grid-template-columns:minmax(0,160px) minmax(0,1fr);gap:16px;margin:0 0 28px;line-height:1.7;font-size:15px}.current-shipping dt{font-weight:600}.current-shipping dd{margin:0;overflow-wrap:anywhere}@media(max-width:720px){.current-shipping{grid-template-columns:1fr;gap:8px}.current-shipping dd{margin-bottom:12px}}
 .content-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #fffdfd, #fff5f8 22%, #fefcfd 100%);

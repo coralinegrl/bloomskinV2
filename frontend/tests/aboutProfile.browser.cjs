@@ -45,6 +45,7 @@ const emptyProfile = { founder_name: '', founder_bio: '', photo_url: '', photo_a
             sessionStorage.setItem('bs_admin_section', 'home')
           })
           await page.goto(`${base}/admin`, { waitUntil: 'networkidle' })
+          await page.getByLabel('Qué quieres editar', { exact: true }).selectOption('nosotros')
           const input = page.getByLabel('Tu foto', { exact: true })
           await input.setInputFiles({ name: 'video.gif', mimeType: 'image/gif', buffer: bitmap })
           await page.getByRole('alert').filter({ hasText: 'hasta 5 MB' }).waitFor()
@@ -89,6 +90,7 @@ const emptyProfile = { founder_name: '', founder_bio: '', photo_url: '', photo_a
           await page.getByRole('heading', { name: 'Nombre QA', exact: true }).waitFor()
           settings.about.photo_url = photo
           await page.goto(`${base}/admin`, { waitUntil: 'networkidle' })
+          await page.getByLabel('Qué quieres editar', { exact: true }).selectOption('nosotros')
           await page.getByRole('button', { name: 'Quitar foto', exact: true }).click()
           await page.getByRole('button', { name: 'Guardar cambios', exact: true }).click()
           await page.getByText('Sin cambios pendientes', { exact: true }).waitFor()

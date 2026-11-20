@@ -82,8 +82,9 @@
               </button>
             </div>
 
+            <RestockAlert :product="producto" />
             <div class="detail-notes">
-              <div>Envío gratis sobre $49.990</div>
+              <div v-if="storeConfig.operations.free_shipping_enabled && storeConfig.operations.delivery_enabled">Envío gratis desde {{ fmt(storeConfig.operations.free_shipping_threshold) }}</div>
               <div>Compra con tu cuenta o como invitada</div>
               <div>Selección original de K-Beauty</div>
             </div>
@@ -149,6 +150,9 @@ import { useUiStore } from '../stores/ui.js'
 import { useCustomerAuthStore } from '../stores/customerAuth.js'
 import { variantDisplay } from '../utils/productVariants.js'
 import { rememberProduct } from '../utils/browserStorage.js'
+import RestockAlert from '../components/store/RestockAlert.vue'
+import {useStoreConfig} from '../stores/storeConfig.js'
+const storeConfig=useStoreConfig()
 
 const route = useRoute()
 const router = useRouter()

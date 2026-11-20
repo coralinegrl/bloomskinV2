@@ -55,6 +55,7 @@ app.use(cors((req, optionsCallback) => optionsCallback(null, {
 })));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(require('./lib/managementSchema').adminActivity);
 app.post('/api/checkout/session', rateLimit({ windowMs: 15 * 60 * 1000, limit: 30,
   standardHeaders: 'draft-7', legacyHeaders: false,
   message: { error: 'Demasiados intentos. Espera unos minutos antes de continuar.' },
@@ -71,6 +72,8 @@ app.use('/api/mensajes', require('./routes/mensajes'));
 app.use('/api/news', require('./routes/news'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/descuentos', require('./routes/descuentos'));
+app.use('/api/management', require('./routes/management').router);
+app.use('/api/restock', require('./routes/restock'));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));
 
@@ -102,6 +105,7 @@ getPool()
     await require('./lib/orderMail').ensureMailSchema(pool);
     await require('./lib/orderAlerts').ensureAlertSchema(pool);
     await resenasRouter.ensureReviewsSchema(pool);
+    await require('./lib/managementSchema').ensureManagementSchema(pool);
     pedidosRouter.runOrderMaintenance().catch(err => console.error('No se pudo completar el mantenimiento inicial:', err.message));
     setInterval(() => {
       pedidosRouter.runOrderMaintenance().catch(err => {
@@ -109,7 +113,10 @@ getPool()
       });
       require('./lib/orderMail').retryOrderMail(pool).catch(err => console.error('No se pudieron reintentar correos:', err.message));
       require('./lib/orderAlerts').retryAdminOrderAlerts(pool).catch(err => console.error('No se pudieron reintentar avisos:', err.message));
+      require('./routes/restock').notifyAvailable(pool).catch(err => console.error('Reposición:', err.code || err.name));
     }, 60 * 1000);
+    setTimeout(() => { void require('./lib/adminFiles').dailyBackup(pool); }, 30000).unref();
+    setInterval(() => { void require('./lib/adminFiles').dailyBackup(pool); }, 60 * 60 * 1000).unref();
     app.listen(PORT, () => {
       console.log(`Bloomskin API corriendo en http://localhost:${PORT}`);
       if (hasFrontendBuild) {

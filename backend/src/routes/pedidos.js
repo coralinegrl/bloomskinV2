@@ -205,11 +205,13 @@ async function adjustProductStock(transaction, { productoId, cantidad, tonoSelec
       .input('stock', sql.Int, totalStock)
       .input('tonos_stock_json', sql.NVarChar(sql.MAX), JSON.stringify(toneStock))
       .query(`
+        DECLARE @last INT=(SELECT ISNULL(MAX(id),0) FROM inventory_movements WHERE producto_id=@producto_id);
         UPDATE productos
         SET stock = @stock,
             tonos_stock_json = @tonos_stock_json,
             actualizado_en = GETDATE()
-        WHERE id = @producto_id
+        WHERE id = @producto_id;
+        UPDATE inventory_movements SET reason=N'Movimiento automático: ${delta < 0 ? 'reserva o venta' : 'liberación o cancelación'}' WHERE producto_id=@producto_id AND id>@last;
       `);
     return { ok: true, product: { ...product, stock: totalStock, tonos_stock: toneStock } };
   }
@@ -223,10 +225,12 @@ async function adjustProductStock(transaction, { productoId, cantidad, tonoSelec
     .input('producto_id', sql.Int, productoId)
     .input('stock', sql.Int, Math.max(0, currentStock + delta))
     .query(`
+      DECLARE @last INT=(SELECT ISNULL(MAX(id),0) FROM inventory_movements WHERE producto_id=@producto_id);
       UPDATE productos
       SET stock = @stock,
           actualizado_en = GETDATE()
-      WHERE id = @producto_id
+      WHERE id = @producto_id;
+      UPDATE inventory_movements SET reason=N'Movimiento automático: ${delta < 0 ? 'reserva o venta' : 'liberación o cancelación'}' WHERE producto_id=@producto_id AND id>@last;
     `);
 
   return { ok: true, product };
@@ -793,9 +797,11 @@ router.get('/mine', requireClientAuth, async (req, res) => {
                p.envio_clp, p.total_clp, p.metodo_pago, p.metodo_envio,
                p.cliente_nombre, p.cliente_email, p.cliente_rut, p.cliente_telefono,
                p.region_envio, p.ciudad_envio, p.direccion_envio, p.referencia_envio, p.distancia_envio_km,
-               p.estado, p.comprobante_url, p.comprobante_limite_en, p.notas, p.creado_en, p.actualizado_en
+               p.estado, p.comprobante_url, p.comprobante_limite_en, p.notas, p.creado_en, p.actualizado_en,
+               f.carrier, f.tracking_number, f.tracking_url
         FROM pedidos p
-        WHERE p.cliente_id = @cliente_id
+        LEFT JOIN order_fulfillment f ON f.pedido_id=p.id
+        WHERE p.cliente_id = @cliente_id AND p.eliminado_en IS NULL
         ORDER BY p.creado_en DESC
       `);
 
@@ -849,6 +855,8 @@ router.get('/reservation/current', requireCheckoutAuth, async (req, res) => {
 });
 
 router.post('/reservation', requireCheckoutAuth, async (req, res) => {
+  const operations = readSettings().operations;
+  if (!operations.accepting_orders) return res.status(409).json({ error: operations.pause_message });
   const items = normalizeReservationItems(req.body?.items);
   if (!items.length) {
     return res.status(400).json({ error: 'Debes indicar al menos un producto para reservar.' });
@@ -891,7 +899,7 @@ router.post('/reservation', requireCheckoutAuth, async (req, res) => {
         .query(`
           SELECT id, nombre, marca, stock, usa_tonos, tonos_json, tonos_stock_json
           FROM productos WITH (UPDLOCK, ROWLOCK)
-          WHERE id = @producto_id AND activo = 1
+          WHERE id = @producto_id AND activo = 1 AND publication_status = 'published'
         `);
 
       const product = productResult.recordset[0];
@@ -1010,6 +1018,9 @@ router.post('/shipping-quote', async (req, res) => {
 });
 
 router.post('/', requireCheckoutAuth, async (req, res) => {
+  const operations = readSettings().operations;
+  if (!operations.accepting_orders) return res.status(409).json({ error: operations.pause_message });
+  if (req.body.delivery_mode === 'pickup' ? !operations.pickup_enabled : !operations.delivery_enabled) return res.status(409).json({ error: 'La forma de entrega elegida ya no está disponible. Elige otra opción.' });
   const {
     items,
     notas,
@@ -1124,7 +1135,7 @@ router.post('/', requireCheckoutAuth, async (req, res) => {
         .query(`
           SELECT nombre, precio_clp, stock, usa_tonos, tonos_json, variant_meta_json
           FROM productos
-          WHERE id = @id AND activo = 1
+          WHERE id = @id AND activo = 1 AND publication_status = 'published'
         `);
 
       if (!prod.recordset[0]) {
@@ -1178,7 +1189,7 @@ router.post('/', requireCheckoutAuth, async (req, res) => {
           provider: 'Bloomskin',
           fee_clp: 0,
           distance_km: null,
-          tier_label: 'Retiro en Oficina Lina 210',
+          tier_label: `Retiro en ${operations.pickup_address}`,
         }
       : await quoteShipping({
           ciudad,
@@ -1204,8 +1215,8 @@ router.post('/', requireCheckoutAuth, async (req, res) => {
       .input('metodo_pago', sql.NVarChar, paymentMethod)
       .input('metodo_envio', sql.NVarChar, shippingQuote.method)
       .input('region_envio', sql.NVarChar, deliveryMode === 'pickup' ? null : region)
-      .input('ciudad_envio', sql.NVarChar, deliveryMode === 'pickup' ? 'Antofagasta' : ciudad)
-      .input('direccion_envio', sql.NVarChar, deliveryMode === 'pickup' ? 'Retiro en Oficina Lina 210' : direccion)
+      .input('ciudad_envio', sql.NVarChar, deliveryMode === 'pickup' ? operations.pickup_city : ciudad)
+      .input('direccion_envio', sql.NVarChar, deliveryMode === 'pickup' ? `Retiro en ${operations.pickup_address}, ${operations.pickup_city}` : direccion)
       .input('referencia_envio', sql.NVarChar, deliveryMode === 'pickup' ? null : (referencia || null))
       .input('distancia_envio_km', sql.Decimal(8, 2), shippingQuote.distance_km)
       .input('notas', sql.NVarChar, notas || null)
@@ -1358,7 +1369,7 @@ router.post('/manual', requireAdminAuth, async (req, res) => {
         .query(`
           SELECT id, nombre, stock, precio_clp, usa_tonos, tonos_json, tonos_stock_json, variant_meta_json
           FROM productos
-          WHERE id = @id AND activo = 1
+          WHERE id = @id AND activo = 1 AND publication_status = 'published'
         `);
 
       const producto = prod.recordset[0];
@@ -1510,11 +1521,11 @@ router.get('/:id/access', requireOrderAccess, async (req, res) => {
     if (!order || (!req.orderAccess && order.cliente_id !== req.user?.id)) return res.status(404).json({ error: 'Pedido no encontrado o enlace sin acceso.' });
     delete order.cliente_id;
     const items = await pool.request().input('id', sql.Int, order.id).query(`
-      SELECT p.nombre, p.marca, p.imagen_url, i.cantidad, i.tono_seleccionado, i.precio_unitario_clp
+      SELECT i.producto_id, p.nombre, p.marca, p.imagen_url, i.cantidad, i.tono_seleccionado, i.precio_unitario_clp
       FROM pedido_items i JOIN productos p ON p.id=i.producto_id WHERE i.pedido_id=@id
     `);
     res.set('Cache-Control', 'no-store');
-    res.json({ ...order, codigo: orderCodeFromId(order.id), items: items.recordset, transfer: getTransferConfig() });
+    res.json({ ...order, codigo: orderCodeFromId(order.id), items: items.recordset, transfer: getTransferConfig(), fulfillment: await require('./management').publicFulfillment(pool, order.id) });
   } catch (error) { res.status(503).json({ error: 'No pudimos cargar el pedido. Intenta nuevamente.' }); }
 });
 

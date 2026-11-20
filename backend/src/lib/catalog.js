@@ -19,6 +19,7 @@ function sanitizeProduct(product, index = 0) {
       .filter(Boolean);
 
   return {
+    publication_status: product.publication_status === 'draft' ? 'draft' : 'published',
     ...sanitizeProductAttributes(product),
     marca: product.marca,
     nombre: product.nombre,

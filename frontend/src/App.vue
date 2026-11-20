@@ -1,4 +1,6 @@
 <template>
+  <div v-if="previewMode" class="store-system-banner">Vista previa · cambios sin publicar · compras desactivadas<button type="button" @click="closePreview">Cerrar vista previa</button></div>
+  <div v-else-if="!storeConfig.operations.accepting_orders && !String(route.path).startsWith('/admin')" class="store-system-banner" role="status">{{ storeConfig.operations.pause_message }}</div>
   <RouterView />
   <CartDrawer />
   <AuthModal />
@@ -15,6 +17,11 @@ import AppToast from './components/ui/AppToast.vue'
 import { useAuthStore } from './stores/auth.js'
 import { useCustomerAuthStore } from './stores/customerAuth.js'
 import { useUiStore } from './stores/ui.js'
+import {useStoreConfig} from './stores/storeConfig.js'
+import {isContentPreview} from './utils/contentPreview.js'
+const storeConfig=useStoreConfig(),previewMode=isContentPreview
+function closePreview(){window.close()}
+let settingsRefresh
 
 const adminAuth = useAuthStore()
 const customerAuth = useCustomerAuthStore()
@@ -98,6 +105,7 @@ function applySeo() {
 }
 
 function applyAnalytics() {
+  if(previewMode) return
   const measurementId = siteSettings.value.seo?.ga_measurement_id || ''
   if (!measurementId || analyticsLoadedId === measurementId || typeof window === 'undefined') return
 
@@ -122,6 +130,7 @@ function applyAnalytics() {
 async function loadSiteSettings() {
   try {
     const { data } = await settingsApi.site()
+    storeConfig.setSite(data)
     if (data?.seo) siteSettings.value = data
   } catch (error) {
     console.error('No se pudo cargar SEO del sitio', error)
@@ -132,9 +141,13 @@ onMounted(() => {
   window.addEventListener(adminUnauthorizedEvent, handleAdminUnauthorized)
   window.addEventListener(clientUnauthorizedEvent, handleClientUnauthorized)
   void loadSiteSettings()
+  window.addEventListener('focus',loadSiteSettings)
+  settingsRefresh=setInterval(()=>{if(document.visibilityState==='visible')void loadSiteSettings()},60000)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('focus',loadSiteSettings)
+  clearInterval(settingsRefresh)
   window.removeEventListener(adminUnauthorizedEvent, handleAdminUnauthorized)
   window.removeEventListener(clientUnauthorizedEvent, handleClientUnauthorized)
 })
@@ -144,3 +157,4 @@ watch([route, siteSettings], () => {
   applyAnalytics()
 }, { immediate: true, deep: true })
 </script>
+<style scoped>.store-system-banner{padding:12px 20px;background:#fff1f6;border-bottom:1px solid #e5b4c8;color:#70324d;font-size:14px;line-height:1.5;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}.store-system-banner button{border:1px solid #bf547a;background:white;color:#70324d;border-radius:6px;min-height:44px;padding:8px 12px;cursor:pointer;font:inherit}</style>

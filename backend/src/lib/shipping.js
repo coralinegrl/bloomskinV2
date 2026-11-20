@@ -3,6 +3,7 @@ const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const GOOGLE_GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const BLUE_EXPRESS_FLAT_FEE = 3990;
 const FREE_SHIPPING_THRESHOLD = 49990;
+const { readSettings } = require('./siteSettings');
 
 let originCache = null;
 
@@ -35,24 +36,11 @@ function haversineKm(pointA, pointB) {
   return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function getLocalTier(distanceKm) {
-  if (distanceKm <= 1.6) {
-    return { fee: 1000, label: 'Delivery local hasta 1,6 km' };
-  }
-  if (distanceKm <= 2) {
-    return { fee: 1500, label: 'Delivery local hasta 2 km' };
-  }
-  if (distanceKm <= 7) {
-    return { fee: 2000, label: 'Delivery local hasta 7 km' };
-  }
-  if (distanceKm <= 10) {
-    return { fee: 2500, label: 'Delivery local hasta 10 km' };
-  }
-  if (distanceKm <= 15) {
-    return { fee: 3500, label: 'Delivery local hasta 15 km' };
-  }
-
-  return { fee: BLUE_EXPRESS_FLAT_FEE, label: 'Blue Express' };
+function getLocalTier(distanceKm, config) {
+  const tier = config.local_tiers.find(entry => distanceKm <= entry.km);
+  if (tier) return { fee: tier.fee, label: `Despacho local hasta ${tier.km.toLocaleString('es-CL')} km`, local: true };
+  if (!config.national_enabled) throw new Error('Tu dirección está fuera de la cobertura local. Puedes elegir retiro.');
+  return { fee: config.national_fee, label: config.national_carrier, local: false };
 }
 
 function hasGoogleMapsConfig() {
@@ -134,14 +122,18 @@ async function geocode(query) {
   return geocodeWithNominatim(query);
 }
 
-async function getOriginCoordinates() {
-  if (!originCache) {
-    originCache = geocode(ANTOFAGASTA_ORIGIN_QUERY);
+async function getOriginCoordinates(config) {
+  const query = `${config.pickup_address}, ${config.pickup_city}, Chile`;
+  if (!originCache || originCache.query !== query) {
+    originCache = { query, promise: geocode(query) };
+    originCache.promise.catch(() => { if (originCache?.query === query) originCache = null; });
   }
-  return originCache;
+  return originCache.promise;
 }
 
 async function quoteShipping({ ciudad, direccion, subtotal_clp }) {
+  const config = readSettings().operations;
+  if (!config.delivery_enabled) throw new Error('El despacho está desactivado temporalmente. Puedes elegir retiro.');
   const city = String(ciudad || '').trim();
   const address = String(direccion || '').trim();
   const subtotal = Number(subtotal_clp || 0);
@@ -150,25 +142,28 @@ async function quoteShipping({ ciudad, direccion, subtotal_clp }) {
     throw new Error('Debes indicar la ciudad para calcular envío');
   }
 
-  if (subtotal >= FREE_SHIPPING_THRESHOLD) {
+  const local = normalizeText(city) === normalizeText(config.pickup_city);
+  if (!local && !config.national_enabled) throw new Error('Por ahora solo despachamos dentro de la ciudad de retiro.');
+  const free = config.free_shipping_enabled && subtotal >= config.free_shipping_threshold;
+  if (free && (!local || config.national_enabled)) {
     return {
       city,
       method: 'free_shipping',
       provider: 'Despacho gratis',
       fee_clp: 0,
       distance_km: null,
-      tier_label: `Envío gratis sobre $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-CL')}`,
+      tier_label: `Envío gratis desde $${config.free_shipping_threshold.toLocaleString('es-CL')}`,
       resolved_address: address || city,
       geocoding_provider: null,
     };
   }
 
-  if (!isAntofagastaCity(city)) {
+  if (!local) {
     return {
       city,
       method: 'blue_express',
-      provider: 'Blue Express',
-      fee_clp: BLUE_EXPRESS_FLAT_FEE,
+      provider: config.national_carrier,
+      fee_clp: config.national_fee,
       distance_km: null,
       tier_label: 'Despacho nacional',
       resolved_address: city,
@@ -181,18 +176,18 @@ async function quoteShipping({ ciudad, direccion, subtotal_clp }) {
   }
 
   const [origin, destination] = await Promise.all([
-    getOriginCoordinates(),
+    getOriginCoordinates(config),
     geocode(`${address}, ${city}, Chile`),
   ]);
   const distanceKm = haversineKm(origin, destination);
-  const tier = getLocalTier(distanceKm);
-  const isBlueExpressFallback = tier.fee === BLUE_EXPRESS_FLAT_FEE;
+  const tier = getLocalTier(distanceKm, config);
+  const isBlueExpressFallback = !tier.local;
 
   return {
     city,
-    method: isBlueExpressFallback ? 'blue_express' : 'local_delivery',
-    provider: isBlueExpressFallback ? 'Blue Express' : 'Despacho Bloomskin',
-    fee_clp: tier.fee,
+    method: free ? 'free_shipping' : isBlueExpressFallback ? 'blue_express' : 'local_delivery',
+    provider: free ? 'Despacho gratis' : isBlueExpressFallback ? config.national_carrier : 'Despacho Bloomskin',
+    fee_clp: free ? 0 : tier.fee,
     distance_km: Number(distanceKm.toFixed(2)),
     tier_label: tier.label,
     resolved_address: destination.displayName,

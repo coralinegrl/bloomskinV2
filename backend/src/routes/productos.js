@@ -7,6 +7,7 @@ const { getPool, sql } = require('../config/db');
 const { requireAdminAuth } = require('../middleware/auth');
 const { normalizeVariantMeta } = require('../lib/variants');
 const { hydrateProductAttributes, attributeUpdateJson, validateBulkAttributes, mergeProductAttributes } = require('../lib/productAttributes');
+const { validatePublication } = require('../lib/productPublication');
 
 const uploadsRoot = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
@@ -272,7 +273,7 @@ router.get('/', async (req, res) => {
              oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url,
              usa_tonos, tonos_json, tonos_stock_json, variant_meta_json, tipos_piel_json, necesidades_json
       FROM productos
-      WHERE activo = 1
+      WHERE activo = 1 AND publication_status = 'published'
       ORDER BY creado_en DESC
     `);
     res.json(result.recordset.map(hydrateProduct));
@@ -446,9 +447,10 @@ router.post('/catalogo-json/import', requireAdminAuth, async (req, res) => {
 });
 
 router.post('/', requireAdminAuth, async (req, res) => {
+  try {validatePublication(req.body);} catch(error){return res.status(400).json({error:error.message});}
   const { marca, nombre, precio_clp } = req.body;
 
-  if (!marca || !nombre || !precio_clp) {
+  if (!nombre || (req.body.publication_status !== 'draft' && (!marca || !precio_clp))) {
     return res.status(400).json({ error: 'Marca, nombre y precio_clp son obligatorios' });
   }
 
@@ -461,7 +463,9 @@ router.post('/', requireAdminAuth, async (req, res) => {
       precio_usd: req.body.precio_usd || 0,
       precio_clp: req.body.precio_clp,
       oferta_hasta: normalizeOfferDate(req.body.oferta_hasta),
+      publication_status: req.body.publication_status === 'draft' ? 'draft' : 'published',
     });
+    product.marca = product.marca || '';
 
     const result = await insertProduct(pool.request(), product);
     res.status(201).json(hydrateProduct(result.recordset[0]));
@@ -472,6 +476,7 @@ router.post('/', requireAdminAuth, async (req, res) => {
 });
 
 router.put('/:id', requireAdminAuth, async (req, res) => {
+  try {validatePublication(req.body);} catch(error){return res.status(400).json({error:error.message});}
   try {
     const pool = await getPool();
     await ensureProductSchema(pool);
@@ -507,6 +512,9 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
       .input('tipos_piel_json', sql.NVarChar(sql.MAX), attributeUpdateJson(req.body, product, 'tipos_piel'))
       .input('necesidades_json', sql.NVarChar(sql.MAX), attributeUpdateJson(req.body, product, 'necesidades'))
       .input('activo', sql.Bit, req.body.activo !== undefined ? req.body.activo : 1)
+      .input('publication_status', sql.NVarChar, req.body.publication_status === 'draft' ? 'draft' : 'published')
+      .input('expected_stock', sql.Int, req.body.expected_stock ?? null)
+      .input('expected_tones', sql.NVarChar(sql.MAX), req.body.expected_tones_json ?? null)
       .query(`
         UPDATE productos SET
           marca=@marca,
@@ -530,9 +538,14 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
           tipos_piel_json=COALESCE(@tipos_piel_json, tipos_piel_json),
           necesidades_json=COALESCE(@necesidades_json, necesidades_json),
           activo=@activo,
+          publication_status=@publication_status,
           actualizado_en=GETDATE()
-        OUTPUT INSERTED.*
-        WHERE id=@id
+        WHERE id=@id AND (@expected_stock IS NULL OR (stock=@expected_stock AND (@expected_tones IS NULL OR ISNULL(tonos_stock_json,'')=@expected_tones)))
+          AND ((usa_tonos=@usa_tonos AND ISNULL(tonos_json,'[]')=@tonos_json) OR
+            (NOT EXISTS(SELECT 1 FROM checkout_reservation_items WHERE producto_id=@id)
+             AND NOT EXISTS(SELECT 1 FROM pedido_items i JOIN pedidos p ON p.id=i.pedido_id WHERE i.producto_id=@id AND p.stock_comprometido=1 AND p.estado<>'cancelled')));
+        IF @@ROWCOUNT=0 BEGIN ;THROW 51000,N'El stock cambió o hay pedidos que necesitan los tipos actuales. Actualiza el catálogo antes de editar el inventario o los tipos.',1; END;
+        SELECT * FROM productos WHERE id=@id;
       `);
 
     if (!result.recordset[0]) {
@@ -541,6 +554,7 @@ router.put('/:id', requireAdminAuth, async (req, res) => {
 
     res.json(hydrateProduct(result.recordset[0]));
   } catch (err) {
+    if (err.number===51000 || err.originalError?.info?.number===51000) return res.status(409).json({error:'El stock cambió o hay reservas/pedidos que necesitan los tipos actuales. Recarga el catálogo antes de guardar.'});
     console.error(err);
     res.status(['INVALID_VARIANT', 'INVALID_ATTRIBUTE'].includes(err.code) ? 400 : 500).json({ error: ['INVALID_VARIANT', 'INVALID_ATTRIBUTE'].includes(err.code) ? err.message : 'Error al actualizar producto' });
   }
@@ -601,22 +615,24 @@ router.delete('/:id', requireAdminAuth, async (req, res) => {
 
 router.patch('/:id/stock', requireAdminAuth, async (req, res) => {
   const { stock } = req.body;
-  if (stock === undefined) {
-    return res.status(400).json({ error: 'stock requerido' });
+  if (!Number.isSafeInteger(stock) || stock<0 || stock>1000000) {
+    return res.status(400).json({ error: 'El stock debe ser un entero entre 0 y 1.000.000.' });
   }
 
   try {
     const pool = await getPool();
-    await pool.request()
+    const result = await pool.request()
       .input('id', sql.Int, req.params.id)
       .input('stock', sql.Int, stock)
+      .input('expected_stock', sql.Int, req.body.expected_stock ?? null)
       .query(`
         UPDATE productos
         SET stock = @stock,
             tonos_stock_json = CASE WHEN usa_tonos = 1 THEN NULL ELSE tonos_stock_json END,
             actualizado_en = GETDATE()
-        WHERE id = @id
+        WHERE id = @id AND usa_tonos=0 AND activo=1 AND (@expected_stock IS NULL OR stock=@expected_stock)
       `);
+    if (!result.rowsAffected?.some(count=>count>0)) return res.status(409).json({error:'El stock cambió o el producto requiere un ajuste por tipo. Actualiza el inventario.'});
     res.json({ ok: true, stock });
   } catch (err) {
     console.error(err);
@@ -651,7 +667,7 @@ router.get('/:id', async (req, res) => {
     await ensureProductSchema(pool);
     const result = await pool.request()
       .input('id', sql.Int, req.params.id)
-      .query('SELECT * FROM productos WHERE id = @id AND activo = 1');
+      .query("SELECT * FROM productos WHERE id = @id AND activo = 1 AND publication_status = 'published'");
 
     if (!result.recordset[0]) {
       return res.status(404).json({ error: 'Producto no encontrado' });
@@ -687,12 +703,13 @@ async function insertProduct(request, product, index = 0) {
     .input('variant_meta_json', sql.NVarChar(sql.MAX), toneConfig.variant_meta_json)
     .input('tipos_piel_json', sql.NVarChar(sql.MAX), JSON.stringify(product.tipos_piel || []))
     .input('necesidades_json', sql.NVarChar(sql.MAX), JSON.stringify(product.necesidades || []))
+    .input('publication_status', sql.NVarChar, product.publication_status || 'published')
     .query(`
       INSERT INTO productos
-      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url, usa_tonos, tonos_json, tonos_stock_json, variant_meta_json, tipos_piel_json, necesidades_json)
-      OUTPUT INSERTED.*
+      (marca, nombre, descripcion, categoria, precio_usd, precio_clp, precio_oferta_clp, oferta_hasta, stock, badge, estrellas, resenas, img_clase, imagen_url, usa_tonos, tonos_json, tonos_stock_json, variant_meta_json, tipos_piel_json, necesidades_json, publication_status)
       VALUES
-      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url, @usa_tonos, @tonos_json, @tonos_stock_json, @variant_meta_json, @tipos_piel_json, @necesidades_json)
+      (@marca, @nombre, @descripcion, @categoria, @precio_usd, @precio_clp, @precio_oferta_clp, @oferta_hasta, @stock, @badge, @estrellas, @resenas, @img_clase, @imagen_url, @usa_tonos, @tonos_json, @tonos_stock_json, @variant_meta_json, @tipos_piel_json, @necesidades_json, @publication_status);
+      SELECT * FROM productos WHERE id=SCOPE_IDENTITY();
     `);
 }
 

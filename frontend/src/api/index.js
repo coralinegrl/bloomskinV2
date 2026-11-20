@@ -1,4 +1,5 @@
 import axios from 'axios'
+import {isContentPreview} from '../utils/contentPreview.js'
 
 const adminUnauthorizedEvent = 'bloomskin:admin-unauthorized'
 const clientUnauthorizedEvent = 'bloomskin:client-unauthorized'
@@ -8,6 +9,12 @@ const apiOrigin = apiBaseUrl.startsWith('http')
   : ''
 
 const publicApi = axios.create({ baseURL: apiBaseUrl, timeout: 10000 })
+publicApi.interceptors.response.use(response=>{
+  if(isContentPreview && ['/settings/site','/settings/home'].includes(response.config.url)){
+    try{const preview=JSON.parse(sessionStorage.getItem('bs_content_preview'));if(preview)response.data=response.config.url==='/settings/home' ? preview.home : preview}catch{}
+  }
+  return response
+})
 const adminApi = axios.create({ baseURL: apiBaseUrl, timeout: 10000 })
 const clientApi = axios.create({ baseURL: apiBaseUrl, timeout: 10000 })
 const checkoutApi = axios.create({ baseURL: apiBaseUrl, timeout: 15000 })
@@ -96,7 +103,7 @@ export const productosApi = {
   actualizar: (id, data) => adminApi.put(`/productos/${id}`, data),
   agregarEtiquetas: data => adminApi.patch('/productos/atributos', data),
   eliminar: id => adminApi.delete(`/productos/${id}`),
-  actualizarStock: (id, stock) => adminApi.patch(`/productos/${id}/stock`, { stock }),
+  actualizarStock: (id, stock, expected_stock) => adminApi.patch(`/productos/${id}/stock`, { stock, expected_stock }),
   calcularPrecio: usd => adminApi.get(`/productos/utils/calcular-precio?usd=${usd}`),
 }
 
@@ -159,6 +166,26 @@ export const settingsApi = {
   home: () => publicApi.get('/settings/home'),
   guardarHome: payload => adminApi.put('/settings/home', payload),
 }
+
+export const managementApi = {
+  inventory: () => adminApi.get('/management/inventory'),
+  inventoryHistory: id => adminApi.get('/management/inventory/history', { params: id ? { producto_id:id } : {} }),
+  adjustInventory: data => adminApi.post('/management/inventory/adjust', data),
+  fulfillment: id => adminApi.get(`/management/orders/${id}/fulfillment`),
+  saveFulfillment: (id,data) => adminApi.put(`/management/orders/${id}/fulfillment`, data),
+  activity: () => adminApi.get('/management/activity'),
+  revisions: () => adminApi.get('/management/revisions'),
+  revision: id => adminApi.get(`/management/revisions/${id}`),
+  restoreRevision: id => adminApi.post(`/management/revisions/${id}/restore`),
+  backups: () => adminApi.get('/management/backups'),
+  createBackup: () => adminApi.post('/management/backups'),
+  downloadBackup: id => adminApi.get(`/management/backups/${id}/download`, { responseType:'blob', timeout:60000 }),
+  mail: () => adminApi.get('/management/mail'),
+  saveMail: data => adminApi.put('/management/mail', data),
+  previewMail: data => adminApi.post('/management/mail/preview', data),
+  retryMail: id => adminApi.post(`/management/mail/${id}/retry`, {}, { timeout:25000 }),
+}
+export const restockApi = { subscribe: data => publicApi.post('/restock',data) }
 
 export const mensajesApi = {
   emailStatus: () => adminApi.get('/mensajes/email/status', { timeout: 15000 }),

@@ -8,7 +8,9 @@
       <p>Hola {{ order.cliente_nombre }}. Este enlace es privado y permite consultar tu pedido.</p>
       <article v-for="(item, index) in order.items" :key="index" class="order-item"><img v-if="item.imagen_url" :src="item.imagen_url" :alt="item.nombre"><div><strong>{{ item.nombre }}</strong><p v-if="item.tono_seleccionado">{{ item.tono_seleccionado }}</p><span>{{ item.cantidad }} × {{ money(item.precio_unitario_clp) }}</span></div></article>
       <dl><dt>Subtotal</dt><dd>{{ money(order.subtotal_clp) }}</dd><dt v-if="order.descuento_clp">Descuento</dt><dd v-if="order.descuento_clp">−{{ money(order.descuento_clp) }}</dd><dt>Despacho / retiro</dt><dd>{{ money(order.envio_clp) }}</dd><dt>Total</dt><dd><strong>{{ money(order.total_clp) }}</strong></dd></dl>
-      <p>{{ order.metodo_envio === 'store_pickup' ? 'Retiro coordinado en Oficina Lina 210, Antofagasta.' : order.direccion_envio }}</p>
+      <p>{{ order.direccion_envio }}</p>
+      <OrderTracking :tracking="order.fulfillment" />
+      <ReorderButton v-if="['paid','shipped','delivered'].includes(order.estado)" :items="order.items" />
       <section v-if="canPay" class="payment-section">
         <h2>{{ order.metodo_pago === 'flow' ? 'Completa tu pago con Flow' : 'Pago por transferencia' }}</h2>
         <p>Plazo para completar el pago: {{ deadline }}. Después de ese plazo se libera la reserva.</p>
@@ -33,6 +35,8 @@
 
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import OrderTracking from '../components/store/OrderTracking.vue'
+import ReorderButton from '../components/store/ReorderButton.vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { checkoutSessionApi, pedidosApi } from '../api/index.js'
 import { useUiStore } from '../stores/ui.js'
